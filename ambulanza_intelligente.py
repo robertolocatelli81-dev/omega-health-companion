@@ -21,28 +21,48 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import barella_prealert as B
 import interazioni_farmaci as F
 import companion_seed as C
+import scores_emergenza as S
+from datetime import datetime, timezone
 
 
 def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
-                    eta_arrivo_min: int) -> Dict:
-    """Il flusso completo dell'ambulanza intelligente → pre-alert integrato."""
+                    eta_arrivo_min: int, fast_segni: Optional[Dict] = None,
+                    ancora: bool = False) -> Dict:
+    """Il flusso completo dell'ambulanza intelligente → pre-alert integrato.
+    fast_segni: {'face':bool,'arm':bool,'speech':bool} se valutati sul paziente."""
     pa = B.prealert(eta, vitali, eta_arrivo_min)
     inter = F.controlla(farmaci) if farmaci else {"interazioni_note_trovate": [],
                                                   "nessun_allarme": True}
-    # il pre-alert integrato che l'ospedale riceve PRIMA dell'arrivo
+    # score tempo-dipendenti (attivano percorsi dedicati)
+    qs = S.qsofa(vitali["rr"], not vitali["alert_coscienza"], vitali["sbp"])
+    fs = None
+    if fast_segni:
+        fs = S.fast(fast_segni.get("face", False), fast_segni.get("arm", False),
+                    fast_segni.get("speech", False))
+    percorsi = []
+    if fs and fs["sospetto_ictus"]:
+        percorsi.append(fs["azione"])
+    if qs["sospetto_sepsi"]:
+        percorsi.append(qs["azione"])
     prealert_integrato = {
         **pa["PRE_ALERT_OSPEDALE"],
         "farmaci_in_uso": farmaci,
         "interazioni_note": inter["interazioni_note_trovate"],
         "flag_farmacologico": not inter.get("nessun_allarme", True),
+        "qSOFA": qs["punti"], "FAST": (fs["segni_positivi"] if fs else None),
+        "percorsi_attivare": percorsi,
     }
-    return {
+    out = {
         "PRE_ALERT_INTEGRATO": prealert_integrato,
-        "dettaglio_score": pa["score"],
-        "dettaglio_interazioni": inter,
-        "confine": "NEWS2 e interazioni sono standard validati, NON diagnosi; il medico decide",
+        "dettaglio_score": pa["score"], "dettaglio_interazioni": inter,
+        "dettaglio_qsofa": qs, "dettaglio_fast": fs,
+        "confine": "NEWS2/FAST/qSOFA e interazioni sono standard validati, NON diagnosi; il medico decide",
         "privacy": "dati effimeri, trasmessi solo all'ospedale di destinazione",
     }
+    if ancora:   # appoggio OMEGA: provenienza hash-chained non-ripudiabile
+        ts = datetime.now(timezone.utc).isoformat()
+        out["provenienza_omega"] = S.ancora_prealert(prealert_integrato, ts)
+    return out
 
 
 def verifica_informazione(domanda: str) -> Dict:
