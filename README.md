@@ -8,3 +8,10 @@ Assistente sanitario INFORMATIVO (non diagnostico, non prescrittivo). Tre moduli
 - `ambulanza_intelligente.py` — i tre in un flusso: pre-alert integrato (gravita + farmaci + interazioni)
 
 Confine: aggrega/comunica standard clinici validati, NON diagnostica ne prescrive; il medico decide. Privacy: dati effimeri, nulla persiste, trasmissione solo allospedale. Ogni modulo ha un banco che SA FALLIRE (controllo positivo + null).
+
+## App di comunicazione team (team_comms.py)
+
+Web-app self-hosted (stdlib): ambulanza pubblica il pre-alert, la bacheca del PS lo
+vede in tempo reale (auto-refresh), il team conferma i percorsi. Provenienza
+hash-chained. Avvio: `python3 -m team_comms 8097` -> http://127.0.0.1:8097/
+Onesto: dimostrativa; in produzione TLS + auth personale + notifiche push + CAD/EHR.
