@@ -27,29 +27,35 @@ from datetime import datetime, timezone
 
 def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
                     eta_arrivo_min: int, fast_segni: Optional[Dict] = None,
-                    ancora: bool = False) -> Dict:
+                    clinica: Optional[Dict] = None, ancora: bool = False) -> Dict:
     """Il flusso completo dell'ambulanza intelligente → pre-alert integrato.
-    fast_segni: {'face':bool,'arm':bool,'speech':bool} se valutati sul paziente."""
+    fast_segni: {'face','arm','speech'}; clinica: {'gcs','meccanismo_maggiore',
+    'assenza_respiro','assenza_polso','dolore_toracico','ecg_stemi'} (opzionali)."""
+    cl = clinica or {}
     pa = B.prealert(eta, vitali, eta_arrivo_min)
     inter = F.controlla(farmaci) if farmaci else {"interazioni_note_trovate": [],
                                                   "nessun_allarme": True}
-    # score tempo-dipendenti (attivano percorsi dedicati)
+    # tutti i percorsi tempo-dipendenti validati (attivano squadre dedicate)
     qs = S.qsofa(vitali["rr"], not vitali["alert_coscienza"], vitali["sbp"])
-    fs = None
-    if fast_segni:
-        fs = S.fast(fast_segni.get("face", False), fast_segni.get("arm", False),
-                    fast_segni.get("speech", False))
+    fs = S.fast(fast_segni.get("face", False), fast_segni.get("arm", False),
+                fast_segni.get("speech", False)) if fast_segni else None
+    tr = S.trauma(cl.get("gcs", 15), vitali["sbp"], vitali["rr"], cl.get("meccanismo_maggiore", False))
+    ar = S.acr(cl.get("assenza_respiro", False), cl.get("assenza_polso", False))
+    ca = S.cardio(cl.get("dolore_toracico", False), cl.get("ecg_stemi", False))
     percorsi = []
-    if fs and fs["sospetto_ictus"]:
-        percorsi.append(fs["azione"])
-    if qs["sospetto_sepsi"]:
-        percorsi.append(qs["azione"])
+    if ar["arresto"]:               percorsi.append(ar["azione"])   # priorità assoluta
+    if fs and fs["sospetto_ictus"]: percorsi.append(fs["azione"])
+    if ca["sospetto"]:              percorsi.append(ca["azione"])
+    if tr["attiva_trauma_team"]:    percorsi.append(tr["azione"])
+    if qs["sospetto_sepsi"]:        percorsi.append(qs["azione"])
     prealert_integrato = {
         **pa["PRE_ALERT_OSPEDALE"],
         "farmaci_in_uso": farmaci,
         "interazioni_note": inter["interazioni_note_trovate"],
         "flag_farmacologico": not inter.get("nessun_allarme", True),
         "qSOFA": qs["punti"], "FAST": (fs["segni_positivi"] if fs else None),
+        "trauma_team": tr["attiva_trauma_team"], "arresto": ar["arresto"],
+        "cardio": ca["sospetto"],
         "percorsi_attivare": percorsi,
     }
     out = {

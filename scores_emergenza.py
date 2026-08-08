@@ -44,6 +44,46 @@ def qsofa(freq_resp: float, coscienza_alterata: bool, sbp: float) -> Dict:
             "fonte": "qSOFA · Sepsis-3 (JAMA 2016), validato"}
 
 
+# ── TRAUMA: criteri fisiologici di attivazione trauma team (ATLS/CDC) ─────────
+def trauma(gcs: int, sbp: float, freq_resp: float, meccanismo_maggiore: bool = False) -> Dict:
+    """Attivazione trauma team su criteri FISIOLOGICI validati: GCS<=13, SBP<90,
+    RR<10 o >29 (o meccanismo ad alta energia)."""
+    fisio = (gcs <= 13) or (sbp < 90) or (freq_resp < 10) or (freq_resp > 29)
+    attiva = fisio or meccanismo_maggiore
+    return {"score": "TRAUMA", "criterio_fisiologico": fisio,
+            "attiva_trauma_team": attiva,
+            "azione": "TRAUMA MAGGIORE: attiva TRAUMA TEAM, shock room, sangue pronto" if attiva
+                      else "nessun criterio di trauma maggiore",
+            "fonte": "criteri fisiologici ATLS / CDC field triage (validati)"}
+
+
+# ── ACR: arresto cardiorespiratorio (stato, non score) ────────────────────────
+def acr(assenza_respiro: bool, assenza_polso: bool) -> Dict:
+    """Arresto cardiorespiratorio → priorità massima assoluta, percorso ACR."""
+    arresto = assenza_respiro and assenza_polso
+    return {"score": "ACR", "arresto": arresto,
+            "azione": "ARRESTO CARDIORESPIRATORIO: RCP in corso, pre-alert ACR, "
+                      "defibrillatore/ALS, valutare ECMO se disponibile" if arresto
+                      else "nessun arresto",
+            "fonte": "ERC/ILCOR (linee guida rianimazione)"}
+
+
+# ── STEMI / dolore toracico: percorso cardio-emodinamica ──────────────────────
+def cardio(dolore_toracico_ischemico: bool, ecg_stemi: bool = False) -> Dict:
+    """Dolore toracico ischemico (+ ECG STEMI se disponibile) → allerta cardio.
+    Con ECG STEMI: emodinamica diretta (bypass PS)."""
+    if ecg_stemi:
+        return {"score": "CARDIO", "sospetto": True, "stemi": True,
+                "azione": "STEMI CONFERMATO ECG: EMODINAMICA diretta, bypass PS, door-to-balloon",
+                "fonte": "linee guida ESC STEMI (validate)"}
+    if dolore_toracico_ischemico:
+        return {"score": "CARDIO", "sospetto": True, "stemi": False,
+                "azione": "DOLORE TORACICO ISCHEMICO: allerta cardio, ECG appena possibile",
+                "fonte": "linee guida ESC ACS (validate)"}
+    return {"score": "CARDIO", "sospetto": False, "stemi": False, "azione": "nessun segno cardio",
+            "fonte": "—"}
+
+
 # ── appoggio OMEGA: incatena il pre-alert (provenienza non-ripudiabile) ───────
 def _hash(rec: Dict) -> str:
     blob = json.dumps(rec, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
@@ -70,13 +110,16 @@ def ancora_prealert(prealert: Dict, ts: str) -> Dict:
 
 # ── banco che SA FALLIRE ──────────────────────────────────────────────────────
 def banco_controllo() -> Dict:
-    f_pos = fast(True, True, False)["sospetto_ictus"]       # 2 segni → sospetto
-    f_null = fast(False, False, False)["sospetto_ictus"]    # 0 segni → no
-    q_pos = qsofa(28, True, 85)["sospetto_sepsi"]           # 3 punti → sospetto
-    q_null = qsofa(16, False, 125)["sospetto_sepsi"]        # 0 punti → no
-    return {"FAST positivo->sospetto": f_pos, "FAST nullo->no": not f_null,
-            "qSOFA positivo->sospetto": q_pos, "qSOFA nullo->no": not q_null,
-            "banco_sa_fallire": f_pos and (not f_null) and q_pos and (not q_null)}
+    tests = {
+        "FAST": (fast(True, True, False)["sospetto_ictus"], not fast(False, False, False)["sospetto_ictus"]),
+        "qSOFA": (qsofa(28, True, 85)["sospetto_sepsi"], not qsofa(16, False, 125)["sospetto_sepsi"]),
+        "TRAUMA": (trauma(8, 80, 32)["attiva_trauma_team"], not trauma(15, 120, 16)["attiva_trauma_team"]),
+        "ACR": (acr(True, True)["arresto"], not acr(False, False)["arresto"]),
+        "CARDIO": (cardio(True, True)["sospetto"], not cardio(False, False)["sospetto"]),
+    }
+    out = {k: {"positivo->sospetto": p, "nullo->no": n} for k, (p, n) in tests.items()}
+    out["banco_sa_fallire"] = all(p and n for p, n in tests.values())
+    return out
 
 
 if __name__ == "__main__":
