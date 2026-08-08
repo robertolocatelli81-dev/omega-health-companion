@@ -45,12 +45,16 @@ def qsofa(freq_resp: float, coscienza_alterata: bool, sbp: float) -> Dict:
 
 
 # ── TRAUMA: criteri fisiologici di attivazione trauma team (ATLS/CDC) ─────────
-def trauma(gcs: int, sbp: float, freq_resp: float, meccanismo_maggiore: bool = False) -> Dict:
-    """Attivazione trauma team su criteri FISIOLOGICI validati: GCS<=13, SBP<90,
-    RR<10 o >29 (o meccanismo ad alta energia)."""
+def trauma(gcs: int, sbp: float, freq_resp: float, meccanismo_maggiore: bool = False,
+           contesto_trauma: bool = False) -> Dict:
+    """Attivazione trauma team. FIX 2026-08-08 (bug trovato eseguendo la demo:
+    la fisiologia alterata è ASPECIFICA — sepsi/shock non-traumatico hanno SBP<90
+    e RR>29 senza essere traumi). I criteri fisiologici attivano il trauma team
+    SOLO in CONTESTO TRAUMATICO noto (incidente, caduta, ferita). Senza contesto
+    trauma, non è trauma — sarà un altro percorso (sepsi/cardio)."""
     fisio = (gcs <= 13) or (sbp < 90) or (freq_resp < 10) or (freq_resp > 29)
-    attiva = fisio or meccanismo_maggiore
-    return {"score": "TRAUMA", "criterio_fisiologico": fisio,
+    attiva = contesto_trauma and (fisio or meccanismo_maggiore)
+    return {"score": "TRAUMA", "criterio_fisiologico": fisio, "contesto_trauma": contesto_trauma,
             "attiva_trauma_team": attiva,
             "azione": "TRAUMA MAGGIORE: attiva TRAUMA TEAM, shock room, sangue pronto" if attiva
                       else "nessun criterio di trauma maggiore",
@@ -113,7 +117,8 @@ def banco_controllo() -> Dict:
     tests = {
         "FAST": (fast(True, True, False)["sospetto_ictus"], not fast(False, False, False)["sospetto_ictus"]),
         "qSOFA": (qsofa(28, True, 85)["sospetto_sepsi"], not qsofa(16, False, 125)["sospetto_sepsi"]),
-        "TRAUMA": (trauma(8, 80, 32)["attiva_trauma_team"], not trauma(15, 120, 16)["attiva_trauma_team"]),
+        "TRAUMA": (trauma(8, 80, 32, contesto_trauma=True)["attiva_trauma_team"],
+                   not trauma(26, 88, 26, contesto_trauma=False)["attiva_trauma_team"]),  # settico non-trauma → NO
         "ACR": (acr(True, True)["arresto"], not acr(False, False)["arresto"]),
         "CARDIO": (cardio(True, True)["sospetto"], not cardio(False, False)["sospetto"]),
     }

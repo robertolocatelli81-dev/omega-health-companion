@@ -39,7 +39,8 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
     qs = S.qsofa(vitali["rr"], not vitali["alert_coscienza"], vitali["sbp"])
     fs = S.fast(fast_segni.get("face", False), fast_segni.get("arm", False),
                 fast_segni.get("speech", False)) if fast_segni else None
-    tr = S.trauma(cl.get("gcs", 15), vitali["sbp"], vitali["rr"], cl.get("meccanismo_maggiore", False))
+    tr = S.trauma(cl.get("gcs", 15), vitali["sbp"], vitali["rr"],
+                  cl.get("meccanismo_maggiore", False), cl.get("contesto_trauma", False))
     ar = S.acr(cl.get("assenza_respiro", False), cl.get("assenza_polso", False))
     ca = S.cardio(cl.get("dolore_toracico", False), cl.get("ecg_stemi", False))
     percorsi = []
@@ -48,8 +49,13 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
     if ca["sospetto"]:              percorsi.append(ca["azione"])
     if tr["attiva_trauma_team"]:    percorsi.append(tr["azione"])
     if qs["sospetto_sepsi"]:        percorsi.append(qs["azione"])
+    # FIX 2026-08-08 (bug trovato in demo): un percorso tempo-critico attivo
+    # eleva la PRIORITÀ anche se NEWS2 è basso (es. ictus con vitali normali).
+    priorita = pa["PRE_ALERT_OSPEDALE"]["priorita"]
+    if percorsi and priorita != "ALTO":
+        priorita = "ALTO"
     prealert_integrato = {
-        **pa["PRE_ALERT_OSPEDALE"],
+        **pa["PRE_ALERT_OSPEDALE"], "priorita": priorita,
         "farmaci_in_uso": farmaci,
         "interazioni_note": inter["interazioni_note_trovate"],
         "flag_farmacologico": not inter.get("nessun_allarme", True),
