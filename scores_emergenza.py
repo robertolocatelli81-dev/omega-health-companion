@@ -46,19 +46,34 @@ def qsofa(freq_resp: float, coscienza_alterata: bool, sbp: float) -> Dict:
 
 # ── TRAUMA: criteri fisiologici di attivazione trauma team (ATLS/CDC) ─────────
 def trauma(gcs: int, sbp: float, freq_resp: float, meccanismo_maggiore: bool = False,
-           contesto_trauma: bool = False) -> Dict:
-    """Attivazione trauma team. FIX 2026-08-08 (bug trovato eseguendo la demo:
-    la fisiologia alterata è ASPECIFICA — sepsi/shock non-traumatico hanno SBP<90
-    e RR>29 senza essere traumi). I criteri fisiologici attivano il trauma team
-    SOLO in CONTESTO TRAUMATICO noto (incidente, caduta, ferita). Senza contesto
-    trauma, non è trauma — sarà un altro percorso (sepsi/cardio)."""
+           contesto_trauma: bool = False, lesione_penetrante: bool = False) -> Dict:
+    """Attivazione trauma team (CDC field triage / ATLS).
+
+    Due fix successivi, entrambi da difetti trovati eseguendo/attaccando:
+      1) (demo 2026-08-08) la fisiologia alterata è ASPECIFICA — sepsi/shock non
+         traumatico hanno SBP<90 e RR>29 senza essere trauma: la fisiologia da sola
+         NON attiva il trauma team.
+      2) (agente avversariale 2026-08-08) il fix #1 aveva incassato TUTTO dietro
+         `contesto_trauma` (default False, non documentato) → il percorso trauma era
+         di fatto MORTO via interfaccia integrata, e un politrauma con vitali ancora
+         compensati (trauma occulto) usciva a priorità BASSA. ERRORE.
+
+    Logica corretta: il MECCANISMO maggiore (eiezione, caduta >6 m, morte stesso
+    abitacolo — Step 3) e la LESIONE penetrante (Step 2) SONO di per sé contesto
+    traumatico: non vanno nascosti dietro un flag. La fisiologia grave (Step 1)
+    attiva il trauma team SOLO se c'è un contesto traumatico (esplicito, meccanismo
+    o lesione). Senza alcun contesto trauma, la fisiologia va ad altro percorso."""
     fisio = (gcs <= 13) or (sbp < 90) or (freq_resp < 10) or (freq_resp > 29)
-    attiva = contesto_trauma and (fisio or meccanismo_maggiore)
-    return {"score": "TRAUMA", "criterio_fisiologico": fisio, "contesto_trauma": contesto_trauma,
+    # meccanismo/lesione = contesto traumatico intrinseco (anamnesi/anatomia)
+    contesto = bool(contesto_trauma or meccanismo_maggiore or lesione_penetrante)
+    attiva = contesto and (fisio or meccanismo_maggiore or lesione_penetrante)
+    return {"score": "TRAUMA", "criterio_fisiologico": fisio, "contesto_trauma": contesto,
+            "meccanismo_maggiore": bool(meccanismo_maggiore),
+            "lesione_penetrante": bool(lesione_penetrante),
             "attiva_trauma_team": attiva,
             "azione": "TRAUMA MAGGIORE: attiva TRAUMA TEAM, shock room, sangue pronto" if attiva
                       else "nessun criterio di trauma maggiore",
-            "fonte": "criteri fisiologici ATLS / CDC field triage (validati)"}
+            "fonte": "CDC field triage Step 1-3 / ATLS (validati)"}
 
 
 # ── ACR: arresto cardiorespiratorio (stato, non score) ────────────────────────
@@ -117,8 +132,13 @@ def banco_controllo() -> Dict:
     tests = {
         "FAST": (fast(True, True, False)["sospetto_ictus"], not fast(False, False, False)["sospetto_ictus"]),
         "qSOFA": (qsofa(28, True, 85)["sospetto_sepsi"], not qsofa(16, False, 125)["sospetto_sepsi"]),
-        "TRAUMA": (trauma(8, 80, 32, contesto_trauma=True)["attiva_trauma_team"],
-                   not trauma(26, 88, 26, contesto_trauma=False)["attiva_trauma_team"]),  # settico non-trauma → NO
+        # positivo copre i punti ciechi dell'agente: politrauma OCCULTO (vitali
+        # compensati, solo meccanismo) E trauma evidente col meccanismo → team ON;
+        # nullo = settico non-trauma con fisiologia alterata → team OFF (va a sepsi).
+        "TRAUMA": (trauma(15, 120, 16, meccanismo_maggiore=True)["attiva_trauma_team"]      # occulto
+                   and trauma(8, 70, 32, meccanismo_maggiore=True)["attiva_trauma_team"]     # evidente
+                   and trauma(14, 110, 18, lesione_penetrante=True)["attiva_trauma_team"],   # penetrante
+                   not trauma(13, 88, 26, contesto_trauma=False)["attiva_trauma_team"]),      # settico → NO
         "ACR": (acr(True, True)["arresto"], not acr(False, False)["arresto"]),
         "CARDIO": (cardio(True, True)["sospetto"], not cardio(False, False)["sospetto"]),
     }
