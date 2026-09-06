@@ -265,6 +265,9 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/ruota-token":
             # DICHIARATO alla DPGA (9C): «revoke access tokens at any time».
             # Il token corrente autentica la rotazione; il vecchio muore subito.
+            # Anti self-bricking (fix Pro 06/09): il file è scritto PRIMA della
+            # risposta; se la risposta si perde, il nuovo token è recuperabile
+            # dall'amministratore sul server (team_token.txt) — dichiarato qui.
             import secrets as _sec
             nuovo = _sec.token_urlsafe(32)
             fd = os.open(TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
