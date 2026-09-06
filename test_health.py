@@ -179,16 +179,30 @@ class TestE2E(unittest.TestCase):
             urllib.request.urlopen(req, timeout=10)
         self.assertEqual(cm.exception.code, 413)
 
-    def test_08b_json_profondo_e_tipi_ostili_400(self):
-        # regressione attacco 06/09: prima crashavano il thread handler
-        h = {"Content-Type": "application/json", "X-Omega-Token": self.token}
-        for payload in (("[" * 5000 + "]" * 5000).encode(), b'"stringa"',
-                        json.dumps({"vitali": "x", "eta_arrivo_min": 1}).encode(),
-                        json.dumps({"vitali": [1, 2], "eta_arrivo_min": 1}).encode()):
-            req = urllib.request.Request(self.base + "/valuta", data=payload, headers=h)
-            with self.assertRaises(urllib.error.HTTPError) as cm:
-                urllib.request.urlopen(req, timeout=10)
-            self.assertEqual(cm.exception.code, 400, payload[:30])
+    def test_08b_json_profondo_e_tipi_ostili_mai_crash(self):
+        # regressione attacco 06/09: questi payload UCCIDEVANO il thread handler.
+        # Esiti corretti: malformati → 400; vitali di tipo sbagliato → 200 con
+        # rifiuto strutturato NON_VALUTABILE (fail-safe nominato, mai crash).
+        for payload, attesi in (
+                (("[" * 5000 + "]" * 5000).encode(), (400,)),          # RecursionError
+                (b'"stringa"', (400,)),                                 # body non-oggetto
+                (json.dumps({"vitali": "x", "eta_arrivo_min": 1}).encode(), (200,)),
+                (json.dumps({"vitali": [1, 2], "eta_arrivo_min": 1}).encode(), (200,))):
+            code, out = self._post("/valuta", None, self.token) if False else (None, None)
+            req = urllib.request.Request(self.base + "/valuta", data=payload,
+                                         headers={"Content-Type": "application/json",
+                                                  "X-Omega-Token": self.token})
+            try:
+                resp = urllib.request.urlopen(req, timeout=10)
+                code, body_out = resp.status, json.loads(resp.read())
+            except urllib.error.HTTPError as e:
+                code, body_out = e.code, None
+            self.assertIn(code, attesi, f"{payload[:30]} → {code}")
+            if code == 200:   # il 200 è lecito SOLO come rifiuto strutturato
+                self.assertEqual(body_out["prealert"]["priorita"],
+                                 "NON_VALUTABILE_DATI_INVALIDI")
+                self.assertTrue(any("vitali non è un oggetto" in p
+                                    for p in body_out["prealert"]["problemi_dati"]))
 
     def test_09_conferma_dal_form(self):
         code, out = self._post("/valuta", {"vitali": VITALI_CRITICI, "eta": 60,
