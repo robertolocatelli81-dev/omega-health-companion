@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
+# runtime: MAI nel repo (ledger, token, chiavi firmatari, trail audit)
 prealert_ledger.jsonl
+part11_health_ledger.jsonl
+team_token.txt
+.audit_keys/

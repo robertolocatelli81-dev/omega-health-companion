@@ -25,9 +25,14 @@ prima dell'arrivo. Distintivo: ogni alert è **hash-chained** (provenienza
 auditabile, non-ripudiabile — nessun competitor lo offre) e il software è
 **open / self-hosted** (no lock-in, ideale per SSN pubblici e privacy-sensitive).
 
-## Cosa (ROBUSTO, già costruito e testato)
-6 percorsi validati, interazioni farmacologiche, pre-alert integrato, app di
-comunicazione team (bacheca PS), provenienza hash-chained. Codice open,
+## Cosa (ROBUSTO, già costruito e testato — aggiornato 2026-09-06)
+6 percorsi validati, interazioni farmacologiche (multi-classe, avvisi di percorso:
+⛔ nitrati/PDE5, ⚠️ trauma anticoagulato), pre-alert integrato con gate pediatrico
+fail-closed e validazione vitali (unità °F/frazione rilevate), app team REALE
+(server token-auth, calcolo lato server, bacheca PS, conferme) + CLI ambulanza,
+**export FHIR R4 validato 0-errori (HAPI)** + handover ATMIST + allegato ECG con
+SHA-256, provenienza hash-chained **digest-only** (nessun dato sanitario nel
+ledger). Suite: 13 test unit+E2E su HTTP reale + 5 banchi positivo/null. Codice open,
 riproducibile, ogni modulo con test che sa fallire (controllo positivo + null).
 
 ## Cosa NON è (confine, honest-scope)

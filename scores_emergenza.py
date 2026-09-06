@@ -22,15 +22,22 @@ LEDGER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prealert_ledg
 GENESIS = "0" * 64
 
 
-# ── FAST: screening ictus (Face, Arm, Speech) ─────────────────────────────────
-def fast(face_asimmetrica: bool, braccio_debole: bool, linguaggio_disturbato: bool) -> Dict:
-    pos = sum([face_asimmetrica, braccio_debole, linguaggio_disturbato])
+# ── BE-FAST: screening ictus (Balance, Eyes, Face, Arm, Speech) ───────────────
+def fast(face_asimmetrica: bool, braccio_debole: bool, linguaggio_disturbato: bool,
+         equilibrio_alterato: bool = False, disturbo_visivo_acuto: bool = False) -> Dict:
+    """FIX 2026-09-06 (attacco 4-menti): il FAST da solo perde il circolo
+    POSTERIORE (vertigini/atassia, disturbi visivi acuti) — 15-30% degli ictus.
+    Esteso a BE-FAST (Balance, Eyes opzionali, retro-compatibile). Limite
+    DICHIARATO nell'output: nessuno screening pre-ospedaliero prende tutto."""
+    pos = sum([face_asimmetrica, braccio_debole, linguaggio_disturbato,
+               equilibrio_alterato, disturbo_visivo_acuto])
     sospetto = pos >= 1     # anche UN segno positivo → sospetto ictus, tempo critico
-    return {"score": "FAST", "segni_positivi": pos,
+    return {"score": "BE-FAST", "segni_positivi": pos,
             "sospetto_ictus": sospetto,
             "azione": "SOSPETTO ICTUS: attiva STROKE TEAM, finestra terapeutica critica" if sospetto
-                      else "nessun segno FAST",
-            "fonte": "FAST · screening ictus validato (Stroke Association)"}
+                      else "nessun segno BE-FAST",
+            "limite": "screening: un BE-FAST negativo NON esclude l'ictus (specie posteriore)",
+            "fonte": "BE-FAST · estensione validata del FAST (Stroke Association / letteratura BE-FAST)"}
 
 
 # ── qSOFA: screening sepsi (Sepsis-3, 2016) ───────────────────────────────────
@@ -77,13 +84,30 @@ def trauma(gcs: int, sbp: float, freq_resp: float, meccanismo_maggiore: bool = F
 
 
 # ── ACR: arresto cardiorespiratorio (stato, non score) ────────────────────────
-def acr(assenza_respiro: bool, assenza_polso: bool) -> Dict:
-    """Arresto cardiorespiratorio → priorità massima assoluta, percorso ACR."""
-    arresto = assenza_respiro and assenza_polso
+def acr(assenza_respiro: bool, assenza_polso: bool,
+        coscienza_assente: bool = False) -> Dict:
+    """Arresto → priorità massima assoluta, percorso ACR.
+
+    FIX 2026-09-06 (attacco 4-menti): la vecchia logica richiedeva assenza di
+    respiro E di polso. ERC/ILCOR dicono l'opposto: il controllo del polso è
+    INAFFIDABILE — non-responsivo + respiro assente/anormale = trattare come
+    arresto, iniziare RCP. E il respiro assente CON polso percepito (arresto
+    respiratorio) non è «nessun arresto»: è peri-arresto, vie aeree subito.
+    Prima questo caso usciva instradato al percorso SEPSI (misurato). ERRORE."""
+    arresto = assenza_respiro and (assenza_polso or coscienza_assente)
+    arresto_respiratorio = assenza_respiro and not arresto
+    if arresto:
+        azione = ("ARRESTO (ERC: non-responsivo + respiro assente = RCP, il polso "
+                  "non è affidabile): RCP, pre-alert ACR, defibrillatore/ALS, "
+                  "valutare ECMO se disponibile")
+    elif arresto_respiratorio:
+        azione = ("ARRESTO RESPIRATORIO (respiro assente, polso presente): vie aeree "
+                  "+ ventilazione IMMEDIATE, pre-alert, pronto a RCP — peri-arresto")
+    else:
+        azione = "nessun arresto"
     return {"score": "ACR", "arresto": arresto,
-            "azione": "ARRESTO CARDIORESPIRATORIO: RCP in corso, pre-alert ACR, "
-                      "defibrillatore/ALS, valutare ECMO se disponibile" if arresto
-                      else "nessun arresto",
+            "arresto_respiratorio": arresto_respiratorio,
+            "azione": azione,
             "fonte": "ERC/ILCOR (linee guida rianimazione)"}
 
 
@@ -108,9 +132,17 @@ def _hash(rec: Dict) -> str:
     blob = json.dumps(rec, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     return hashlib.sha256(blob).hexdigest()
 
-def ancora_prealert(prealert: Dict, ts: str) -> Dict:
+def ancora_prealert(prealert: Dict, ts: str, payload: str = "digest") -> Dict:
     """Aggiunge il pre-alert al ledger hash-chained. Ritorna il record ancorato.
-    (ts passato dall'esterno per determinismo/testabilità.)"""
+    (ts passato dall'esterno per determinismo/testabilità.)
+
+    FIX 2026-09-06 (attacco 4-menti, MISURATO sul ledger reale): il default
+    persisteva vitali+età+farmaci IN CHIARO mentre le docstring promettevano
+    «dati effimeri» — dato sanitario su disco non cifrato, promessa contraddetta.
+    Ora il default ancora SOLO il digest SHA-256 del pre-alert (provenienza e
+    non-ripudio restano: chi ha il pre-alert ricalcola l'hash e trova il match);
+    payload="full" resta possibile ma è una SCELTA esplicita di ritenzione dati,
+    da fare solo con base giuridica e cifratura a valle."""
     try:
         prev = GENESIS
         if os.path.exists(LEDGER):
@@ -118,11 +150,17 @@ def ancora_prealert(prealert: Dict, ts: str) -> Dict:
                 righe = [r for r in f if r.strip()]
                 if righe:
                     prev = json.loads(righe[-1])["self_hash"]
-        rec = {"ts": ts, "prealert": prealert, "prev_hash": prev}
+        if payload == "full":
+            corpo = {"prealert": prealert, "payload": "full"}
+        else:
+            corpo = {"prealert_sha256": _hash(prealert), "payload": "digest",
+                     "privacy": "solo digest: nessun dato sanitario nel ledger"}
+        rec = {"ts": ts, **corpo, "prev_hash": prev}
         rec["self_hash"] = _hash(rec)
         with open(LEDGER, "a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        return {"ancorato": True, "self_hash": rec["self_hash"], "prev_hash": prev}
+        return {"ancorato": True, "payload": corpo["payload"],
+                "self_hash": rec["self_hash"], "prev_hash": prev}
     except Exception as e:
         return {"ancorato": False, "error": f"{type(e).__name__}: {e}"}
 
@@ -139,7 +177,12 @@ def banco_controllo() -> Dict:
                    and trauma(8, 70, 32, meccanismo_maggiore=True)["attiva_trauma_team"]     # evidente
                    and trauma(14, 110, 18, lesione_penetrante=True)["attiva_trauma_team"],   # penetrante
                    not trauma(13, 88, 26, contesto_trauma=False)["attiva_trauma_team"]),      # settico → NO
-        "ACR": (acr(True, True)["arresto"], not acr(False, False)["arresto"]),
+        "ACR": (acr(True, True)["arresto"]
+                and acr(True, False, coscienza_assente=True)["arresto"]        # ERC: no polso affidabile
+                and acr(True, False)["arresto_respiratorio"],                  # respiratorio ≠ "nessun arresto"
+                not acr(False, False)["arresto"] and not acr(False, False)["arresto_respiratorio"]),
+        "BEFAST_posteriore": (fast(False, False, False, equilibrio_alterato=True)["sospetto_ictus"],
+                              not fast(False, False, False)["sospetto_ictus"]),
         "CARDIO": (cardio(True, True)["sospetto"], not cardio(False, False)["sospetto"]),
     }
     out = {k: {"positivo->sospetto": p, "nullo->no": n} for k, (p, n) in tests.items()}

@@ -63,12 +63,64 @@ def _p_temp(t: float) -> int:
     return 2
 
 
+# ── validazione fisiologica FAIL-CLOSED (FIX 2026-09-06, attacco 4-menti) ─────
+# Prima: rr=-5, spo2=150, temp=45 producevano un NEWS2=11 plausibile (misurato).
+# In clinica un dato impossibile è un SENSORE ROTTO o un errore di unità
+# (°F/frazione): va RIFIUTATO con i campi nominati, mai trasformato in un alert.
+_RANGE_PLAUSIBILE = {              # min, max fisiologicamente possibili (larghi)
+    "rr": (0, 80), "spo2": (40, 100), "sbp": (30, 300),
+    "hr": (0, 300), "temp": (24.0, 43.5),
+}
+
+def valida_vitali(vitali: Dict) -> list:
+    """Ritorna la lista dei problemi (vuota = vitali utilizzabili). Nominativa:
+    l'equipaggio deve sapere QUALE sensore/dato è sospetto."""
+    attesi = ("rr", "spo2", "su_ossigeno", "sbp", "hr", "alert_coscienza", "temp")
+    problemi = [f"campo mancante: {k}" for k in attesi if k not in vitali]
+    for k, (lo, hi) in _RANGE_PLAUSIBILE.items():
+        v = vitali.get(k)
+        if v is None and f"campo mancante: {k}" not in problemi:
+            problemi.append(f"campo nullo: {k}")
+        elif v is not None:
+            try:
+                x = float(v)
+            except (TypeError, ValueError):
+                problemi.append(f"non numerico: {k}={v!r}")
+                continue
+            if not (lo <= x <= hi):
+                extra = ""
+                if k == "temp" and 90 <= x <= 110:
+                    extra = " (sembra °F: attesi °C)"
+                if k == "spo2" and 0 < x <= 1:
+                    extra = " (sembra frazione: attesa percentuale)"
+                problemi.append(f"fuori range plausibile: {k}={x} [{lo}-{hi}]{extra}")
+    return problemi
+
+
+def _p_spo2_scala2(spo2: float, su_ossigeno: bool) -> int:
+    """NEWS2 SpO2 SCALA 2 (insufficienza respiratoria ipercapnica/BPCO,
+    target 88-92%) — tabella ufficiale RCP 2017. Con la sola scala 1 un BPCO
+    in target veniva sovra-punteggiato sistematicamente (attacco 4-menti)."""
+    if spo2 <= 83: return 3
+    if spo2 <= 85: return 2
+    if spo2 <= 87: return 1
+    if spo2 <= 92: return 0
+    if not su_ossigeno: return 0          # >=93 in aria ambiente
+    if spo2 <= 94: return 1               # >=93 SOTTO ossigeno: iperossia punita
+    if spo2 <= 96: return 2
+    return 3
+
+
 def news2(rr: float, spo2: float, su_ossigeno: bool, sbp: float,
-          hr: float, alert_coscienza: bool, temp: float) -> Dict:
+          hr: float, alert_coscienza: bool, temp: float,
+          bpco_scala2: bool = False) -> Dict:
     """Calcola il NEWS2 e il livello di rischio + pre-alert. Privacy: input
-    effimero, trasmesso solo all'ospedale di destinazione (flusso di cura)."""
+    effimero, trasmesso solo all'ospedale di destinazione (flusso di cura).
+    bpco_scala2: SpO2 in scala 2 (RCP) per insufficienza respiratoria
+    ipercapnica nota — la scelta della scala è CLINICA, non del software."""
     comp = {
-        "freq_respiratoria": _p_resp(rr), "spo2": _p_spo2(spo2),
+        "freq_respiratoria": _p_resp(rr),
+        "spo2": (_p_spo2_scala2(spo2, su_ossigeno) if bpco_scala2 else _p_spo2(spo2)),
         "ossigeno_suppl": _p_o2(su_ossigeno), "pressione_sist": _p_sbp(sbp),
         "freq_cardiaca": _p_hr(hr), "coscienza": _p_avpu(alert_coscienza),
         "temperatura": _p_temp(temp),
@@ -83,7 +135,13 @@ def news2(rr: float, spo2: float, su_ossigeno: bool, sbp: float,
         livello, azione = "BASSO", "monitoraggio; comunicazione ordinaria"
     return {
         "NEWS2": tot, "livello": livello, "parametro_singolo_critico": singolo_rosso,
+        "spo2_scala": 2 if bpco_scala2 else 1,
         "componenti": comp, "azione": azione,
+        # deviazione DICHIARATA (4-menti 2026-09-06): RCP mette il singolo rosso
+        # nel gradino basso-medio; qui lo eleviamo a MEDIO (sovra-triage voluto
+        # in pre-ospedaliero). Dichiarato, non nascosto.
+        "deviazione_dichiarata": ("singolo parametro a 3 → MEDIO (RCP: basso-medio); "
+                                  "scelta conservativa pre-ospedaliera" if singolo_rosso and tot < 5 else None),
         "score_fonte": "NEWS2 · Royal College of Physicians 2017 (standard validato)",
         "confine": "score clinico standard, NON diagnosi; il medico dell'ospedale decide",
         "privacy": "vitali effimeri, trasmessi solo all'ospedale di destinazione",

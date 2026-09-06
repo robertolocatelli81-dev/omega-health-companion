@@ -1,0 +1,16 @@
+[Unit]
+Description=OMEGA health-companion — bacheca team ambulanza/PS (loopback, token-auth)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/progetti/omega-health-companion
+ExecStart=/usr/bin/python3 %h/progetti/omega-health-companion/team_comms.py 8097
+Restart=on-failure
+RestartSec=5
+# loopback only di default; per esporlo fuori serve TLS davanti (reverse proxy)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

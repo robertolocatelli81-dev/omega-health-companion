@@ -33,6 +33,10 @@ INTERAZIONI = [
     ("ssri", "imao", "GRAVE", "sindrome serotoninergica", "linee guida psichiatria"),
     ("nitrati", "inibitori-pde5", "GRAVE", "ipotensione grave (crollo pressione)", "FDA label nitrati/sildenafil"),
     ("oppioidi", "benzodiazepine", "GRAVE", "depressione respiratoria (rischio morte)", "FDA boxed warning"),
+    # FIX 2026-09-06 (4-menti): coppia classica mancante — tramadolo è oppioide
+    # MA anche serotoninergico: con SSRI → sindrome serotoninergica.
+    ("tramadolo-serotoninergico", "ssri", "GRAVE", "sindrome serotoninergica", "FDA label tramadolo"),
+    ("doac", "fans", "GRAVE", "rischio emorragico aumentato", "FDA/EMA label DOAC"),
     ("metformina", "mezzo-di-contrasto", "MODERATO-GRAVE", "acidosi lattica", "linee guida radiologia"),
 ]
 
@@ -50,9 +54,19 @@ SINONIMI = {
     "sertralina": "ssri", "paroxetina": "ssri", "fluoxetina": "ssri", "citalopram": "ssri",
     "nitroglicerina": "nitrati", "isosorbide": "nitrati",
     "sildenafil": "inibitori-pde5", "viagra": "inibitori-pde5", "tadalafil": "inibitori-pde5",
-    "morfina": "oppioidi", "ossicodone": "oppioidi", "tramadolo": "oppioidi", "fentanyl": "oppioidi",
+    "morfina": "oppioidi", "ossicodone": "oppioidi", "fentanyl": "oppioidi",
+    # tramadolo: oppioide E serotoninergico (doppia classe, vedi MULTICLASSE)
+    "tramadolo": "oppioidi",
     "lorazepam": "benzodiazepine", "diazepam": "benzodiazepine", "alprazolam": "benzodiazepine",
     "metformina": "metformina",
+    "apixaban": "doac", "rivaroxaban": "doac", "edoxaban": "doac", "dabigatran": "doac",
+    "eliquis": "doac", "xarelto": "doac",
+}
+
+# farmaci che appartengono a PIÙ classi (un solo mapping perdeva le coppie della
+# seconda classe — fix 2026-09-06 assieme alla coppia tramadolo+SSRI)
+MULTICLASSE = {
+    "tramadolo": {"oppioidi", "tramadolo-serotoninergico"},
 }
 
 _DISCLAIMER = ("⚠️ Informazione, non prescrizione. Questo elenco di interazioni NOTE non è "
@@ -61,9 +75,15 @@ _DISCLAIMER = ("⚠️ Informazione, non prescrizione. Questo elenco di interazi
                "In caso di sintomi gravi: 112 / pronto soccorso.")
 
 
-def _classe(farmaco: str) -> str:
+def _classi(farmaco: str) -> set:
     f = farmaco.strip().lower()
-    return SINONIMI.get(f, f)
+    if f in MULTICLASSE:
+        return set(MULTICLASSE[f])
+    return {SINONIMI.get(f, f)}
+
+
+def _classe(farmaco: str) -> str:      # retro-compatibilità (prima classe)
+    return sorted(_classi(farmaco))[0]
 
 
 def _sha(s: str) -> str:
@@ -73,11 +93,11 @@ def _sha(s: str) -> str:
 def controlla(farmaci: List[str]) -> Dict:
     """Segnala le interazioni gravi note fra i farmaci dati. Privacy: input
     effimero, non salvato né trasmesso."""
-    classi = [(f, _classe(f)) for f in farmaci]
+    classi = [(f, _classi(f)) for f in farmaci]
     trovate = []
     for (fa, ca), (fb, cb) in combinations(classi, 2):
         for a, b, grav, eff, fonte in INTERAZIONI:
-            if {ca, cb} == {a, b}:
+            if (a in ca and b in cb) or (a in cb and b in ca):
                 trovate.append({"farmaci": [fa, fb], "gravita": grav, "effetto": eff,
                                 "fonte": fonte, "provenienza_sha": _sha(a + b + fonte)})
     return {
@@ -97,6 +117,9 @@ def banco_controllo() -> Dict:
         (["atorvastatina", "claritromicina"], True),  # rabdomiolisi
         (["nitroglicerina", "viagra"], True),     # ipotensione
         (["morfina", "lorazepam"], True),         # depressione respiratoria
+        (["tramadolo", "sertralina"], True),      # serotoninergica (multiclasse)
+        (["tramadolo", "lorazepam"], True),       # tramadolo resta anche oppioide
+        (["apixaban", "ibuprofene"], True),       # DOAC + FANS
     ]
     null = [
         (["paracetamolo", "vitamina c"], False),  # nessuna interazione grave nota

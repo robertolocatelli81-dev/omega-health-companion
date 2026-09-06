@@ -1,64 +1,114 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""OMEGA — app di COMUNICAZIONE TEAM (ambulanza ↔ pronto soccorso, in tempo reale).
+"""OMEGA — app di COMUNICAZIONE TEAM (ambulanza ↔ pronto soccorso), REALE.
 
-Web-app self-hosted (stdlib, zero dipendenze). L'ambulanza pubblica il pre-alert;
-la bacheca del PS lo vede in tempo reale, con priorità/percorsi/provenienza; il
-team conferma i percorsi ("stroke team pronto"). È il canale che coordina — come
-Pulsara, ma open, self-hosted, con provenienza hash-chained.
+Web-app self-hosted (stdlib, zero dipendenze). L'ambulanza manda i DATI GREZZI
+(vitali + farmaci + clinica); il SERVER calcola il pre-alert (unica fonte di
+verità: ambulanza_intelligente.valuta_paziente, con gate pediatrico e
+validazione vitali fail-closed), lo pubblica in bacheca, lo ancora al ledger
+(SOLO digest — privacy by default) e lo espone in FHIR R4 e ATMIST.
 
-Endpoints:
-  GET  /                → bacheca PS (auto-refresh), pre-alert attivi
-  POST /prealert        → l'ambulanza pubblica un pre-alert (JSON)
-  POST /conferma        → il team conferma: {"id":..,"nota":".."}
+Endpoints (tutti autenticati salvo la bacheca su loopback):
+  GET  /                → bacheca PS (auto-refresh)
+  POST /valuta          → {vitali, farmaci, eta, eta_arrivo_min, fast_segni?, clinica?}
+                          → il server calcola, pubblica e ancora (digest)
+  POST /prealert        → pre-alert PRE-calcolato (retro-compat; validato: deve
+                          avere priorita e percorsi_attivare)
+  POST /conferma        → {"id":.., "nota":".."} — il team conferma un percorso
   GET  /api/board       → lista pre-alert (JSON)
+  GET  /fhir/<id>       → Bundle FHIR R4 del pre-alert (validato 0-errori HAPI)
+  GET  /atmist/<id>     → testo di consegna ATMIST
 
-ONESTO: web-app dimostrativa, NON app mobile nativa. In produzione servono TLS,
-autenticazione del personale, notifiche push e integrazione con il CAD/EHR.
-Privacy: dati sanitari — qui in memoria locale; in prod cifratura + accesso ruolo.
+AUTENTICAZIONE (fix 2026-09-06 — prima il server era aperto): header
+`X-Omega-Token` obbligatorio per ogni POST e per /api/, /fhir/, /atmist/.
+Il token vive in `team_token.txt` (0600, generato al primo avvio). La bacheca
+HTML resta leggibile senza token SOLO da loopback (il monitor del PS).
+
+ONESTO: non è ancora un dispositivo medico né un sistema certificato; TLS va
+messo davanti (reverse proxy o stunnel) quando esce da localhost; i dati della
+bacheca sono IN MEMORIA (effimeri — coerente con la promessa privacy), solo i
+DIGEST vanno sul ledger.
 """
 from __future__ import annotations
-import json, html
+import html
+import json
+import os
+import secrets
+import threading
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs
 
+import ambulanza_intelligente as A
+import audit_bridge as AB
+import fhir_export as FX
 import scores_emergenza as S
 
-# bacheca in memoria (in prod: store cifrato + audit ledger)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+TOKEN_FILE = os.path.join(_HERE, "team_token.txt")
+MAX_BODY = 64 * 1024          # un pre-alert è piccolo: payload enormi = rifiuto
 BOARD: list = []
+_LOCK = threading.Lock()
 
 
-def _pubblica(prealert: dict) -> dict:
+def _token() -> str:
+    if not os.path.exists(TOKEN_FILE):
+        fd = os.open(TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(secrets.token_urlsafe(32))
+    with open(TOKEN_FILE) as f:
+        return f.read().strip()
+
+
+def _pubblica(prealert: dict, vitali: dict | None,
+              operatore: str = "equipaggio-ambulanza") -> dict:
     ts = datetime.now(timezone.utc).isoformat()
-    prov = S.ancora_prealert(prealert, ts)          # provenienza hash-chained
-    rec = {"id": len(BOARD) + 1, "ts": ts, "prealert": prealert,
-           "provenienza": prov, "conferme": []}
-    BOARD.append(rec)
+    prov = S.ancora_prealert(prealert, ts)          # digest-only di default
+    with _LOCK:
+        rid = len(BOARD) + 1
+        # audit Part 11 (ponte opzionale): CREATE firmato authorship; degrado
+        # onesto a "base" se il motore privato non è presente sul sistema
+        audit = AB.registra_prealert(f"prealert-{rid}",
+                                     S._hash(prealert), operatore)
+        rec = {"id": rid, "ts": ts, "prealert": prealert,
+               "vitali": vitali, "provenienza": prov,
+               "audit": audit, "conferme": []}
+        BOARD.append(rec)
     return rec
 
 
-_COL = {"ALTO": "#c0392b", "MEDIO": "#e67e22", "BASSO": "#27ae60"}
+_COL = {"ALTO": "#c0392b", "MEDIO": "#e67e22", "BASSO": "#27ae60",
+        "NON_VALUTABILE_PEDIATRICO": "#8e44ad", "NON_VALUTABILE_DATI_INVALIDI": "#7f8c8d"}
 
 
 def _pagina() -> str:
+    with _LOCK:
+        board = list(BOARD)
     righe = []
-    for r in reversed(BOARD):
+    for r in reversed(board):
         pa = r["prealert"]; pr = pa.get("priorita", "—")
         perc = "".join(f"<li>{html.escape(p)}</li>" for p in pa.get("percorsi_attivare", [])) or "<li>—</li>"
-        conf = "".join(f"<span class=ok>✓ {html.escape(c)}</span> " for c in r["conferme"]) or "<i>nessuna conferma</i>"
+        avv = "".join(f"<li class=warn>{html.escape(a)}</li>" for a in pa.get("avvisi", []))
+        conf = "".join(
+            f"<span class=ok>✓ {html.escape(c['nota'])} — {html.escape(c['operatore'])}"
+            f"{' 🖋' if c.get('audit', {}).get('livello') == 'part11' else ''}</span> "
+            for c in r["conferme"]) or "<i>nessuna conferma</i>"
         sha = (r["provenienza"].get("self_hash") or "")[:16]
         righe.append(f"""
         <div class=card style="border-left:8px solid {_COL.get(pr,'#777')}">
-          <div class=hdr><b>#{r['id']}</b> · <span class=pri style="background:{_COL.get(pr,'#777')}">{pr}</span>
-             · NEWS2 {pa.get('NEWS2','?')} · arrivo {pa.get('eta_arrivo_stimato_min','?')} min</div>
-          <ul>{perc}</ul>
-          <div class=meta>conferme: {conf}</div>
+          <div class=hdr><b>#{r['id']}</b> · <span class=pri style="background:{_COL.get(pr,'#777')}">{html.escape(str(pr))}</span>
+             · NEWS2 {html.escape(str(pa.get('NEWS2','—')))} · arrivo {html.escape(str(pa.get('eta_arrivo_stimato_min','?')))} min</div>
+          <div class=az>{html.escape(str(pa.get('azione_raccomandata','')))}</div>
+          <ul>{perc}{avv}</ul>
+          <div class=meta>conferme: {conf} · <a href="/fhir/{r['id']}">FHIR</a> · <a href="/atmist/{r['id']}">ATMIST</a></div>
           <form method=post action=/conferma>
             <input type=hidden name=id value="{r['id']}">
+            <input type=hidden name=token value="__TOKEN__">
+            <input name=operatore placeholder="nome operatore (firma)">
             <input name=nota placeholder="conferma percorso (es. stroke team pronto)">
             <button>Conferma</button>
           </form>
-          <div class=sha>🔒 provenienza {sha}…</div>
+          <div class=sha>🔒 provenienza (digest nel ledger) {sha}…</div>
         </div>""")
     return f"""<!doctype html><meta charset=utf-8><meta http-equiv=refresh content=5>
 <title>OMEGA · Bacheca Pronto Soccorso</title>
@@ -66,53 +116,145 @@ def _pagina() -> str:
 h1{{background:#16213e;margin:0;padding:14px 18px;font-size:18px}}
 .card{{background:#1b2430;margin:12px 18px;padding:12px 16px;border-radius:8px}}
 .pri{{color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold}}
-.hdr{{font-size:15px;margin-bottom:6px}} ul{{margin:6px 0}} li{{margin:2px 0}}
+.hdr{{font-size:15px;margin-bottom:6px}} .az{{color:#ffd479;font-size:13px}}
+ul{{margin:6px 0}} li{{margin:2px 0}} .warn{{color:#ff9f43}}
 .meta{{font-size:13px;color:#9aa}} .ok{{color:#27ae60}} .sha{{font-size:11px;color:#667;margin-top:6px}}
-input,button{{padding:6px;margin-top:6px}} button{{background:#0f3460;color:#fff;border:0;border-radius:4px;cursor:pointer}}
+a{{color:#6cf}} input,button{{padding:6px;margin-top:6px}}
+button{{background:#0f3460;color:#fff;border:0;border-radius:4px;cursor:pointer}}
 </style><h1>🚑 OMEGA · Bacheca Pronto Soccorso — pre-alert in arrivo (auto-refresh 5s)</h1>
-{''.join(righe) or '<div class=card>Nessun pre-alert attivo.</div>'}"""
+{''.join(righe) or '<div class=card>Nessun pre-alert attivo.</div>'}
+<div style="margin:18px;font-size:11px;color:#667">software di supporto alla comunicazione —
+NON un dispositivo medico; gli score sono standard validati, la decisione è del medico</div>"""
+
+
+def _find(rid: int):
+    with _LOCK:
+        for r in BOARD:
+            if r["id"] == rid:
+                return r
+    return None
 
 
 class H(BaseHTTPRequestHandler):
-    def _send(self, code, body, ctype="text/html; charset=utf-8"):
-        self.send_response(code); self.send_header("Content-Type", ctype)
-        self.end_headers(); self.wfile.write(body.encode())
+    server_version = "omega-team/1.0"
+
+    def _send(self, code, body, ctype="text/html; charset=utf-8", extra=None):
+        data = body.encode() if isinstance(body, str) else body
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _json(self, code, obj):
+        self._send(code, json.dumps(obj, ensure_ascii=False), "application/json; charset=utf-8")
+
+    def _authed(self, qs_token: str | None = None) -> bool:
+        tok = self.headers.get("X-Omega-Token") or qs_token
+        return bool(tok) and secrets.compare_digest(tok, _token())
+
+    def _is_loopback(self) -> bool:
+        return self.client_address[0] in ("127.0.0.1", "::1")
 
     def do_GET(self):
         if self.path == "/" or self.path.startswith("/?"):
-            self._send(200, _pagina())
-        elif self.path == "/api/board":
-            self._send(200, json.dumps(BOARD, ensure_ascii=False), "application/json")
-        else:
-            self._send(404, "not found")
+            if not (self._is_loopback() or self._authed()):
+                return self._send(401, "token richiesto")
+            return self._send(200, _pagina().replace("__TOKEN__", _token() if self._is_loopback() else ""))
+        if not self._authed():
+            return self._json(401, {"ok": False, "error": "X-Omega-Token mancante o errato"})
+        if self.path == "/api/board":
+            with _LOCK:
+                return self._json(200, BOARD)
+        if self.path == "/audit":
+            return self._json(200, AB.verifica_trail())
+        for prefix, fn in (("/fhir/", self._fhir), ("/atmist/", self._atmist)):
+            if self.path.startswith(prefix):
+                try:
+                    rid = int(self.path[len(prefix):])
+                except ValueError:
+                    return self._json(400, {"ok": False, "error": "id non numerico"})
+                return fn(rid)
+        return self._json(404, {"ok": False, "error": "not found"})
+
+    def _fhir(self, rid: int):
+        r = _find(rid)
+        if not r:
+            return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente"})
+        b = FX.prealert_to_fhir(r["prealert"], r.get("vitali") or {}, r["ts"],
+                                provenienza_omega=r.get("provenienza"))
+        return self._send(200, json.dumps(b, ensure_ascii=False), "application/fhir+json; charset=utf-8")
+
+    def _atmist(self, rid: int):
+        r = _find(rid)
+        if not r:
+            return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente"})
+        at = FX.atmist(r["prealert"].get("eta_paziente"), r["ts"][11:16],
+                       "vedi pre-alert", "vedi percorsi", r["prealert"],
+                       trattamenti=[])
+        return self._send(200, at["testo_consegna"], "text/plain; charset=utf-8")
 
     def do_POST(self):
-        n = int(self.headers.get("Content-Length", 0))
-        raw = self.rfile.read(n).decode()
-        if self.path == "/prealert":
-            try:
-                rec = _pubblica(json.loads(raw))
-                self._send(200, json.dumps({"ok": True, "id": rec["id"],
-                           "provenienza": rec["provenienza"]}, ensure_ascii=False), "application/json")
-            except Exception as e:
-                self._send(400, json.dumps({"ok": False, "error": str(e)}), "application/json")
-        elif self.path == "/conferma":
-            from urllib.parse import parse_qs
+        try:
+            n = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            return self._json(400, {"ok": False, "error": "Content-Length invalido"})
+        if n > MAX_BODY:
+            return self._json(413, {"ok": False, "error": "payload troppo grande"})
+        raw = self.rfile.read(n).decode(errors="replace")
+        if self.path == "/conferma":       # form della bacheca: token nel body
             q = parse_qs(raw)
-            idx = int(q.get("id", ["0"])[0]); nota = (q.get("nota", [""])[0])[:100]
-            for r in BOARD:
-                if r["id"] == idx and nota:
-                    r["conferme"].append(nota)
-            self._send(303, ""); self.send_header("Location", "/")   # redirect
-        else:
-            self._send(404, "not found")
+            if not self._authed(q.get("token", [None])[0]):
+                return self._send(401, "token richiesto")
+            try:
+                rid = int(q.get("id", ["0"])[0])
+            except ValueError:
+                return self._send(400, "id non numerico")
+            nota = q.get("nota", [""])[0][:100]
+            operatore = q.get("operatore", ["team-ps"])[0][:60] or "team-ps"
+            r = _find(rid)
+            if r and nota:
+                audit = AB.registra_conferma(f"prealert-{rid}", nota, operatore)
+                with _LOCK:
+                    r["conferme"].append({"nota": nota, "operatore": operatore,
+                                          "audit": audit})
+            return self._send(303, "", extra={"Location": "/"})
+        if not self._authed():
+            return self._json(401, {"ok": False, "error": "X-Omega-Token mancante o errato"})
+        try:
+            body = json.loads(raw)
+        except json.JSONDecodeError as e:
+            return self._json(400, {"ok": False, "error": f"JSON invalido: {e}"})
+        if self.path == "/valuta":
+            try:
+                out = A.valuta_paziente(
+                    body["vitali"], body.get("farmaci") or [], body.get("eta"),
+                    int(body.get("eta_arrivo_min", 0)),
+                    fast_segni=body.get("fast_segni"), clinica=body.get("clinica"))
+            except (KeyError, TypeError, ValueError) as e:
+                return self._json(400, {"ok": False, "error": f"input invalido: {e}"})
+            rec = _pubblica(out["PRE_ALERT_INTEGRATO"], body.get("vitali"),
+                            operatore=str(body.get("operatore") or "equipaggio-ambulanza")[:60])
+            return self._json(200, {"ok": True, "id": rec["id"],
+                                    "prealert": out["PRE_ALERT_INTEGRATO"],
+                                    "provenienza": rec["provenienza"]})
+        if self.path == "/prealert":       # pre-calcolato (retro-compat, validato)
+            if not isinstance(body, dict) or "priorita" not in body or "percorsi_attivare" not in body:
+                return self._json(400, {"ok": False,
+                                        "error": "pre-alert malformato: servono priorita e percorsi_attivare"})
+            rec = _pubblica(body, None)
+            return self._json(200, {"ok": True, "id": rec["id"], "provenienza": rec["provenienza"]})
+        return self._json(404, {"ok": False, "error": "not found"})
 
     def log_message(self, *a):  # silenzioso
         pass
 
 
 def serve(port=8097, host="127.0.0.1"):
-    print(f"OMEGA team-comms su http://{host}:{port}/  (bacheca PS)")
+    print(f"OMEGA team-comms su http://{host}:{port}/  (bacheca PS) · token: {TOKEN_FILE}")
+    _token()                                   # genera il token al primo avvio
     ThreadingHTTPServer((host, port), H).serve_forever()
 
 
