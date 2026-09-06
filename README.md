@@ -46,7 +46,7 @@ optional for the signature bridge) · **Author:** Roberto Locatelli, 2026
 ## Quick start
 
 ```bash
-python3 test_health.py                  # 15 tests, no network beyond localhost
+python3 test_health.py                  # 20 tests (unit benches + E2E over localhost)
 python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \
         --temp 39.4 --eta 67 --arrivo 8 --farmaci warfarin aspirina
