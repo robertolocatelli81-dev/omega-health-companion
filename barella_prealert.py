@@ -75,6 +75,10 @@ _RANGE_PLAUSIBILE = {              # min, max fisiologicamente possibili (larghi
 def valida_vitali(vitali: Dict) -> list:
     """Ritorna la lista dei problemi (vuota = vitali utilizzabili). Nominativa:
     l'equipaggio deve sapere QUALE sensore/dato è sospetto."""
+    if not isinstance(vitali, dict):
+        # attacco 06/09: vitali stringa/lista crashava con AttributeError —
+        # un tipo sbagliato è un problema NOMINATO, mai un'eccezione
+        return [f"vitali non è un oggetto (ricevuto {type(vitali).__name__})"]
     attesi = ("rr", "spo2", "su_ossigeno", "sbp", "hr", "alert_coscienza", "temp")
     problemi = [f"campo mancante: {k}" for k in attesi if k not in vitali]
     for k, (lo, hi) in _RANGE_PLAUSIBILE.items():

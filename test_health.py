@@ -179,6 +179,17 @@ class TestE2E(unittest.TestCase):
             urllib.request.urlopen(req, timeout=10)
         self.assertEqual(cm.exception.code, 413)
 
+    def test_08b_json_profondo_e_tipi_ostili_400(self):
+        # regressione attacco 06/09: prima crashavano il thread handler
+        h = {"Content-Type": "application/json", "X-Omega-Token": self.token}
+        for payload in (("[" * 5000 + "]" * 5000).encode(), b'"stringa"',
+                        json.dumps({"vitali": "x", "eta_arrivo_min": 1}).encode(),
+                        json.dumps({"vitali": [1, 2], "eta_arrivo_min": 1}).encode()):
+            req = urllib.request.Request(self.base + "/valuta", data=payload, headers=h)
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                urllib.request.urlopen(req, timeout=10)
+            self.assertEqual(cm.exception.code, 400, payload[:30])
+
     def test_09_conferma_dal_form(self):
         code, out = self._post("/valuta", {"vitali": VITALI_CRITICI, "eta": 60,
                                            "eta_arrivo_min": 7}, self.token)

@@ -225,8 +225,12 @@ class H(BaseHTTPRequestHandler):
             return self._json(401, {"ok": False, "error": "X-Omega-Token mancante o errato"})
         try:
             body = json.loads(raw)
-        except json.JSONDecodeError as e:
-            return self._json(400, {"ok": False, "error": f"JSON invalido: {e}"})
+        except (json.JSONDecodeError, RecursionError, UnicodeDecodeError, ValueError) as e:
+            # RecursionError incluso (attacco 06/09: array annidato 5000 livelli
+            # uccideva il thread handler invece di rispondere 400)
+            return self._json(400, {"ok": False, "error": f"JSON invalido: {type(e).__name__}"})
+        if not isinstance(body, dict):
+            return self._json(400, {"ok": False, "error": "il body deve essere un oggetto JSON"})
         if self.path == "/valuta":
             try:
                 out = A.valuta_paziente(
