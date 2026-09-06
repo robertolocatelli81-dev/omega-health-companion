@@ -32,6 +32,54 @@ VITALI_STABILI = dict(rr=16, spo2=98, su_ossigeno=False, sbp=125, hr=72,
                       alert_coscienza=True, temp=36.7)
 
 
+class TestFirmaLocaleFallback(unittest.TestCase):
+    """Il claim pubblico («conferme firmate») deve valere ANCHE senza il motore
+    Part 11 privato: fallback aperto Ed25519 per-operatore, verificabile."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="fb_")
+        self._orig = (AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR)
+        AB.MOTORE_DISPONIBILE = False
+        AB.FALLBACK_LEDGER = os.path.join(self.tmp, "fb.jsonl")
+        AB.KEYS_DIR = os.path.join(self.tmp, "keys")
+
+    def tearDown(self):
+        AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR = self._orig
+
+    @unittest.skipUnless(AB.FIRMA_LOCALE_DISPONIBILE, "cryptography assente")
+    def test_firma_locale_verificabile_da_terzi(self):
+        import base64, hashlib
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        out = AB.registra_conferma("PA-1", "stroke team pronto", "dr-verdi")
+        self.assertEqual(out["livello"], "firma-locale")
+        self.assertTrue(out["firma_verificata"])
+        # verifica INDIPENDENTE (come farebbe un terzo): rilegge il ledger,
+        # ricanonizza il record, ricalcola il digest, verifica la firma
+        entry = json.loads(open(AB.FALLBACK_LEDGER).readline())
+        rec = {k: entry[k] for k in ("kind", "target", "azione", "dettaglio",
+                                     "operatore", "ts")}
+        canon = json.dumps(rec, sort_keys=True, separators=(",", ":")).encode()
+        digest = hashlib.sha256(canon).digest()
+        self.assertEqual(digest.hex(), entry["record_sha256"])
+        Ed25519PublicKey.from_public_bytes(
+            base64.b64decode(entry["pubkey_b64"])).verify(
+            base64.b64decode(entry["firma_ed25519_b64"]), digest)
+        # negativo: record alterato → digest diverso
+        rec2 = dict(rec, operatore="impostore")
+        canon2 = json.dumps(rec2, sort_keys=True, separators=(",", ":")).encode()
+        self.assertNotEqual(hashlib.sha256(canon2).hexdigest(), entry["record_sha256"])
+
+    def test_senza_nulla_livello_base_onesto(self):
+        orig = AB.FIRMA_LOCALE_DISPONIBILE
+        try:
+            AB.FIRMA_LOCALE_DISPONIBILE = False
+            out = AB.registra_conferma("PA-1", "x", "dr")
+            self.assertEqual(out["livello"], "base")
+            self.assertIn("nessuna firma", out["nota"])
+        finally:
+            AB.FIRMA_LOCALE_DISPONIBILE = orig
+
+
 class TestBanchi(unittest.TestCase):
     """I 5 banchi (ognuno con controllo positivo + null) come unittest."""
 

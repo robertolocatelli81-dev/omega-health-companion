@@ -50,6 +50,66 @@ except Exception as e:  # noqa: BLE001 — assenza del motore = degrado onesto, 
 _trail: Optional["Part11AuditTrail"] = None
 _identita: Dict[str, "AgentIdentity"] = {}
 
+# ── FALLBACK APERTO «firma-locale» (2026-09-06) ───────────────────────────────
+# Il claim pubblico («le conferme portano una firma elettronica legata al
+# record») deve essere VERO anche per chi clona questo repo senza il motore
+# Part 11: se `cryptography` è installata, il ponte firma comunque — Ed25519
+# per-operatore (chiavi 0600), firma su SHA-256 del record canonico, ledger
+# JSONL append-only. Meno ricco del motore (niente §11.50 meanings/§11.10(e)
+# semantics complete) e DICHIARATO come livello «firma-locale», mai «part11».
+FALLBACK_LEDGER = os.path.join(_HERE, "audit_locale_ledger.jsonl")
+try:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import (  # noqa: E402
+        Ed25519PrivateKey as _EdSk, Ed25519PublicKey as _EdPk)
+    from cryptography.hazmat.primitives import serialization as _ser  # noqa: E402
+    FIRMA_LOCALE_DISPONIBILE = True
+except Exception:  # noqa: BLE001
+    FIRMA_LOCALE_DISPONIBILE = False
+
+
+def _fb_key(operatore: str) -> "_EdSk":
+    slug = _slug(operatore) or "anonimo"
+    os.makedirs(KEYS_DIR, exist_ok=True)
+    path = os.path.join(KEYS_DIR, f"fb-{slug}.key")
+    if os.path.exists(path):
+        raw = base64.b64decode(open(path).read().strip())
+        return _EdSk.from_private_bytes(raw)
+    sk = _EdSk.generate()
+    raw = sk.private_bytes(_ser.Encoding.Raw, _ser.PrivateFormat.Raw,
+                           _ser.NoEncryption())
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(base64.b64encode(raw).decode())
+    return sk
+
+
+def _fb_registra(target_id: str, azione: str, dettaglio: Dict, operatore: str) -> Dict:
+    import hashlib
+    rec = {"kind": "audit_locale", "target": target_id, "azione": azione,
+           "dettaglio": dettaglio, "operatore": operatore,
+           "ts": __import__("datetime").datetime.now(
+               __import__("datetime").timezone.utc).isoformat(timespec="seconds")}
+    canon = json.dumps(rec, sort_keys=True, separators=(",", ":")).encode()
+    digest = hashlib.sha256(canon).digest()
+    sk = _fb_key(operatore)
+    sig = sk.sign(digest)
+    pk = sk.public_key().public_bytes(_ser.Encoding.Raw, _ser.PublicFormat.Raw)
+    entry = {**rec, "record_sha256": digest.hex(),
+             "firma_ed25519_b64": base64.b64encode(sig).decode(),
+             "pubkey_b64": base64.b64encode(pk).decode()}
+    with open(FALLBACK_LEDGER, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    # verifica immediata (mai un verde non provato)
+    try:
+        _EdPk.from_public_bytes(pk).verify(sig, digest)
+        ok = True
+    except Exception:  # noqa: BLE001
+        ok = False
+    return {"livello": "firma-locale", "record_sha256": digest.hex(),
+            "firma_verificata": ok, "firmatario": operatore,
+            "nota": ("firma Ed25519 per-operatore legata al record (fallback aperto); "
+                     "il motore Part 11 completo aggiunge i significati §11.50")}
+
 
 def _get_trail() -> "Part11AuditTrail":
     global _trail
@@ -93,7 +153,10 @@ def registra_prealert(prealert_id: str, prealert_sha256: str, operatore: str) ->
     """Pre-alert emesso → record CREATE nell'audit trail + firma AUTHORSHIP
     dell'equipaggio. Nel trail va il DIGEST del pre-alert, mai i dati sanitari."""
     if not MOTORE_DISPONIBILE:
-        return {"livello": "base", "nota": "motore Part 11 assente: audit firmato non disponibile"}
+        if FIRMA_LOCALE_DISPONIBILE:
+            return _fb_registra(prealert_id, "emissione",
+                                {"prealert_sha256": prealert_sha256}, operatore)
+        return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
     t = _get_trail()
     rec = t.log_change(operatore, AuditAction.CREATE, prealert_id,
                        reason="emissione pre-alert ambulanza",
@@ -109,7 +172,10 @@ def registra_conferma(prealert_id: str, nota: str, operatore: str) -> Dict:
     """Conferma del team PS → record CREATE (conferma) + firma RESPONSIBILITY:
     chi ha preso in carico il percorso, quando, con che nota — firmato."""
     if not MOTORE_DISPONIBILE:
-        return {"livello": "base", "nota": "conferma registrata senza firma (motore assente)"}
+        if FIRMA_LOCALE_DISPONIBILE:
+            return _fb_registra(f"{prealert_id}/conferma", "presa_in_carico",
+                                {"nota": nota[:100]}, operatore)
+        return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
     t = _get_trail()
     rec = t.log_change(operatore, AuditAction.CREATE, f"{prealert_id}/conferma",
                        reason=f"presa in carico: {nota[:100]}",
