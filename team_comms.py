@@ -240,6 +240,39 @@ class H(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "id": rec["id"],
                                     "prealert": out["PRE_ALERT_INTEGRATO"],
                                     "provenienza": rec["provenienza"]})
+        if self.path == "/rimuovi-nota":
+            # DICHIARATO alla DPGA (9B/9C): «the organisation can remove any note».
+            # Disciplina Part 11: la rimozione è REGISTRATA con motivo e operatore
+            # (audit trail), mai silenziosa; la nota sparisce dalla bacheca.
+            try:
+                rid = int(body["id"]); idx = int(body["indice_nota"])
+                motivo = str(body["motivo"]).strip()
+                operatore = str(body.get("operatore") or "team-ps")[:60]
+                if not motivo:
+                    raise ValueError("motivo obbligatorio")
+            except (KeyError, TypeError, ValueError) as e:
+                return self._json(400, {"ok": False, "error": f"servono id, indice_nota, motivo: {e}"})
+            r = _find(rid)
+            if not r or not (0 <= idx < len(r["conferme"])):
+                return self._json(404, {"ok": False, "error": "nota inesistente"})
+            with _LOCK:
+                rimossa = r["conferme"].pop(idx)
+            audit = AB.registra_conferma(f"prealert-{rid}",
+                                         f"RIMOZIONE nota [{rimossa.get('nota','')[:60]}] — motivo: {motivo}",
+                                         operatore)
+            return self._json(200, {"ok": True, "rimossa": rimossa.get("nota"),
+                                    "audit": audit})
+        if self.path == "/ruota-token":
+            # DICHIARATO alla DPGA (9C): «revoke access tokens at any time».
+            # Il token corrente autentica la rotazione; il vecchio muore subito.
+            import secrets as _sec
+            nuovo = _sec.token_urlsafe(32)
+            fd = os.open(TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
+                f.write(nuovo)
+            audit = AB.registra_conferma("sistema", "rotazione token di accesso",
+                                         str(body.get("operatore") or "admin")[:60])
+            return self._json(200, {"ok": True, "nuovo_token": nuovo, "audit": audit})
         if self.path == "/prealert":       # pre-calcolato (retro-compat, validato)
             if not isinstance(body, dict) or "priorita" not in body or "percorsi_attivare" not in body:
                 return self._json(400, {"ok": False,

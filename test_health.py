@@ -207,6 +207,39 @@ class TestE2E(unittest.TestCase):
         else:
             self.assertEqual(out["livello"], "base")
 
+    def test_12b_rimuovi_nota_registrata_mai_silenziosa(self):
+        code, out = self._post("/valuta", {"vitali": VITALI_STABILI, "eta": 50,
+                                           "eta_arrivo_min": 9}, self.token)
+        rid = out["id"]
+        body = f"id={rid}&nota=da+rimuovere&operatore=dr-x&token={self.token}".encode()
+        urllib.request.urlopen(urllib.request.Request(self.base + "/conferma", data=body),
+                               timeout=10)
+        # senza motivo → 400 (la rimozione silenziosa non esiste)
+        code, out2 = self._post("/rimuovi-nota", {"id": rid, "indice_nota": 0,
+                                                  "motivo": ""}, self.token)
+        self.assertEqual(code, 400)
+        code, out2 = self._post("/rimuovi-nota", {"id": rid, "indice_nota": 0,
+                                                  "motivo": "inserita per errore",
+                                                  "operatore": "dr-x"}, self.token)
+        self.assertEqual(code, 200)
+        self.assertEqual(out2["rimossa"], "da rimuovere")
+        if AB.MOTORE_DISPONIBILE:      # la rimozione lascia traccia firmata
+            self.assertEqual(out2["audit"]["livello"], "part11")
+        code, board = self._get("/api/board", self.token)
+        rec = [x for x in board if x["id"] == rid][0]
+        self.assertEqual(rec["conferme"], [])
+
+    def test_12c_rotazione_token_revoca_il_vecchio(self):
+        code, out = self._post("/ruota-token", {"operatore": "admin-test"}, self.token)
+        self.assertEqual(code, 200)
+        nuovo = out["nuovo_token"]
+        self.assertNotEqual(nuovo, self.token)
+        code, _ = self._get("/api/board", self.token)     # vecchio token → morto
+        self.assertEqual(code, 401)
+        code, _ = self._get("/api/board", nuovo)          # nuovo token → vivo
+        self.assertEqual(code, 200)
+        type(self).token = nuovo                          # per i test successivi
+
     def test_13_prealert_ha_audit_authorship(self):
         code, out = self._post("/valuta", {"vitali": VITALI_STABILI, "eta": 55,
                                            "eta_arrivo_min": 9,
