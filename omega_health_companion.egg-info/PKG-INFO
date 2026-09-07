@@ -1,3 +1,15 @@
+Metadata-Version: 2.4
+Name: omega-health-companion
+Version: 0.1.2
+Summary: Ambulance pre-alert companion: honest emergency scores, signed audit, FHIR R4 export, mission case file (pilot software, NOT a medical device)
+Author: Roberto Locatelli
+License: AGPL-3.0-only
+Project-URL: Homepage, https://github.com/robertolocatelli81-dev/omega-health-companion
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
 # OMEGA Health Companion — open pre-hospital alerting with incorruptible evidence
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22539174.svg)](https://doi.org/10.5281/zenodo.22539174)
@@ -75,11 +87,3 @@ What this needs next is not more code: it is a **measured pilot** (pre-registere
 endpoints, published results) with a clinical partner. See `GRANT_APPLICATION.md` and
 `ONE_PAGER_CLINICO.md`. Automatic ECG interpretation is deliberately **absent**:
 without clinical validation it would be an overclaim.
-
-## Install (pip)
-
-```bash
-pip install --extra-index-url https://robertolocatelli81-dev.github.io/pypi/ omega-health-companion
-```
-
-Release artifacts are attached to GitHub Releases; the index links carry `#sha256=` fragments verified by pip. All documented `python3 <file>.py` commands keep working unchanged from a clone.

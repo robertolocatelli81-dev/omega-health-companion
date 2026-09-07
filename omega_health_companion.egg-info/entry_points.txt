@@ -1,0 +1,2 @@
+[console_scripts]
+ambulanza-cli = ambulanza_cli:main

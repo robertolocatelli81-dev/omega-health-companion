@@ -1,0 +1,10 @@
+ambulanza_cli
+ambulanza_intelligente
+audit_bridge
+barella_prealert
+companion_seed
+fhir_export
+interazioni_farmaci
+mission_case
+scores_emergenza
+team_comms
