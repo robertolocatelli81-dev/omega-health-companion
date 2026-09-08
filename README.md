@@ -1,6 +1,6 @@
 # OMEGA Health Companion — open pre-hospital alerting with incorruptible evidence
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22539174.svg)](https://doi.org/10.5281/zenodo.22539174)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22539173.svg)](https://doi.org/10.5281/zenodo.22539173)
 
 **Ambulance → hospital pre-alert engine, open and self-hosted.** During transport it
 computes **validated clinical scores** (NEWS2 · RCP 2017, BE-FAST, qSOFA · Sepsis-3,
