@@ -22,7 +22,7 @@ door-to-treatment nei percorsi tempo-dipendenti.
 **validati** (NEWS2, FAST/ictus, qSOFA/sepsi, ATLS/trauma, ERC/ACR, ESC/STEMI) e
 genera un pre-alert strutturato per l'ospedale, che prepara la squadra giusta
 prima dell'arrivo. Distintivo: ogni alert è **hash-chained** (provenienza
-auditabile, non-ripudiabile — nessun competitor lo offre) e il software è
+auditabile, non-ripudiabile — nessuno dei competitor esaminati lo documenta) e il software è
 **open / self-hosted** (no lock-in, ideale per SSN pubblici e privacy-sensitive).
 
 ## Cosa (ROBUSTO, già costruito e testato — aggiornato 2026-09-06)
@@ -30,9 +30,9 @@ auditabile, non-ripudiabile — nessun competitor lo offre) e il software è
 ⛔ nitrati/PDE5, ⚠️ trauma anticoagulato), pre-alert integrato con gate pediatrico
 fail-closed e validazione vitali (unità °F/frazione rilevate), app team REALE
 (server token-auth, calcolo lato server, bacheca PS, conferme) + CLI ambulanza,
-**export FHIR R4 validato 0-errori (HAPI)** + handover ATMIST + allegato ECG con
+**export FHIR R4 conforme ai profili vital-signs (0 errori strutturali su HAPI e sul validatore HL7)** + handover ATMIST + allegato ECG con
 SHA-256, provenienza hash-chained **digest-only** (nessun dato sanitario nel
-ledger). Suite: 53 test (unit + E2E su HTTP reale, banchi positivo/null, tipi ostili) eseguiti in CI a ogni push. Codice open,
+ledger). Suite: 54 test (unit + E2E su HTTP reale, banchi positivo/null, tipi ostili) eseguiti in CI a ogni push. Codice open,
 riproducibile, ogni modulo con test che sa fallire (controllo positivo + null).
 
 ## Cosa NON è (confine, honest-scope)

@@ -76,6 +76,32 @@ def prealert_to_fhir(prealert_integrato: Dict, vitali: Dict, ts: str,
     for k, code in LOINC.items():
         if k in vitali and vitali[k] is not None:
             entries.append({"resource": _obs(f"vit-{k}", code, float(vitali[k]), UCUM[k], ts)})
+    # FIX 2026-09-11 (validatore HL7 ufficiale, non solo HAPI): un'Observation vital-signs con LOINC
+    # 8480-6 da sola viola il profilo `bp|4.0.1`, che esige il PANNELLO 85354-9 con i due componenti
+    # sistolica+diastolica (min 2). In ambulanza la diastolica spesso non viene misurata: il profilo lo
+    # ammette con `dataAbsentReason` sul componente. Analogamente `oxygensat|4.0.1` esige il codice
+    # 2708-6 con 59408-5 come coding aggiuntivo. Prima: 0 errori su HAPI $validate, 6 su validator.fhir.org.
+    for e in entries:
+        r = e["resource"]
+        if r.get("id") == "vit-sbp":
+            sbp = r["valueQuantity"]
+            r["code"] = {"coding": [{"system": "http://loinc.org", "code": "85354-9",
+                                     "display": "Blood pressure panel with all children optional"}]}
+            r.pop("valueQuantity", None)
+            r["component"] = [
+                {"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6",
+                                      "display": "Systolic blood pressure"}]},
+                 "valueQuantity": sbp},
+                {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4",
+                                      "display": "Diastolic blood pressure"}]},
+                 "dataAbsentReason": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/data-absent-reason",
+                                                  "code": "not-performed",
+                                                  "display": "Not Performed"}]}}]
+        if r.get("id") == "vit-spo2":
+            r["code"] = {"coding": [{"system": "http://loinc.org", "code": "2708-6",
+                                     "display": "Oxygen saturation in Arterial blood"},
+                                    {"system": "http://loinc.org", "code": "59408-5",
+                                     "display": "Oxygen saturation in Arterial blood by Pulse oximetry"}]}
     # coscienza (AVPU collassato) e ossigeno: CodeSystem locale dichiarato
     entries.append({"resource": {
         "resourceType": "Observation", "id": "vit-coscienza", "status": "final",

@@ -6,7 +6,7 @@ strutturato** per l'ospedale — così il pronto soccorso prepara la squadra giu
 *prima* dell'arrivo. Con provenienza incorruttibile (hash-chained).
 
 ## Cosa fa (misurabile, ROBUSTO)
-- **5 percorsi tempo-dipendenti, score validati:** NEWS2 (RCP 2017), FAST (ictus),
+- **6 percorsi tempo-dipendenti, score standard:** NEWS2 (RCP 2017), BE-FAST (ictus),
   qSOFA (Sepsis-3), trauma (ATLS/CDC), ACR (ERC), STEMI/cardio (ESC).
 - **Pre-alert unico** con priorità + percorsi da attivare (stroke team, sepsi,
   trauma, ACR, emodinamica) + farmaci in uso + **interazioni gravi** note.
@@ -29,11 +29,11 @@ door-to-treatment, appropriatezza delle allerte (sensibilità/falsi allarmi), te
 di handover.
 
 ## Posizionamento vs competitor (onesto)
-- **Pulsara** (leader): evidenza clinica pubblicata (BMJ/Duke: STEMI −23 min,
+- **Pulsara** (leader): evidenza clinica pubblicata (BMJ Open Quality 2022, Bladin et al., Ambulance Victoria/Monash: STEMI −23 min,
   door-to-CT −44 min), adozione reale, app di comunicazione team. **È avanti a noi.**
 - **ESO / ImageTrend:** integrazione dati EMS↔EHR↔registri; predizioni.
 - **Dove OMEGA si distingue (da validare):** (1) **provenienza hash-chained** del
-  pre-alert — *nessun competitor lo fa*: evidenza medico-legale e di audit
+  pre-alert — *nessuno dei competitor esaminati in COMPETITOR_ROADMAP.md lo documenta*: evidenza medico-legale e di audit
   incorruttibile; (2) **multi-percorso in un unico alert** (non solo stroke/STEMI);
   (3) **open / self-hosted, no black-box, no lock-in**.
 - **Onestà:** loro hanno evidenza + adozione + integrazione; noi un prototipo con
@@ -44,4 +44,4 @@ Un referente clinico, dati de-identificati di un campione retrospettivo (per la
 taratura/misura), e una call di 30 minuti. In cambio: l'evidence pack riproducibile
 + il vantaggio della provenienza auditabile sui vostri percorsi tempo-critici.
 
-*Contatto: Roberto Locatelli · [email] · [LinkedIn]. Codice open, verificabile.*
+*Contatto: Roberto Locatelli · roberto.locatelli.81@gmail.com · github.com/robertolocatelli81-dev. Codice open, verificabile.*

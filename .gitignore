@@ -6,3 +6,5 @@ __pycache__/
 team_token.txt
 *_ledger.jsonl
 p11_keys/
+audit_locale_ledger.jsonl
+.audit_keys/

@@ -19,6 +19,9 @@ optional for the signature bridge) · **Author:** Roberto Locatelli, 2026
 - **Not a medical device.** Not certified, not clinically validated. It computes
   *recognised standard scores* (arithmetic from published tables — no invented
   algorithms, no AI diagnosis) and communicates them. **The physician decides.**
+  One **declared deviation** from the RCP NEWS2 escalation bands: a single parameter scoring 3
+  is escalated to MEDIUM here (RCP: low-medium), stated in every output as
+  `deviazione_dichiarata`; the 587-vector certificate covers the arithmetic, not the bands.
 - Real clinical use requires a supervised pilot and the applicable regulatory path
   (EU MDR). This codebase is the *engine* for such a pilot.
 - Adult patients only: for age < 16 the system **refuses to score** (fail-closed;
@@ -40,12 +43,12 @@ optional for the signature bridge) · **Author:** Roberto Locatelli, 2026
 | `interazioni_farmaci.py` | Known severe drug interactions (multi-class aware, e.g. tramadol as opioid *and* serotonergic) |
 | `ambulanza_intelligente.py` | The integrated pre-alert: priority elevation on any time-critical pathway, route-level warnings (⛔ no nitrates with PDE5 inhibitors; ⚠️ anticoagulated trauma → trauma centre), paediatric gate |
 | `team_comms.py` | Real self-hosted team app: server-side scoring (`POST /valuta`), token auth, ED board, confirmations, `GET /fhir/<id>`, `GET /atmist/<id>`, `GET /audit` |
-| `fhir_export.py` | Pre-alert → **FHIR R4 Bundle** (LOINC-coded vitals, RiskAssessment, Provenance carrying the ledger hash) — validated with **0 errors** against the public HAPI FHIR validator; ATMIST handover; ECG attachment by SHA-256 (never auto-interpreted) |
+| `fhir_export.py` | Pre-alert → **FHIR R4 Bundle** (LOINC-coded vitals conformant to the R4 vital-signs profiles — BP as the 85354-9 panel with diastolic `dataAbsentReason` when not measured, SpO2 as 2708-6 + 59408-5; 0 structural errors on both HAPI `$validate` and the HL7 `validator.fhir.org`, re-checked 2026-09-11 — RiskAssessment, Provenance carrying the ledger hash) — validated with **0 errors** against the public HAPI FHIR validator; ATMIST handover; ECG attachment by SHA-256 (never auto-interpreted) |
 | `ambulanza_cli.py` | Field CLI: raw vitals in, computed pre-alert back; honest fallback message if the server is unreachable |
 | `audit_bridge.py` | **Optional** bridge to a 21 CFR Part 11-grade audit engine (signed audit trail, signatures bound to records with meaning). Degrades honestly to "base" level when the engine is absent — the engine is not part of this repository |
 | `companion_seed.py` | Citizen-facing claim verification seed (informative only) |
 | `mission_case.py` | **Mission case file**: declarative FSM (ALLERTA→VALUTAZIONE→TRASPORTO→CONSEGNATA→CHIUSA, +ANNULLATA), SHA-256 hash-chained append-only ledger under an exclusive file lock, digests-only (no PHI), monotonic-clock guard, tamper → pack refused. Optional private case-engine adds an independent double replay; degrades honestly to "fascicolo-locale" (verified: same 17 tests pass with and without the engine) |
-| `test_input_types.py` | **12 tests** — the hostile-input red-team cases of 2026-09-11 (string flags, boolean vitals, missing/invalid age, malformed drug list), each red before the fix; unit + end-to-end over HTTP |
+| `test_input_types.py` | **13 tests** — the hostile-input red-team cases of 2026-09-11 (string flags, boolean vitals, missing/invalid age, malformed drug list), each red before the fix; unit + end-to-end over HTTP |
 | `test_health.py` | **20 tests**: unit benches (positive + null controls, incl. a bench-of-the-bench that must fail) + end-to-end over real HTTP (auth rejected, °F detected, ledger chain verified, CLI against live server) |
 
 ## Quick start
@@ -53,9 +56,9 @@ optional for the signature bridge) · **Author:** Roberto Locatelli, 2026
 ```bash
 python3 test_health.py                  # 20 tests (unit benches + E2E over localhost)
 python3 test_mission_case.py            # 17 tests — mission case file (both engine levels)
-python3 test_input_types.py             # 12 tests — hostile input types (red-team 2026-09-11)
+python3 test_input_types.py             # 13 tests — hostile input types (red-team 2026-09-11)
 python3 test_news2_certificate.py       #  4 tests — NEWS2 certificate
-# 53 tests in total; the same four files run in CI on every push (.github/workflows/tests.yml)
+# 54 tests in total; the same four files run in CI on every push (.github/workflows/tests.yml)
 python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \
         --temp 39.4 --eta 67 --arrivo 8 --farmaci warfarin aspirina

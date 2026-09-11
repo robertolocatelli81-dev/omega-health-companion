@@ -135,5 +135,19 @@ class TestAPITipiOstili(unittest.TestCase):
         self.assertNotIn("AttributeError", json.dumps(out))
 
 
+class TestRitenzioneBacheca(unittest.TestCase):
+    def test_record_scaduto_svuotato_e_pagina_regge(self):
+        from datetime import datetime, timezone, timedelta
+        T.BOARD.clear()
+        vecchio = (datetime.now(timezone.utc) - timedelta(hours=T.BOARD_TTL_H + 1)).isoformat()
+        T.BOARD.append({"id": 1, "ts": vecchio, "prealert": {"priorita": "ALTO"}, "vitali": {"rr": 30},
+                        "provenienza": {"self_hash": "x"}, "audit": {}, "conferme": []})
+        self.assertEqual(T._scadenza_bacheca(), 1)
+        self.assertIsNone(T.BOARD[0]["vitali"])
+        self.assertIsNone(T.BOARD[0]["prealert"])
+        self.assertIn("SCADUTO", T._pagina())
+        T.BOARD.clear()
+
+
 if __name__ == "__main__":
     unittest.main()

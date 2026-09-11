@@ -16,7 +16,7 @@ Endpoints (tutti autenticati salvo la bacheca su loopback):
                           avere priorita e percorsi_attivare)
   POST /conferma        → {"id":.., "nota":".."} — il team conferma un percorso
   GET  /api/board       → lista pre-alert (JSON)
-  GET  /fhir/<id>       → Bundle FHIR R4 del pre-alert (validato 0-errori HAPI)
+  GET  /fhir/<id>       → Bundle FHIR R4 del pre-alert (0 errori strutturali su HAPI e validator.fhir.org, 11/09/2026)
   GET  /atmist/<id>     → testo di consegna ATMIST
 
 AUTENTICAZIONE (fix 2026-09-06 — prima il server era aperto): header
@@ -33,6 +33,7 @@ from __future__ import annotations
 import html
 import json
 import os
+from typing import Optional
 import secrets
 import threading
 from datetime import datetime, timezone
@@ -60,6 +61,28 @@ def _token() -> str:
         return f.read().strip()
 
 
+BOARD_TTL_H = float(os.environ.get("OMEGA_BOARD_TTL_H", "24"))
+
+
+def _scadenza_bacheca(now: Optional[datetime] = None) -> int:
+    """Svuota i dati clinici dei record scaduti (chiamare sotto _LOCK). Ritorna quanti ha svuotato."""
+    now = now or datetime.now(timezone.utc)
+    n = 0
+    for r in BOARD:
+        if r.get("vitali") is None and r.get("prealert") is None:
+            continue
+        try:
+            eta_h = (now - datetime.fromisoformat(r["ts"])).total_seconds() / 3600
+        except (KeyError, ValueError):
+            continue
+        if eta_h > BOARD_TTL_H:
+            r["vitali"] = None
+            r["prealert"] = None
+            r["scaduto"] = True
+            n += 1
+    return n
+
+
 def _pubblica(prealert: dict, vitali: dict | None,
               operatore: str = "equipaggio-ambulanza") -> dict:
     ts = datetime.now(timezone.utc).isoformat()
@@ -74,11 +97,16 @@ def _pubblica(prealert: dict, vitali: dict | None,
                "vitali": vitali, "provenienza": prov,
                "audit": audit, "conferme": []}
         BOARD.append(rec)
+        # Ritenzione in memoria (FIX 2026-09-11): la bacheca è effimera per DESIGN, ma senza scadenza i
+        # vitali restavano in RAM finché viveva il processo. I record più vecchi di BOARD_TTL_H ore
+        # perdono vitali e pre-alert (restano id/ts/provenienza = digest) — il ledger è già digest-only.
+        _scadenza_bacheca()
     return rec
 
 
 _COL = {"ALTO": "#c0392b", "MEDIO": "#e67e22", "BASSO": "#27ae60",
-        "NON_VALUTABILE_PEDIATRICO": "#8e44ad", "NON_VALUTABILE_DATI_INVALIDI": "#7f8c8d"}
+        "NON_VALUTABILE_PEDIATRICO": "#8e44ad", "NON_VALUTABILE_DATI_INVALIDI": "#7f8c8d",
+        "SCADUTO": "#bbb"}
 
 
 def _pagina() -> str:
@@ -86,7 +114,9 @@ def _pagina() -> str:
         board = list(BOARD)
     righe = []
     for r in reversed(board):
-        pa = r["prealert"]; pr = pa.get("priorita", "—")
+        pa = r["prealert"] or {"priorita": "SCADUTO", "azione_raccomandata":
+                               f"dati clinici rimossi dalla bacheca dopo {BOARD_TTL_H:g} h (ritenzione)"}
+        pr = pa.get("priorita", "—")
         perc = "".join(f"<li>{html.escape(p)}</li>" for p in pa.get("percorsi_attivare", [])) or "<li>—</li>"
         avv = "".join(f"<li class=warn>{html.escape(a)}</li>" for a in pa.get("avvisi", []))
         conf = "".join(
@@ -183,6 +213,8 @@ class H(BaseHTTPRequestHandler):
         r = _find(rid)
         if not r:
             return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente"})
+        if r.get("prealert") is None:
+            return self._json(410, {"ok": False, "error": f"pre-alert {rid} scaduto: dati clinici rimossi dopo {BOARD_TTL_H:g} h"})
         b = FX.prealert_to_fhir(r["prealert"], r.get("vitali") or {}, r["ts"],
                                 provenienza_omega=r.get("provenienza"))
         return self._send(200, json.dumps(b, ensure_ascii=False), "application/fhir+json; charset=utf-8")
@@ -191,6 +223,8 @@ class H(BaseHTTPRequestHandler):
         r = _find(rid)
         if not r:
             return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente"})
+        if r.get("prealert") is None:
+            return self._json(410, {"ok": False, "error": f"pre-alert {rid} scaduto: dati clinici rimossi dopo {BOARD_TTL_H:g} h"})
         at = FX.atmist(r["prealert"].get("eta_paziente"), r["ts"][11:16],
                        "vedi pre-alert", "vedi percorsi", r["prealert"],
                        trattamenti=[])

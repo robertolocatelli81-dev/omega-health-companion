@@ -27,7 +27,9 @@ import sys
 from typing import Dict, Optional
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_OMEGA = os.path.expanduser("~/omega/omega_package")
+# Motore Part 11 OPZIONALE e privato: percorso configurabile (OMEGA_PACKAGE_DIR); senza, degrado
+# onesto al livello "base" (dichiarato nell'output). Prima era un path hard-coded dell'autore.
+_OMEGA = os.path.expanduser(os.environ.get("OMEGA_PACKAGE_DIR", "~/omega/omega_package"))
 KEYS_DIR = os.path.join(_HERE, ".audit_keys")
 TRAIL_PATH = os.path.join(_HERE, "part11_health_ledger.jsonl")
 SYSTEM_ID = "omega-health-companion"

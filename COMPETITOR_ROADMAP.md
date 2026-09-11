@@ -7,7 +7,7 @@ adozione, integrazione); noi abbiamo un angolo distintivo (provenienza). Questo
 ## I competitor reali
 | Player | Forza | Prova / scala |
 |---|---|---|
-| **Pulsara** | pre-alert stroke/STEMI + app comunicazione team | **evidenza pubblicata** (BMJ, Duke: STEMI −23 min, door-to-CT −44 min); adozione reale |
+| **Pulsara** | pre-alert stroke/STEMI + app comunicazione team | **evidenza pubblicata** (BMJ Open Quality 2022, Bladin et al., Ambulance Victoria/Monash — PubMed 35851025: STEMI −23 min, door-to-CT −44 min); adozione reale |
 | **ESO Prehospital Intelligence** | dati EMS↔ospedale, predizioni (ha acquisito d2i) | piattaforma, molti clienti |
 | **ImageTrend** | integrazione bidirezionale EMS↔EHR↔registri statali | connettività, outcome data |
 | **RapidSOS UNITE** | intelligence per centrali 911, integrazione CAD | scala pubblica safety |
@@ -24,7 +24,7 @@ adozione, integrazione); noi abbiamo un angolo distintivo (provenienza). Questo
    manuale; aggiungere la lettura automatica del tracciato.
 
 ## AGGIUNGERE / MIGLIORARE (dove SUPERARLI — il nostro angolo)
-1. **Provenienza hash-chained del pre-alert** — NESSUN competitor lo fa. Evidenza
+1. **Provenienza hash-chained del pre-alert** — nessuno dei competitor esaminati qui lo documenta. Evidenza
    medico-legale incorruttibile (dispute, audit, qualità, responsabilità). È il
    differenziatore OMEGA nato dal core regtech. → renderlo il messaggio #1.
 2. **Multi-percorso in un unico alert** — Pulsara è forte su stroke/STEMI; noi
