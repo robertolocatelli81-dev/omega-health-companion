@@ -1,0 +1,26 @@
+name: tests
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Unit + end-to-end (HTTP server, sandboxed ledger and audit trail)
+        run: |
+          for t in test_*.py; do
+            echo "== $t"
+            python3 "$t"
+          done
+      - name: Demo runs to completion
+        run: python3 demo.py > /dev/null
+      - name: Hostile-input regression must fail on a deliberately broken validator (the bench can fail)
+        run: |
+          cp barella_prealert.py /tmp/b.bak
+          sed -i 's/if k in vitali and not isinstance(v, bool):/if False:/' barella_prealert.py
+          if python3 test_input_types.py > /dev/null 2>&1; then echo "::error::bench did not detect the broken validator"; exit 1; fi
+          cp /tmp/b.bak barella_prealert.py

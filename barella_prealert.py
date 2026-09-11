@@ -81,15 +81,27 @@ def valida_vitali(vitali: Dict) -> list:
         return [f"vitali non è un oggetto (ricevuto {type(vitali).__name__})"]
     attesi = ("rr", "spo2", "su_ossigeno", "sbp", "hr", "alert_coscienza", "temp")
     problemi = [f"campo mancante: {k}" for k in attesi if k not in vitali]
+    # TIPI STRETTI (FIX 2026-09-11, red-team 4-menti sul repo pubblico): i due flag clinici devono
+    # essere booleani JSON veri. Prima una STRINGA passava per il suo valore di verità Python:
+    # alert_coscienza="no" → True → paziente "cosciente" (INVERSIONE clinica);
+    # su_ossigeno="false" → True → punteggio SpO2 da paziente in ossigeno. Misurato via API.
+    for k in ("su_ossigeno", "alert_coscienza"):
+        v = vitali.get(k)
+        if k in vitali and not isinstance(v, bool):
+            problemi.append(f"non booleano: {k}={v!r} (atteso true/false JSON, non stringa né numero)")
     for k, (lo, hi) in _RANGE_PLAUSIBILE.items():
         v = vitali.get(k)
         if v is None and f"campo mancante: {k}" not in problemi:
             problemi.append(f"campo nullo: {k}")
         elif v is not None:
-            try:
-                x = float(v)
-            except (TypeError, ValueError):
-                problemi.append(f"non numerico: {k}={v!r}")
+            # bool è sottoclasse di int: rr=true diventava 1.0 = RR 1/min (priorità MEDIO da un
+            # flag). Un booleano dove serve un numero è un dato sbagliato, non un numero.
+            if isinstance(v, bool) or not isinstance(v, (int, float)):
+                problemi.append(f"non numerico: {k}={v!r} (atteso numero JSON)")
+                continue
+            x = float(v)
+            if x != x or x in (float("inf"), float("-inf")):
+                problemi.append(f"non finito: {k}={v!r}")
                 continue
             if not (lo <= x <= hi):
                 extra = ""

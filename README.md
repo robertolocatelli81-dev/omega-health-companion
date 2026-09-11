@@ -24,7 +24,10 @@ optional for the signature bridge) · **Author:** Roberto Locatelli, 2026
 - Adult patients only: for age < 16 the system **refuses to score** (fail-closed;
   adult scores are not validated in children) instead of producing a wrong number.
 - Implausible vitals (broken sensor, °F/fraction unit confusion) are **rejected with
-  the offending fields named** — never turned into a plausible-looking score.
+  the offending fields named** — never turned into a plausible-looking score. Since 2026-09-11 this
+  is also **type-strict**: a clinical flag must be a JSON boolean (a string `"no"` used to be read as
+  *true* — i.e. as "alert" — and a JSON `true` in a numeric field used to score as the number 1), and
+  age is required (no age → no adult score, the paediatric gate cannot decide). See CHANGELOG.
 - The drug-interaction registry is a **declared non-exhaustive seed**: absence of an
   alert never means "safe".
 
@@ -42,6 +45,7 @@ optional for the signature bridge) · **Author:** Roberto Locatelli, 2026
 | `audit_bridge.py` | **Optional** bridge to a 21 CFR Part 11-grade audit engine (signed audit trail, signatures bound to records with meaning). Degrades honestly to "base" level when the engine is absent — the engine is not part of this repository |
 | `companion_seed.py` | Citizen-facing claim verification seed (informative only) |
 | `mission_case.py` | **Mission case file**: declarative FSM (ALLERTA→VALUTAZIONE→TRASPORTO→CONSEGNATA→CHIUSA, +ANNULLATA), SHA-256 hash-chained append-only ledger under an exclusive file lock, digests-only (no PHI), monotonic-clock guard, tamper → pack refused. Optional private case-engine adds an independent double replay; degrades honestly to "fascicolo-locale" (verified: same 17 tests pass with and without the engine) |
+| `test_input_types.py` | **12 tests** — the hostile-input red-team cases of 2026-09-11 (string flags, boolean vitals, missing/invalid age, malformed drug list), each red before the fix; unit + end-to-end over HTTP |
 | `test_health.py` | **20 tests**: unit benches (positive + null controls, incl. a bench-of-the-bench that must fail) + end-to-end over real HTTP (auth rejected, °F detected, ledger chain verified, CLI against live server) |
 
 ## Quick start
@@ -49,6 +53,9 @@ optional for the signature bridge) · **Author:** Roberto Locatelli, 2026
 ```bash
 python3 test_health.py                  # 20 tests (unit benches + E2E over localhost)
 python3 test_mission_case.py            # 17 tests — mission case file (both engine levels)
+python3 test_input_types.py             # 12 tests — hostile input types (red-team 2026-09-11)
+python3 test_news2_certificate.py       #  4 tests — NEWS2 certificate
+# 53 tests in total; the same four files run in CI on every push (.github/workflows/tests.yml)
 python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \
         --temp 39.4 --eta 67 --arrivo 8 --farmaci warfarin aspirina

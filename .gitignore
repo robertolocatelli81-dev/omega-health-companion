@@ -1,7 +1,8 @@
+dist/
+build/
+*.egg-info/
 __pycache__/
 *.pyc
-# runtime: MAI nel repo (ledger, token, chiavi firmatari, trail audit)
-prealert_ledger.jsonl
-part11_health_ledger.jsonl
 team_token.txt
-.audit_keys/
+*_ledger.jsonl
+p11_keys/

@@ -237,8 +237,13 @@ class H(BaseHTTPRequestHandler):
                     body["vitali"], body.get("farmaci") or [], body.get("eta"),
                     int(body.get("eta_arrivo_min", 0)),
                     fast_segni=body.get("fast_segni"), clinica=body.get("clinica"))
-            except (KeyError, TypeError, ValueError) as e:
+            except ValueError as e:
+                # messaggi NOSTRI (validazione nominata), mai il testo di un'eccezione interna
                 return self._json(400, {"ok": False, "error": f"input invalido: {e}"})
+            except (KeyError, TypeError, AttributeError):
+                return self._json(400, {"ok": False, "error": "input invalido: struttura del payload non conforme"})
+            except Exception:                                    # noqa: BLE001 — l'input arriva dalla rete
+                return self._json(400, {"ok": False, "error": "input invalido"})
             rec = _pubblica(out["PRE_ALERT_INTEGRATO"], body.get("vitali"),
                             operatore=str(body.get("operatore") or "equipaggio-ambulanza")[:60])
             return self._json(200, {"ok": True, "id": rec["id"],

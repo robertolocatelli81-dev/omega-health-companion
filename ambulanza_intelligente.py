@@ -39,19 +39,24 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
     # sono validati sotto i 16 anni — un bambino con FC/FR fisiologiche usciva
     # "critico" e un lattante grave poteva uscire "basso". FAIL-CLOSED, non
     # punteggio sbagliato: serve PEWS/strumento pediatrico, qui dichiarato.
-    if eta is not None and eta < 16:
-        return {"PRE_ALERT_INTEGRATO": {
-                    "priorita": "NON_VALUTABILE_PEDIATRICO",
-                    "eta_paziente": eta, "eta_arrivo_stimato_min": eta_arrivo_min,
-                    "azione_raccomandata": ("PAZIENTE PEDIATRICO: NEWS2/qSOFA/criteri trauma "
-                                            "adulti NON validati — usare PEWS/percorso pediatrico, "
-                                            "comunicazione diretta col medico"),
-                    "percorsi_attivare": ["PERCORSO PEDIATRICO: valutazione clinica diretta"]},
-                "confine": "score adulti non applicabili in pediatria: rifiuto dichiarato, non un numero sbagliato",
-                "privacy": "dati effimeri, trasmessi solo all'ospedale di destinazione"}
+    # Validazione dei PARAMETRI non-vitali (FIX 2026-09-11): età e farmaci arrivano dalla rete.
+    # eta="4" faceva TypeError (messaggio Python esposto al client); eta=-3 finiva nel percorso
+    # pediatrico; eta assente saltava il gate pediatrico (fail-OPEN); farmaci=[{...}] crashava il
+    # handler HTTP (AttributeError su .strip). Ogni caso è un problema NOMINATO, mai un'eccezione.
+    if not isinstance(farmaci, list) or not all(isinstance(f, str) for f in farmaci):
+        raise ValueError("farmaci deve essere una lista di stringhe")
+    if len(farmaci) > 100 or any(len(f) > 120 for f in farmaci):
+        raise ValueError("farmaci: lista troppo lunga o voce troppo lunga")
     # ── VALIDAZIONE VITALI (FIX 2026-09-06, 4-menti): dati impossibili/mancanti
     # → prima crashava (TypeError) o produceva NEWS2=11 plausibile da spazzatura.
     problemi = B.valida_vitali(vitali)
+    # ETÀ (FIX 2026-09-11): mancante → il gate pediatrico saltava (fail-OPEN, score adulto);
+    # "4" stringa → TypeError esposto al client; -3 → percorso pediatrico. Stesso rifiuto
+    # strutturato dei vitali, problema nominato, mai uno score adulto su un'età sconosciuta.
+    if eta is None:
+        problemi.append("eta mancante: senza età il gate pediatrico non può decidere")
+    elif isinstance(eta, bool) or not isinstance(eta, (int, float)) or eta != eta or not (0 <= eta <= 130):
+        problemi.append(f"eta non valida: {eta!r} (atteso numero fra 0 e 130)")
     if problemi:
         return {"PRE_ALERT_INTEGRATO": {
                     "priorita": "NON_VALUTABILE_DATI_INVALIDI",
@@ -62,6 +67,16 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
                                             "col PS — mai uno score da dati non plausibili"),
                     "percorsi_attivare": []},
                 "confine": "fail-closed sui dati: uno score da input impossibili è un falso alert",
+                "privacy": "dati effimeri, trasmessi solo all'ospedale di destinazione"}
+    if eta < 16:
+        return {"PRE_ALERT_INTEGRATO": {
+                    "priorita": "NON_VALUTABILE_PEDIATRICO",
+                    "eta_paziente": eta, "eta_arrivo_stimato_min": eta_arrivo_min,
+                    "azione_raccomandata": ("PAZIENTE PEDIATRICO: NEWS2/qSOFA/criteri trauma "
+                                            "adulti NON validati — usare PEWS/percorso pediatrico, "
+                                            "comunicazione diretta col medico"),
+                    "percorsi_attivare": ["PERCORSO PEDIATRICO: valutazione clinica diretta"]},
+                "confine": "score adulti non applicabili in pediatria: rifiuto dichiarato, non un numero sbagliato",
                 "privacy": "dati effimeri, trasmessi solo all'ospedale di destinazione"}
     pa = B.prealert(eta, vitali, eta_arrivo_min)
     inter = F.controlla(farmaci) if farmaci else {"interazioni_note_trovate": [],
