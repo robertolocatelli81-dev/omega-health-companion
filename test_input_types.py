@@ -76,11 +76,13 @@ class TestAPITipiOstili(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         d = tempfile.mkdtemp(prefix="health_types_")
-        cls._orig = (S.LEDGER, T.TOKEN_FILE, AB.TRAIL_PATH, AB.KEYS_DIR, AB._trail, dict(AB._identita))
+        cls._orig = (S.LEDGER, T.TOKEN_FILE, AB.TRAIL_PATH, AB.KEYS_DIR, AB._trail, dict(AB._identita),
+                     AB.FALLBACK_LEDGER)
         S.LEDGER = os.path.join(d, "ledger.jsonl")
         T.TOKEN_FILE = os.path.join(d, "token.txt")
         AB.TRAIL_PATH = os.path.join(d, "p11_trail.jsonl")
         AB.KEYS_DIR = os.path.join(d, "p11_keys")
+        AB.FALLBACK_LEDGER = os.path.join(d, "audit_locale.jsonl")   # sandbox ANCHE il fallback: mai il repo
         AB._trail = None
         AB._identita.clear()
         T.BOARD.clear()
@@ -92,7 +94,7 @@ class TestAPITipiOstili(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.srv.shutdown()
-        S.LEDGER, T.TOKEN_FILE, AB.TRAIL_PATH, AB.KEYS_DIR, AB._trail, ident = cls._orig
+        S.LEDGER, T.TOKEN_FILE, AB.TRAIL_PATH, AB.KEYS_DIR, AB._trail, ident, AB.FALLBACK_LEDGER = cls._orig
         AB._identita.clear()
         AB._identita.update(ident)
 
@@ -147,6 +149,92 @@ class TestRitenzioneBacheca(unittest.TestCase):
         self.assertIsNone(T.BOARD[0]["prealert"])
         self.assertIn("SCADUTO", T._pagina())
         T.BOARD.clear()
+
+
+class TestRound3(unittest.TestCase):
+    """Residui trovati dal terzo giro (11/09 sera), ognuno ROSSO prima del fix."""
+
+    def test_clinica_stringhe_non_attivano_percorsi(self):
+        for cl in ({"ecg_stemi": "no"}, {"meccanismo_maggiore": "no"}, {"dolore_toracico": "no"},
+                   {"assenza_polso": 1}, {"gcs": "8"}, {"campo_ignoto": True}):
+            out = A.valuta_paziente(VITALI_OK, [], 50, 10, clinica=cl)["PRE_ALERT_INTEGRATO"]
+            self.assertEqual(out["priorita"], "NON_VALUTABILE_DATI_INVALIDI", cl)
+            self.assertEqual(out["percorsi_attivare"], [], cl)
+
+    def test_clinica_booleani_veri_funzionano(self):
+        out = A.valuta_paziente(VITALI_OK, [], 50, 10, clinica={"ecg_stemi": True})["PRE_ALERT_INTEGRATO"]
+        self.assertEqual(out["priorita"], "ALTO")
+
+    def test_fast_segni_stringhe_rifiutati_e_befast_completo(self):
+        out = A.valuta_paziente(VITALI_OK, [], 50, 10, fast_segni={"face": "si"})["PRE_ALERT_INTEGRATO"]
+        self.assertEqual(out["priorita"], "NON_VALUTABILE_DATI_INVALIDI")
+        # balance/eyes (circolo posteriore) devono contare: prima erano accettati e scartati
+        out = A.valuta_paziente(VITALI_OK, [], 50, 10, fast_segni={"balance": True})["PRE_ALERT_INTEGRATO"]
+        self.assertEqual(out.get("BE_FAST"), 1, out.get("BE_FAST"))   # segni positivi: balance conta
+        self.assertTrue(any("ICTUS" in p.upper() for p in out["percorsi_attivare"]), out["percorsi_attivare"])
+
+    def test_eta_arrivo_min_validato(self):
+        for v in (-5, 1e18, "x", True, float("nan")):
+            out = A.valuta_paziente(VITALI_OK, [], 50, v)["PRE_ALERT_INTEGRATO"]
+            self.assertEqual(out["priorita"], "NON_VALUTABILE_DATI_INVALIDI", v)
+
+
+class TestRound3API(TestAPITipiOstili):
+    def test_prealert_precalcolato_non_accettato(self):
+        req = urllib.request.Request(self.base + "/prealert", data=json.dumps(
+            {"eta_paziente": 3, "nome_paziente": "MARIO ROSSI", "priorita": "ALTO",
+             "percorsi_attivare": "abc"}).encode(),
+            headers={"Content-Type": "application/json", "X-Omega-Token": self.token})
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req, timeout=10)
+        self.assertEqual(cm.exception.code, 400)
+        # e con vitali+eta viene RICALCOLATO: eta 3 → gate pediatrico, non il pre-alert del client
+        req = urllib.request.Request(self.base + "/prealert", data=json.dumps(
+            {"vitali": VITALI_OK, "eta": 3, "eta_arrivo_min": 5, "priorita": "ALTO",
+             "nome_paziente": "MARIO ROSSI"}).encode(),
+            headers={"Content-Type": "application/json", "X-Omega-Token": self.token})
+        out = json.loads(urllib.request.urlopen(req, timeout=10).read())
+        self.assertEqual(out["prealert"]["priorita"], "NON_VALUTABILE_PEDIATRICO")
+        ultimo = [r for r in T.BOARD if r["id"] == out["id"]][0]
+        self.assertNotIn("nome_paziente", json.dumps(ultimo))   # il campo fabbricato dal client NON entra
+        self.assertNotIn("MARIO", json.dumps(ultimo))
+
+    def test_nota_conferma_non_in_chiaro_su_disco(self):
+        code, out = self._post(self._base())
+        rid = out["id"]
+        nota = "paziente MARIO ROSSI CF RSSMRA80A01H501U"
+        import urllib.parse
+        req = urllib.request.Request(self.base + "/conferma", data=urllib.parse.urlencode(
+            {"id": rid, "nota": nota, "operatore": "ps"}).encode(),
+            headers={"Content-Type": "application/x-www-form-urlencoded", "X-Omega-Token": self.token})
+        urllib.request.urlopen(req, timeout=10)
+        su_disco = ""
+        for p in (AB.FALLBACK_LEDGER, AB.TRAIL_PATH):
+            if os.path.exists(p):
+                su_disco += open(p, encoding="utf-8").read()
+        self.assertNotIn("RSSMRA80A01H501U", su_disco)
+        self.assertNotIn("MARIO", su_disco)
+
+    def test_ttl_applicato_alla_lettura(self):
+        code, out = self._post(self._base())
+        rid = out["id"]
+        from datetime import datetime, timezone, timedelta
+        with T._LOCK:
+            for r in T.BOARD:
+                if r["id"] == rid:
+                    r["ts"] = (datetime.now(timezone.utc) - timedelta(hours=T.BOARD_TTL_H + 1)).isoformat()
+        req = urllib.request.Request(self.base + f"/fhir/{rid}", headers={"X-Omega-Token": self.token})
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req, timeout=10)
+        self.assertEqual(cm.exception.code, 410)
+
+    def test_json_invalido_senza_nomi_di_classe(self):
+        req = urllib.request.Request(self.base + "/valuta", data=b"\xff\xfe",
+                                     headers={"Content-Type": "application/json", "X-Omega-Token": self.token})
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(req, timeout=10)
+        body = cm.exception.read().decode()
+        self.assertNotIn("Error", body)
 
 
 if __name__ == "__main__":

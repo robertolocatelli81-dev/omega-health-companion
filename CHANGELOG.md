@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-09-11 (third pass) — what the second independent verification still found
+
+An independent verifier re-ran everything on the *public* configuration (anonymous clone, no private
+engine, with and without `cryptography`) after the two passes below. It found — and this release fixes:
+
+- **The string-truthiness class was closed on vitals only.** `clinica: {"ecg_stemi": "no"}` still
+  produced HIGH priority with "STEMI confirmed, bypass ED"; `{"meccanismo_maggiore": "no"}` activated
+  the trauma team; `{"dolore_toracico": "no"}` the cardiac path. Now every `clinica` flag and every
+  `fast_segni` sign must be a JSON boolean, `gcs` an integer 3–15, unknown keys are refused, and
+  `eta_arrivo_min` must be a number in 0–600 — each a named structured refusal.
+- **`POST /prealert` accepted a client-computed pre-alert** (two keys checked): a fabricated record with
+  age 3 and a patient name landed on the board and in `/api/board`, bypassing the paediatric gate. The
+  server is the only source of truth: the endpoint now recomputes from `vitali`/`eta`/`farmaci` exactly
+  like `/valuta` and ignores every computed or unknown field.
+- **The free-text confirmation note was persisted in clear** (`audit_locale_ledger.jsonl`, Part 11
+  trail) — a name and a fiscal code typed by the ED were found on disk while PRIVACY promised no
+  health data at rest. Only the note's SHA-256 and length are recorded now; the text lives on the
+  in-memory board only.
+- **Board retention ran only on publication**: an expired record was still served by `/fhir` until
+  the next POST. Expiry now runs on every read (`/`, `/api/board`, `/fhir`, `/atmist`).
+- **`test_health.py` failed 2/20 in the public configuration with `cryptography`** because the
+  `firma-locale` audit level was not modelled; CI passed only because it never installed
+  `cryptography`. Tests model all three levels; CI runs a matrix with and without `cryptography`,
+  never with the private engine.
+- BE-FAST: `balance`/`eyes` were accepted by the API and CLI and silently dropped before scoring
+  (the posterior circulation the README promised). They now reach the score.
+- Malformed-JSON responses no longer name Python exception classes.
+- 25 regression tests in `test_input_types.py`, 7 of them red on the previous code. 66 tests total.
+- Released as **v0.2.1** with a wheel: until now the only installable artifact (0.1.2) still carried
+  the clinical inversion fixed in the morning.
+
 ## 2026-09-11 (second pass) — claim-by-claim verification against the public repository
 
 - **FHIR R4 vital-signs profiles.** The Bundle had 0 errors on HAPI `$validate` but **6 structural

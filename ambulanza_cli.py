@@ -57,7 +57,8 @@ def main(argv=None) -> int:
     fast = None
     if a.fast:
         segni = {s.strip() for s in a.fast.split(",") if s.strip()}
-        fast = {"face": "face" in segni, "arm": "arm" in segni, "speech": "speech" in segni}
+        fast = {"face": "face" in segni, "arm": "arm" in segni, "speech": "speech" in segni,
+                "balance": "balance" in segni, "eyes": "eyes" in segni}
     clinica = {}
     for tokp in filter(None, (t.strip() for t in a.clinica.split(","))):
         if "=" in tokp:

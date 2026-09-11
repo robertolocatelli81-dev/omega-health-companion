@@ -111,6 +111,7 @@ _COL = {"ALTO": "#c0392b", "MEDIO": "#e67e22", "BASSO": "#27ae60",
 
 def _pagina() -> str:
     with _LOCK:
+        _scadenza_bacheca()            # round 3: la scadenza vale a ogni LETTURA, non solo alla pubblicazione
         board = list(BOARD)
     righe = []
     for r in reversed(board):
@@ -159,6 +160,7 @@ NON un dispositivo medico; gli score sono standard validati, la decisione è del
 
 def _find(rid: int):
     with _LOCK:
+        _scadenza_bacheca()            # round 3: /fhir e /atmist serviranno 410 anche senza nuove POST
         for r in BOARD:
             if r["id"] == rid:
                 return r
@@ -197,6 +199,7 @@ class H(BaseHTTPRequestHandler):
             return self._json(401, {"ok": False, "error": "X-Omega-Token mancante o errato"})
         if self.path == "/api/board":
             with _LOCK:
+                _scadenza_bacheca()
                 return self._json(200, BOARD)
         if self.path == "/audit":
             return self._json(200, AB.verifica_trail())
@@ -262,14 +265,20 @@ class H(BaseHTTPRequestHandler):
         except (json.JSONDecodeError, RecursionError, UnicodeDecodeError, ValueError) as e:
             # RecursionError incluso (attacco 06/09: array annidato 5000 livelli
             # uccideva il thread handler invece di rispondere 400)
-            return self._json(400, {"ok": False, "error": f"JSON invalido: {type(e).__name__}"})
+            categoria = "troppo annidato" if isinstance(e, RecursionError) else "non decodificabile"
+            return self._json(400, {"ok": False, "error": f"JSON invalido: {categoria}"})
         if not isinstance(body, dict):
             return self._json(400, {"ok": False, "error": "il body deve essere un oggetto JSON"})
         if self.path == "/valuta":
+            return self.do_POST_valuta(body)
+        return self.do_POST_altri(body)
+
+    def do_POST_valuta(self, body):
+        if True:   # (indentazione conservata dal blocco originale)
             try:
                 out = A.valuta_paziente(
                     body["vitali"], body.get("farmaci") or [], body.get("eta"),
-                    int(body.get("eta_arrivo_min", 0)),
+                    body.get("eta_arrivo_min", 0),           # validato dentro valuta_paziente (0-600)
                     fast_segni=body.get("fast_segni"), clinica=body.get("clinica"))
             except ValueError as e:
                 # messaggi NOSTRI (validazione nominata), mai il testo di un'eccezione interna
@@ -283,6 +292,8 @@ class H(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "id": rec["id"],
                                     "prealert": out["PRE_ALERT_INTEGRATO"],
                                     "provenienza": rec["provenienza"]})
+
+    def do_POST_altri(self, body):
         if self.path == "/rimuovi-nota":
             # DICHIARATO alla DPGA (9B/9C): «the organisation can remove any note».
             # Disciplina Part 11: la rimozione è REGISTRATA con motivo e operatore
@@ -319,12 +330,17 @@ class H(BaseHTTPRequestHandler):
             audit = AB.registra_conferma("sistema", "rotazione token di accesso",
                                          str(body.get("operatore") or "admin")[:60])
             return self._json(200, {"ok": True, "nuovo_token": nuovo, "audit": audit})
-        if self.path == "/prealert":       # pre-calcolato (retro-compat, validato)
-            if not isinstance(body, dict) or "priorita" not in body or "percorsi_attivare" not in body:
-                return self._json(400, {"ok": False,
-                                        "error": "pre-alert malformato: servono priorita e percorsi_attivare"})
-            rec = _pubblica(body, None)
-            return self._json(200, {"ok": True, "id": rec["id"], "provenienza": rec["provenienza"]})
+        if self.path == "/prealert":
+            # FIX 2026-09-11 (round 3): accettava un pre-alert PRE-CALCOLATO dal client con due soli campi
+            # controllati → bypass del gate pediatrico e della validazione, PII arbitraria in bacheca
+            # (misurato: eta_paziente 3 + nome → 200). Il server è l'UNICA fonte di verità: questo
+            # endpoint resta per retro-compatibilità ma RICALCOLA da vitali/eta/farmaci come /valuta e
+            # ignora ogni campo calcolato o non previsto inviato dal client.
+            if not isinstance(body, dict) or "vitali" not in body or "eta" not in body:
+                return self._json(400, {"ok": False, "error": ("pre-alert non accettato: il pre-alert si calcola "
+                                        "sul server — inviare vitali, eta, eta_arrivo_min (come /valuta)")})
+            self.path = "/valuta"
+            return self.do_POST_valuta(body)
         return self._json(404, {"ok": False, "error": "not found"})
 
     def log_message(self, *a):  # silenzioso

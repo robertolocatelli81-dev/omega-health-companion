@@ -268,7 +268,10 @@ class TestE2E(unittest.TestCase):
         if AB.MOTORE_DISPONIBILE:      # col motore: firma part11 verificata
             self.assertEqual(conf["audit"]["livello"], "part11")
             self.assertTrue(conf["audit"]["firma_verificata"])
-        else:                          # senza motore: degrado dichiarato, mai finto verde
+        elif AB.FIRMA_LOCALE_DISPONIBILE:   # senza motore ma con cryptography: firma locale VERIFICATA
+            self.assertEqual(conf["audit"]["livello"], "firma-locale")
+            self.assertTrue(conf["audit"]["firma_verificata"])
+        else:                          # né motore né cryptography: degrado dichiarato, mai finto verde
             self.assertEqual(conf["audit"]["livello"], "base")
 
     def test_12_audit_trail_endpoint(self):
@@ -323,6 +326,9 @@ class TestE2E(unittest.TestCase):
             self.assertEqual(rec["audit"]["livello"], "part11")
             self.assertEqual(rec["audit"]["significato"], "authorship")
             self.assertEqual(rec["audit"]["firmatario"], "equipaggio-118-alfa")
+            self.assertTrue(rec["audit"]["firma_verificata"])
+        elif AB.FIRMA_LOCALE_DISPONIBILE:   # terzo livello (round 3, 11/09): prima non era modellato e
+            self.assertEqual(rec["audit"]["livello"], "firma-locale")   # il test falliva nel clone pubblico
             self.assertTrue(rec["audit"]["firma_verificata"])
         else:
             self.assertEqual(rec["audit"]["livello"], "base")

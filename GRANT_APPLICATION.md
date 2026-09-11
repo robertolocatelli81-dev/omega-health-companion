@@ -32,7 +32,7 @@ fail-closed e validazione vitali (unità °F/frazione rilevate), app team REALE
 (server token-auth, calcolo lato server, bacheca PS, conferme) + CLI ambulanza,
 **export FHIR R4 conforme ai profili vital-signs (0 errori strutturali su HAPI e sul validatore HL7)** + handover ATMIST + allegato ECG con
 SHA-256, provenienza hash-chained **digest-only** (nessun dato sanitario nel
-ledger). Suite: 54 test (unit + E2E su HTTP reale, banchi positivo/null, tipi ostili) eseguiti in CI a ogni push. Codice open,
+ledger). Suite: 66 test (unit + E2E su HTTP reale, banchi positivo/null, tipi ostili) eseguiti in CI a ogni push. Codice open,
 riproducibile, ogni modulo con test che sa fallire (controllo positivo + null).
 
 ## Cosa NON è (confine, honest-scope)

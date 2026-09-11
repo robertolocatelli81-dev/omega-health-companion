@@ -43,13 +43,45 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
     # eta="4" faceva TypeError (messaggio Python esposto al client); eta=-3 finiva nel percorso
     # pediatrico; eta assente saltava il gate pediatrico (fail-OPEN); farmaci=[{...}] crashava il
     # handler HTTP (AttributeError su .strip). Ogni caso è un problema NOMINATO, mai un'eccezione.
+    # FIX 2026-09-11 (round 3): la classe "stringa letta come vero" era stata chiusa solo sui VITALI.
+    # `clinica: {"ecg_stemi": "no"}` dava ALTO «STEMI CONFERMATO, bypass PS»; `{"meccanismo_maggiore":
+    # "no"}` attivava il TRAUMA TEAM. Ogni flag clinico e ogni segno FAST deve essere un booleano JSON;
+    # `gcs` un intero 3-15; `eta_arrivo_min` un numero 0-600. Tutto il resto è un rifiuto NOMINATO.
+    problemi_extra = []
+    FLAG_CLINICA = ("meccanismo_maggiore", "contesto_trauma", "lesione_penetrante", "assenza_respiro",
+                    "assenza_polso", "dolore_toracico", "ecg_stemi")
+    if clinica is not None:
+        if not isinstance(clinica, dict):
+            problemi_extra.append(f"clinica non è un oggetto (ricevuto {type(clinica).__name__})")
+        else:
+            for k in FLAG_CLINICA:
+                if k in clinica and not isinstance(clinica[k], bool):
+                    problemi_extra.append(f"non booleano: clinica.{k}={clinica[k]!r} (atteso true/false JSON)")
+            if "gcs" in clinica and (isinstance(clinica["gcs"], bool) or not isinstance(clinica["gcs"], int)
+                                     or not (3 <= clinica["gcs"] <= 15)):
+                problemi_extra.append(f"clinica.gcs non valido: {clinica.get('gcs')!r} (atteso intero 3-15)")
+            for k in clinica:
+                if k not in FLAG_CLINICA and k != "gcs":
+                    problemi_extra.append(f"clinica.{k}: campo non riconosciuto (ignorato sarebbe un rischio: rifiutato)")
+    if fast_segni is not None:
+        if not isinstance(fast_segni, dict):
+            problemi_extra.append(f"fast_segni non è un oggetto (ricevuto {type(fast_segni).__name__})")
+        else:
+            for k, v in fast_segni.items():
+                if k not in ("face", "arm", "speech", "balance", "eyes"):
+                    problemi_extra.append(f"fast_segni.{k}: segno non riconosciuto")
+                elif not isinstance(v, bool):
+                    problemi_extra.append(f"non booleano: fast_segni.{k}={v!r} (atteso true/false JSON)")
+    if isinstance(eta_arrivo_min, bool) or not isinstance(eta_arrivo_min, (int, float)) \
+            or eta_arrivo_min != eta_arrivo_min or not (0 <= eta_arrivo_min <= 600):
+        problemi_extra.append(f"eta_arrivo_min non valido: {eta_arrivo_min!r} (atteso numero 0-600 minuti)")
     if not isinstance(farmaci, list) or not all(isinstance(f, str) for f in farmaci):
         raise ValueError("farmaci deve essere una lista di stringhe")
     if len(farmaci) > 100 or any(len(f) > 120 for f in farmaci):
         raise ValueError("farmaci: lista troppo lunga o voce troppo lunga")
     # ── VALIDAZIONE VITALI (FIX 2026-09-06, 4-menti): dati impossibili/mancanti
     # → prima crashava (TypeError) o produceva NEWS2=11 plausibile da spazzatura.
-    problemi = B.valida_vitali(vitali)
+    problemi = B.valida_vitali(vitali) + problemi_extra
     # ETÀ (FIX 2026-09-11): mancante → il gate pediatrico saltava (fail-OPEN, score adulto);
     # "4" stringa → TypeError esposto al client; -3 → percorso pediatrico. Stesso rifiuto
     # strutturato dei vitali, problema nominato, mai uno score adulto su un'età sconosciuta.
@@ -83,8 +115,11 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
                                                   "nessun_allarme": True}
     # tutti i percorsi tempo-dipendenti validati (attivano squadre dedicate)
     qs = S.qsofa(vitali["rr"], not vitali["alert_coscienza"], vitali["sbp"])
+    # BE-FAST completo (round 3, 11/09): balance/eyes erano accettati e SCARTATI qui — il README
+    # prometteva il circolo posteriore e l'API integrata non lo passava allo score.
     fs = S.fast(fast_segni.get("face", False), fast_segni.get("arm", False),
-                fast_segni.get("speech", False)) if fast_segni else None
+                fast_segni.get("speech", False), fast_segni.get("balance", False),
+                fast_segni.get("eyes", False)) if fast_segni else None
     tr = S.trauma(cl.get("gcs", 15), vitali["sbp"], vitali["rr"],
                   cl.get("meccanismo_maggiore", False), cl.get("contesto_trauma", False),
                   cl.get("lesione_penetrante", False))

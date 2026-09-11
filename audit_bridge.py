@@ -170,18 +170,28 @@ def registra_prealert(prealert_id: str, prealert_sha256: str, operatore: str) ->
             "firmatario": operatore, "significato": "authorship"}
 
 
+def _impronta_nota(nota: str) -> Dict:
+    """FIX 2026-09-11 (round 3): la nota libera del PS finiva IN CHIARO su disco (audit_locale_ledger
+    e trail Part 11) — misurato: «paziente MARIO ROSSI CF RSSMRA…» ritrovato nel file, mentre PRIVACY
+    prometteva «no health data at rest». Su disco va SOLO l'impronta: chi ha la nota (in bacheca,
+    effimera) può provare che è quella; chi ha il disco non legge nulla."""
+    import hashlib
+    n = (nota or "")[:100]
+    return {"nota_sha256": hashlib.sha256(n.encode("utf-8")).hexdigest(), "nota_len": len(n)}
+
+
 def registra_conferma(prealert_id: str, nota: str, operatore: str) -> Dict:
     """Conferma del team PS → record CREATE (conferma) + firma RESPONSIBILITY:
-    chi ha preso in carico il percorso, quando, con che nota — firmato."""
+    chi ha preso in carico il percorso, quando — firmato. La nota è legata per DIGEST, mai in chiaro."""
+    impronta = _impronta_nota(nota)
     if not MOTORE_DISPONIBILE:
         if FIRMA_LOCALE_DISPONIBILE:
-            return _fb_registra(f"{prealert_id}/conferma", "presa_in_carico",
-                                {"nota": nota[:100]}, operatore)
+            return _fb_registra(f"{prealert_id}/conferma", "presa_in_carico", impronta, operatore)
         return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
     t = _get_trail()
     rec = t.log_change(operatore, AuditAction.CREATE, f"{prealert_id}/conferma",
-                       reason=f"presa in carico: {nota[:100]}",
-                       new_value={"nota": nota[:100]})
+                       reason=f"presa in carico (nota legata per digest {impronta['nota_sha256'][:16]}…)",
+                       new_value=impronta)
     ident = _identity(operatore)
     es = t.sign_record(rec, ident, printed_name=operatore,
                        meaning=SignatureMeaning.RESPONSIBILITY)
