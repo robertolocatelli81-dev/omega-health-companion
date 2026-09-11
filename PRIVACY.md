@@ -1,6 +1,6 @@
 # Privacy Policy — OMEGA Health Companion
 
-_Last updated: 2026-09-06_
+_Last updated: 2026-09-11_
 
 ## What this software is
 
@@ -27,6 +27,17 @@ meet its own obligations.
   permissions, and never leave the machine.
 - **No third-party services**: no analytics, no cloud, no external calls in the care
   flow. The board web app binds to localhost by default.
+
+## What is at rest, precisely (2026-09-11)
+
+- `prealert_ledger.jsonl`: digests only (`prealert_sha256`, chain hashes, timestamps). No vital sign,
+  no age, no free text.
+- Audit trail (`audit_locale_ledger.jsonl`, or the Part 11 trail when the optional engine is present):
+  operator, action, timestamps, record digests, and — for confirmation notes — the note's SHA-256 and
+  length only. Until 2026-09-11 the note text itself was written to disk; it no longer is.
+- The ED board is in memory only; a record's clinical payload is dropped after `OMEGA_BOARD_TTL_H`
+  hours (default 24), on every read.
+- Operator signing keys (`.audit_keys/`, mode 0600) are local secrets, not health data.
 
 ## Legal bases and applicable law (for EU deployments)
 
