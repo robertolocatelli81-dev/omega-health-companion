@@ -173,6 +173,18 @@ class TestRound3(unittest.TestCase):
         self.assertEqual(out.get("BE_FAST"), 1, out.get("BE_FAST"))   # segni positivi: balance conta
         self.assertTrue(any("ICTUS" in p.upper() for p in out["percorsi_attivare"]), out["percorsi_attivare"])
 
+    def test_bpco_scala2_e_chiavi_ignote(self):
+        base = dict(VITALI_OK, su_ossigeno=True)
+        n_ok = A.valuta_paziente(base, [], 50, 10)["PRE_ALERT_INTEGRATO"]["NEWS2"]
+        for v in ("no", "false", 0, 1):
+            out = A.valuta_paziente(dict(base, bpco_scala2=v), [], 50, 10)["PRE_ALERT_INTEGRATO"]
+            self.assertEqual(out["priorita"], "NON_VALUTABILE_DATI_INVALIDI", v)
+        out = A.valuta_paziente(dict(base, bpco_scala2=True), [], 50, 10)["PRE_ALERT_INTEGRATO"]
+        self.assertNotEqual(out.get("NEWS2"), n_ok)        # il flag VERO cambia davvero la scala
+        out = A.valuta_paziente(dict(VITALI_OK, campo_ignoto=1), [], 50, 10)["PRE_ALERT_INTEGRATO"]
+        self.assertEqual(out["priorita"], "NON_VALUTABILE_DATI_INVALIDI")
+        self.assertTrue(any("campo_ignoto" in p for p in out["problemi_dati"]))
+
     def test_eta_arrivo_min_validato(self):
         for v in (-5, 1e18, "x", True, float("nan")):
             out = A.valuta_paziente(VITALI_OK, [], 50, v)["PRE_ALERT_INTEGRATO"]

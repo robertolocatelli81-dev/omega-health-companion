@@ -85,10 +85,17 @@ def valida_vitali(vitali: Dict) -> list:
     # essere booleani JSON veri. Prima una STRINGA passava per il suo valore di verità Python:
     # alert_coscienza="no" → True → paziente "cosciente" (INVERSIONE clinica);
     # su_ossigeno="false" → True → punteggio SpO2 da paziente in ossigeno. Misurato via API.
-    for k in ("su_ossigeno", "alert_coscienza"):
+    # `bpco_scala2` (SpO2 scala 2 per insufficienza ipercapnica) è un flag OPZIONALE che passa a news2():
+    # non era validato (round 3 bis, 11/09): "no" → True → scala 2 → NEWS2 da 2 a 5. Stessa classe.
+    for k in ("su_ossigeno", "alert_coscienza", "bpco_scala2"):
         v = vitali.get(k)
         if k in vitali and not isinstance(v, bool):
             problemi.append(f"non booleano: {k}={v!r} (atteso true/false JSON, non stringa né numero)")
+    # Chiavi IGNOTE in vitali: rifiutate per nome. Una chiave non prevista che arriva a news2(**vitali)
+    # è un TypeError (400 generico) o, peggio, un parametro che cambia lo score senza essere validato.
+    for k in vitali:
+        if k not in attesi and k != "bpco_scala2":
+            problemi.append(f"vitali.{k}: campo non riconosciuto")
     for k, (lo, hi) in _RANGE_PLAUSIBILE.items():
         v = vitali.get(k)
         if v is None and f"campo mancante: {k}" not in problemi:

@@ -35,6 +35,9 @@ meet its own obligations.
 - Audit trail (`audit_locale_ledger.jsonl`, or the Part 11 trail when the optional engine is present):
   operator, action, timestamps, record digests, and — for confirmation notes — the note's SHA-256 and
   length only. Until 2026-09-11 the note text itself was written to disk; it no longer is.
+  **Exception, by design:** the *administrative reason* an operator types when removing a note
+  (`/rimuovi-nota`) is stored in clear — it is the justification 21 CFR Part 11 requires for a
+  deletion, and it must not contain patient data (the removed note itself is bound by digest).
 - The ED board is in memory only; a record's clinical payload is dropped after `OMEGA_BOARD_TTL_H`
   hours (default 24), on every read.
 - Operator signing keys (`.audit_keys/`, mode 0600) are local secrets, not health data.

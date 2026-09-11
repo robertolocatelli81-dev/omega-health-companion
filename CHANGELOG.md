@@ -34,7 +34,11 @@ engine, with and without `cryptography`) after the two passes below. It found �
   through `registra_evento_sistema`: action `rimozione_nota` / `rotazione_token`, the operator's
   reason in clear (it is the justification Part 11 requires, not health data), the removed clinical
   note bound by digest, the previous value recorded as §11.10(e) demands, AUTHORSHIP signature.
-- 30 regression tests in `test_input_types.py`, 7 of them red on the previous code. 71 tests total,
+- `vitali.bpco_scala2` (optional SpO2 scale-2 flag) reached `news2()` unvalidated: `"no"` scored as
+  *true* and moved NEWS2 from 2 to 5 (LOW → MEDIUM). Found by the pre-push verification of this very
+  release. Now a JSON boolean like every other flag, and unknown keys in `vitali` are refused by name.
+- 31 regression tests in `test_input_types.py` (22 distinct methods), 14 red on the code they were
+  written against. 72 tests total,
   green in all three configurations (bare, `cryptography`, private engine).
 - Released as **v0.2.1** with a wheel: until now the only installable artifact (0.1.2) still carried
   the clinical inversion fixed in the morning.
