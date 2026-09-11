@@ -1,8 +1,8 @@
-# OMEGA Health Companion — bozza application per grant salute
+# OMEGA Health Companion — application template for a health grant call
 
 **Stato onesto:** prototipo funzionante (non certificato, non validato clinicamente).
 Il grant finanzia lo **studio pilota** che misura il beneficio e il percorso di
-validazione — non un prodotto finito. Bozza riutilizzabile per la call giusta.
+validazione — non un prodotto finito. Testo riutilizzabile per la call giusta (nessuna call è stata ancora scelta: dichiarato).
 
 ## ⚠️ Scadenze/call: da verificare su FONTI UFFICIALI (non aggregatori)
 Gli aggregatori sono inaffidabili per le date (lezione OMEGA). Verificare la

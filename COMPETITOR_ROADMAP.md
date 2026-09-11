@@ -1,4 +1,4 @@
-# Comparazione competitor & roadmap — copia / aggiungi / migliora (2026-08-08)
+# Competitor comparison & roadmap — what to match, what to add, where to improve (2026-08-08)
 
 Ricerca vera sui competitor prehospital. Onesto: loro sono avanti (evidenza,
 adozione, integrazione); noi abbiamo un angolo distintivo (provenienza). Questo
@@ -23,7 +23,7 @@ adozione, integrazione); noi abbiamo un angolo distintivo (provenienza). Questo
 4. **ECG → STEMI automatico** (visto in ESO/Prehos) — noi oggi usiamo il flag ECG
    manuale; aggiungere la lettura automatica del tracciato.
 
-## AGGIUNGERE / MIGLIORARE (dove SUPERARLI — il nostro angolo)
+## Da aggiungere / migliorare (il nostro angolo)
 1. **Provenienza hash-chained del pre-alert** — nessuno dei competitor esaminati qui lo documenta. Evidenza
    medico-legale incorruttibile (dispute, audit, qualità, responsabilità). È il
    differenziatore OMEGA nato dal core regtech. → renderlo il messaggio #1.
