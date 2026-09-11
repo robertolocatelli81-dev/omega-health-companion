@@ -311,9 +311,8 @@ class H(BaseHTTPRequestHandler):
                 return self._json(404, {"ok": False, "error": "nota inesistente"})
             with _LOCK:
                 rimossa = r["conferme"].pop(idx)
-            audit = AB.registra_conferma(f"prealert-{rid}",
-                                         f"RIMOZIONE nota [{rimossa.get('nota','')[:60]}] — motivo: {motivo}",
-                                         operatore)
+            audit = AB.registra_evento_sistema(f"prealert-{rid}/conferme/{idx}", "rimozione_nota",
+                                               motivo, operatore, nota_rimossa=rimossa.get("nota", ""))
             return self._json(200, {"ok": True, "rimossa": rimossa.get("nota"),
                                     "audit": audit})
         if self.path == "/ruota-token":
@@ -327,8 +326,8 @@ class H(BaseHTTPRequestHandler):
             fd = os.open(TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w") as f:
                 f.write(nuovo)
-            audit = AB.registra_conferma("sistema", "rotazione token di accesso",
-                                         str(body.get("operatore") or "admin")[:60])
+            audit = AB.registra_evento_sistema("sistema/token", "rotazione_token", "rotazione token di accesso",
+                                               str(body.get("operatore") or "admin")[:60])
             return self._json(200, {"ok": True, "nuovo_token": nuovo, "audit": audit})
         if self.path == "/prealert":
             # FIX 2026-09-11 (round 3): accettava un pre-alert PRE-CALCOLATO dal client con due soli campi

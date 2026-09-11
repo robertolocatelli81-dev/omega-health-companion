@@ -27,7 +27,15 @@ engine, with and without `cryptography`) after the two passes below. It found �
 - BE-FAST: `balance`/`eyes` were accepted by the API and CLI and silently dropped before scoring
   (the posterior circulation the README promised). They now reach the score.
 - Malformed-JSON responses no longer name Python exception classes.
-- 25 regression tests in `test_input_types.py`, 7 of them red on the previous code. 66 tests total.
+- **Administrative audit events separated from clinical confirmations** (found by the pre-push
+  review of this very fix): `/rimuovi-nota` and `/ruota-token` reused `registra_conferma`, so they
+  were recorded as "presa in carico" with a RESPONSIBILITY signature — a false meaning — and, after
+  the digest change above, their administrative reason would have been hashed away. They now go
+  through `registra_evento_sistema`: action `rimozione_nota` / `rotazione_token`, the operator's
+  reason in clear (it is the justification Part 11 requires, not health data), the removed clinical
+  note bound by digest, the previous value recorded as §11.10(e) demands, AUTHORSHIP signature.
+- 30 regression tests in `test_input_types.py`, 7 of them red on the previous code. 71 tests total,
+  green in all three configurations (bare, `cryptography`, private engine).
 - Released as **v0.2.1** with a wheel: until now the only installable artifact (0.1.2) still carried
   the clinical inversion fixed in the morning.
 

@@ -200,6 +200,36 @@ def registra_conferma(prealert_id: str, nota: str, operatore: str) -> Dict:
             "firmatario": operatore, "significato": "responsibility"}
 
 
+def registra_evento_sistema(target_id: str, azione: str, motivo: str, operatore: str,
+                            nota_rimossa: Optional[str] = None) -> Dict:
+    """Evento AMMINISTRATIVO (rimozione di una nota dalla bacheca, rotazione del token): il MOTIVO
+    resta in chiaro (è la giustificazione dell'operatore, richiesta dalla disciplina Part 11 — «mai
+    silenziosa»), mentre l'eventuale NOTA CLINICA rimossa è legata per digest, mai in chiaro.
+    Separato da registra_conferma (round 3, 11/09): riusarla per questi eventi li marcava «presa in
+    carico» con firma RESPONSIBILITY — significato falso — e, dopo il fix privacy, hashava anche il motivo."""
+    dettaglio: Dict = {"azione": azione, "motivo": (motivo or "")[:120]}
+    if nota_rimossa is not None:
+        dettaglio["nota_rimossa"] = _impronta_nota(nota_rimossa)
+    if not MOTORE_DISPONIBILE:
+        if FIRMA_LOCALE_DISPONIBILE:
+            return _fb_registra(target_id, azione, dettaglio, operatore)
+        return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
+    t = _get_trail()
+    act = AuditAction.DELETE if azione.startswith("rimozione") else AuditAction.MODIFY
+    # §11.10(e): su modifica/cancellazione il valore precedente NON si oscura. Qui il "precedente" è
+    # legato per digest quando è una nota clinica (mai in chiaro su disco) o descritto quando è un segreto
+    # (il token non viene MAI registrato, né vecchio né nuovo).
+    precedente = ({"nota": dettaglio["nota_rimossa"]} if "nota_rimossa" in dettaglio
+                  else {"token": "revocato — i token non vengono registrati nel trail"})
+    rec = t.log_change(operatore, act, target_id, reason=f"{azione}: {dettaglio['motivo']}",
+                       old_value=precedente, new_value=dettaglio)
+    ident = _identity(operatore)
+    es = t.sign_record(rec, ident, printed_name=operatore, meaning=SignatureMeaning.AUTHORSHIP)
+    return {"livello": "part11", "record_sha3": rec.canonical_hash(),
+            "firma_verificata": t.verify_signature_for_record(es, rec),
+            "firmatario": operatore, "significato": "authorship", "azione": azione}
+
+
 def verifica_trail() -> Dict:
     """Riverifica l'intero audit trail (catena + content-binding dei record e
     delle firme) col verificatore del motore. Onesto se il motore manca."""

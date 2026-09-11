@@ -237,5 +237,29 @@ class TestRound3API(TestAPITipiOstili):
         self.assertNotIn("Error", body)
 
 
+class TestEventiSistema(TestAPITipiOstili):
+    def test_rimozione_nota_motivo_in_chiaro_nota_per_digest(self):
+        import urllib.parse
+        code, out = self._post(self._base())
+        rid = out["id"]
+        req = urllib.request.Request(self.base + "/conferma", data=urllib.parse.urlencode(
+            {"id": rid, "nota": "paziente MARIO ROSSI", "operatore": "ps"}).encode(),
+            headers={"Content-Type": "application/x-www-form-urlencoded", "X-Omega-Token": self.token})
+        urllib.request.urlopen(req, timeout=10)
+        req = urllib.request.Request(self.base + "/rimuovi-nota", data=json.dumps(
+            {"id": rid, "indice_nota": 0, "motivo": "errore di persona", "operatore": "caposala"}).encode(),
+            headers={"Content-Type": "application/json", "X-Omega-Token": self.token})
+        out = json.loads(urllib.request.urlopen(req, timeout=10).read())
+        self.assertTrue(out["ok"])
+        su_disco = ""
+        for p in (AB.FALLBACK_LEDGER, AB.TRAIL_PATH):
+            if os.path.exists(p):
+                su_disco += open(p, encoding="utf-8").read()
+        if AB.MOTORE_DISPONIBILE or AB.FIRMA_LOCALE_DISPONIBILE:
+            self.assertIn("errore di persona", su_disco)      # il MOTIVO amministrativo resta leggibile
+            self.assertIn("rimozione_nota", su_disco)         # e l'azione è quella vera, non «presa in carico»
+        self.assertNotIn("MARIO", su_disco)                   # la nota clinica rimossa: solo digest
+
+
 if __name__ == "__main__":
     unittest.main()
