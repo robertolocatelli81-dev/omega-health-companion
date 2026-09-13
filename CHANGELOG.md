@@ -51,12 +51,13 @@ Twiage, corpuls.mission, NIDA, WebEMS): none of them makes the pre-alert itself 
   (now the verbale lists the engine's records and, if the engine refuses a corrupted trail, says so
   instead of raising). Declared limit written into the verbale: the key registry lives on the same host
   as the ledger — a third party must receive it out of band or rely on the timestamped verbale.
-- **Tests**: 46 new (boundaries of every threshold, every paediatric band, hostile types, sepsis needs
+- **Third round (Fable + Gemini; Opus out of quota):** a row *without* `prev_sha256` after the start of the chain could impersonate a deleted row by carrying its digest — now legacy rows are accepted only at the head of the ledger, anything else is a break; a missing `HEALTH_TSA_CAFILE` is a named configuration error (`verified` False), not "TSA not trusted"; operator identity model (light enrollment by normalised name) written into the module docstring; a claimed `ensure_ascii` mismatch was checked and is not one (both sides canonicalise identically; test with an accented operator name added).
+- **Tests**: 49 new (boundaries of every threshold, every paediatric band, hostile types, sepsis needs
   infection history, receipt vocabulary, tamper / re-sign with foreign key / row deletion detection,
   legacy-key and legacy-row boundaries, fabricated timestamp reply refused, persisted verbale,
   end-to-end over HTTP, bench-of-the-bench with a deliberately broken threshold) + 2 opt-in network
   tests with a real TSA (green against freetsa.org with its root CA on 2026-09-13; tampered token and
-  wrong CA refused). 118 in total, in CI with and without `cryptography`; 10 consecutive full runs green
+  wrong CA refused). 121 in total, in CI with and without `cryptography`; 10 consecutive full runs green
   in the public configuration.
 
 ## 2026-09-11 (third pass) — what the second independent verification still found

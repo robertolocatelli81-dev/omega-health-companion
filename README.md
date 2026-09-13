@@ -60,8 +60,8 @@ python3 test_health.py                  # 20 tests (unit benches + E2E over loca
 python3 test_mission_case.py            # 17 tests — mission case file (both engine levels)
 python3 test_input_types.py             # 31 tests — hostile input types (red-team 2026-09-11, three rounds)
 python3 test_news2_certificate.py       #  4 tests — NEWS2 certificate
-python3 test_prealert_2025.py           # 46 tests — RCEM/AACE 2025 criteria at the boundaries, ED receipt, verbale, tamper/re-sign/deletion detection
-# 118 tests in total; the same five files run in CI on every push, with and without `cryptography`, never with the private engine
+python3 test_prealert_2025.py           # 49 tests — RCEM/AACE 2025 criteria at the boundaries, ED receipt, verbale, tamper/re-sign/deletion detection
+# 121 tests in total; the same five files run in CI on every push, with and without `cryptography`, never with the private engine
 # HEALTH_TSA_URL=https://freetsa.org/tsr HEALTH_TSA_CAFILE=cacert.pem python3 test_prealert_2025.py   # + 2 opt-in network tests: real RFC 3161 timestamp, trust chain, wrong CA refused
 python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \

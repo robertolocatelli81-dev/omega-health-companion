@@ -589,5 +589,46 @@ class TestRound2Verbale(unittest.TestCase):
         self.assertFalse(falsa["catena_tsa_ok"])
 
 
+
+@unittest.skipUnless(AB.FIRMA_LOCALE_DISPONIBILE, "cryptography assente")
+class TestRound3(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="verb4_")
+        self._orig = (AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR)
+        AB.MOTORE_DISPONIBILE = False
+        AB.FALLBACK_LEDGER = os.path.join(self.tmp, "fb.jsonl")
+        AB.KEYS_DIR = os.path.join(self.tmp, "keys")
+
+    def tearDown(self):
+        AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR = self._orig
+
+    def test_sostituzione_con_riga_finta_legacy_rilevata(self):
+        AB.registra_prealert("prealert-6", "ab" * 32, "op")
+        VP.registra_ricezione("prealert-6", "dr-a", "clinico_senior", "resus", "revisione_senior_immediata",
+                              motivo_alternativa="resus piena")
+        AB.registra_conferma("prealert-6", "ok", "dr-b")
+        with open(AB.FALLBACK_LEDGER, encoding="utf-8") as f:
+            es = [json.loads(l) for l in f if l.strip()]
+        finta = {"kind": "nota", "record_sha256": es[1]["record_sha256"]}      # porta l'hash della riga cancellata
+        with open(AB.FALLBACK_LEDGER, "w", encoding="utf-8") as f:
+            for e in (es[0], finta, es[2]):
+                f.write(json.dumps(e) + "\n")
+        v = VP.verbale("prealert-6")
+        self.assertFalse(v["catena"]["catena_ok"])
+        self.assertFalse(v["firme_tutte_verificate"])
+        self.assertIn("senza prev_sha256", v["catena"]["rotture"][0]["motivo"])
+
+    def test_operatore_con_accenti_verificato(self):
+        AB.registra_prealert("prealert-7", "ab" * 32, "Dott.ssa Zoë Müller")
+        v = VP.verbale("prealert-7")
+        self.assertTrue(v["firme_tutte_verificate"], v["eventi"])
+
+    def test_cafile_inesistente_e_errore_nominato(self):
+        import base64
+        r = VP.verifica_marca(base64.b64encode(b"non-un-token").decode(), "ab" * 32, cafile="/nonexistent/ca.pem")
+        self.assertFalse(r["verified"])
+        self.assertIn("HEALTH_TSA_CAFILE", r.get("errore", ""))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

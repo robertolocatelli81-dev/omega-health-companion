@@ -23,6 +23,11 @@ Questo modulo trasforma quelle tre frasi in EVIDENZA verificabile da un terzo:
 
 Cosa NON è: non è conservazione a norma (AgID) né una cartella clinica; è il verbale probatorio
 dello scambio pre-ospedaliero, esportabile e verificabile offline.
+
+Identità degli operatori (dichiarato): l'enrollment è leggero, da pilota — la chiave nasce al primo uso
+del NOME operatore, normalizzato a slug (minuscole, separatori → «-», 40 caratteri): «dr-rossi» e «DR
+ROSSI» sono la stessa identità. La firma attesta «chi possiede quella chiave», non un documento
+d'identità; in produzione l'enrollment è formale (badge/IAM, QES) — vedi roadmap.
 """
 from __future__ import annotations
 import base64
@@ -141,7 +146,7 @@ def _catena_locale() -> Dict:
     sono dichiarate «fuori catena», mai contate come verificate."""
     if not os.path.exists(AB.FALLBACK_LEDGER):
         return {"catena_ok": None, "righe": 0, "nota": "ledger assente"}
-    prev, righe, fuori, rotture = "GENESIS", 0, 0, []
+    prev, righe, fuori, rotture, incatenato = "GENESIS", 0, 0, [], False
     with open(AB.FALLBACK_LEDGER, encoding="utf-8") as f:
         for n, line in enumerate(f, 1):
             if not line.strip():
@@ -153,9 +158,16 @@ def _catena_locale() -> Dict:
                 rotture.append({"riga": n, "motivo": "illeggibile"})
                 continue
             if "prev_sha256" not in e:
+                # Righe legacy (pre-13/09) ammesse SOLO in testa al ledger. Dopo la prima riga incatenata,
+                # una riga senza prev_sha256 è una ROTTURA (council round 3: sostituire una riga con una
+                # finta «legacy» che porta lo stesso record_sha256 lasciava catena_ok True).
+                if incatenato:
+                    rotture.append({"riga": n, "motivo": "riga senza prev_sha256 dopo l'inizio della catena (inserimento/sostituzione?)"})
+                    continue
                 fuori += 1
                 prev = e.get("record_sha256") or prev
                 continue
+            incatenato = True
             if e["prev_sha256"] != prev:
                 rotture.append({"riga": n, "motivo": "prev_sha256 non corrisponde alla riga precedente (cancellazione/riordino?)"})
             prev = e.get("record_sha256") or prev
@@ -337,8 +349,10 @@ def verifica_marca(tsr_b64: str, digest_atteso_hex: str, timeout: int = 15, cafi
             r3 = subprocess.run([exe, "cms", "-verify", "-noverify", "-inform", "DER", "-in", tk, "-out", os.devnull],  # nosec B603
                                 capture_output=True, timeout=timeout)
             firma_cms = r3.returncode == 0
-        catena_ok = None
-        if cafile and os.path.exists(cafile):
+        catena_ok, errore_cfg = None, None
+        if cafile and not os.path.exists(cafile):
+            catena_ok, errore_cfg = False, f"HEALTH_TSA_CAFILE non trovato: {cafile}"     # errore di configurazione NOMINATO, fail-closed
+        elif cafile:
             r4 = subprocess.run([exe, "ts", "-verify", "-digest", digest_atteso_hex, "-sha256", "-in", tsr, "-CAfile", cafile],  # nosec B603
                                 capture_output=True, timeout=timeout)
             catena_ok = r4.returncode == 0
@@ -372,7 +386,7 @@ def verifica_marca(tsr_b64: str, digest_atteso_hex: str, timeout: int = 15, cafi
         else:
             verified, livello = None, "rfc3161-coerente-tsa-non-fidata"
         return {"verified": verified, "granted": granted, "imprint_ok": imprint_ok, "firma_cms_ok": firma_cms,
-                "catena_tsa_ok": catena_ok, "livello_marca": livello,
+                "catena_tsa_ok": catena_ok, "livello_marca": livello, **({"errore": errore_cfg} if errore_cfg else {}),
                 "nota": ("verified=True solo con firma CMS valida E catena verso la CA data (HEALTH_TSA_CAFILE); "
                          "senza CA: coerente ma TSA non fidata (None); marca QUALIFICATA solo con un QTSP eIDAS")}
     except Exception as e:  # noqa: BLE001
