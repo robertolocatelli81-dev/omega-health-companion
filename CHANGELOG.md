@@ -1,5 +1,111 @@
 # Changelog
 
+## 2026-09-13 (second step) — what the field leaders do, done the OMEGA way (v0.4.0)
+
+Order of the author: «check the competitors and add what is missing». Compared online (Pulsara,
+Twiage/TigerConnect EMS, corpuls.mission LIVE, NIDA; pages read the same day) and added, each with the
+house rule — closed values or digests in the signed ledger, free text and bytes only in memory with the
+board TTL, nothing clinical on disk:
+
+- **`coordinamento.py`** — patient type → team to alert (derived from the computed pathways and the 2025
+  conditions, closed vocabulary shared with the ED receipt); en-route ETA/position (`POST /posizione`,
+  exact in memory, ~1 km in the ledger); two-way crew↔ED messages (`POST /messaggio`, `GET /messaggi/<id>`);
+  ECG / scene photo / document attachments (`POST /allegato/<id>` raw bytes with magic-byte and size checks,
+  `GET /allegato/<id>/<n>`, expire with the board); "close the loop" clinical outcome (`POST /esito`);
+  QA/QI metrics (`GET /metriche`: volumes, receipt latency, alternative-response rate, outcome mix,
+  over/under-triage proxies against the 2025 criteria); major incidents with several patients
+  (`POST /incidente`, `GET /incidente/<id>`, `GET /incidenti`, `incidente_id` on `/valuta`).
+- Deliberately **not** added: audio/video calls and live telemetry (infrastructure, not evidence),
+  patient identity lookup (PII-free by design), NEMSIS export (Europe = FHIR).
+- **Review by three independent models (same day), verified on the code and fixed:** the incident
+  description (free text: place, plates, names) went to the ledger in clear — now by digest; attachments
+  were served inline in the board's origin (an XHTML uploaded as `text/xml` could run script in the ED
+  browser) — now download-only with `nosniff` and `CSP: sandbox`; check-then-append races with the board
+  expiry — now re-checked under the lock (410 if expired meanwhile), expired records stay empty, incidents
+  expire at 2×TTL; an ETA update mutated the already-anchored pre-alert — now `eta_corrente` on the record,
+  the anchored object is immutable; over/under-triage counted every outcome — now once per pre-alert on the
+  last one; negative `Content-Length` refused. Two claims were checked and found false (GET endpoints
+  without token; truncated code). Added what the reviewers named as still missing and in scope: **ED
+  status / divert** (`POST /stato_ps`: accetta | saturo | dirotta, alternative destination by digest,
+  returned with every `/valuta`), **escalation on missing receipt** (`da_escalare` in `/metriche` after 120 s),
+  **START triage tags** per incident (`triage_start` on `/valuta`, counted in `/incidente/<id>`).
+- **Second review round, verified and fixed:** incident ids were `len(list)+1` after expiry removal (collision,
+  patients of two incidents mixed) — now a monotonic counter; expiry left `esiti` and `ricezioni` in RAM — now
+  cleared; the ledger signature happened *before* the under-lock expiry re-check (trail could hold an event the
+  board discarded) — now check, sign and append happen under the same lock (`_evento_su_record`); `/ricezione`
+  accepted an expired record — now 404 and capped; START tags were not signed nor updatable — now `POST /triage`
+  (signed, re-triage allowed) and the initial tag on `/valuta` is signed too; no per-record caps (RAM exhaustion
+  with a valid token) — now 10 attachments, 200 messages, 20 outcomes, 20 receipts, 500 incidents (429);
+  the ~1 km position went to disk — now only the ETA and a digest of the position; `INCIDENTI` read outside the
+  lock; a 30 s socket timeout on the handler against a declared-but-never-sent body. One claim checked and
+  found false (the `arresto` key). Named as still missing and left out on purpose: push notifications
+  (infrastructure), manual specialist invitation and per-message read receipts (candidates for a next step).
+- Tests: `test_coordinamento.py` (bench-of-the-bench + one end-to-end flow over HTTP covering every endpoint,
+  negatives first, ledger checked for absence of free text, bytes and coordinates, download headers, caps,
+  monotonic incident ids, expiry with no repopulation, negative Content-Length). 125 in total. Honesty note:
+  one transient red of `test_health.py` in 43 sequential runs (run 4 of 10), not reproduced in the following
+  32 runs and with no captured output; cause not identified.
+
+## 2026-09-13 — from pilot to product: national pre-alert criteria and legal-grade evidence (v0.3.0)
+
+Direction set by the author on 2026-09-13 («evolve it from pilot study to real software, looking at
+the future and at legal guarantee in healthcare»), after an online comparison with the field (Pulsara,
+Twiage, corpuls.mission, NIDA, WebEMS): none of them makes the pre-alert itself *evidence*.
+
+- **`prealert_criteria.py`** — the RCEM/AACE July 2025 UK national pre-alert guideline transcribed as
+  data (PDF SHA-256 pinned): adult physiological thresholds (RR ≤8/≥25, SpO2 on O2 ≤91 % or ≤83 %
+  hypercapnic, SBP ≤90, HR ≤40/≥131, GCS <13), the paediatric table by age band (RR/HR per band,
+  SpO2 <91 % on air, CRT ≥3 s, GCS <13, ≥38 °C under 3 months), the 16 specific conditions and the
+  JRCALC high-risk sepsis markers (valid only with a history of infection). Output says whether a
+  pre-alert is indicated and by which criterion; "heads-up" calls are refused by design. The message
+  follows the prescribed order: headline concern and ETA first, then ATMIST, with a ≤60 s estimate.
+  Declared out of scope: BP trend, "new for patient" GCS. **Children get pre-alert criteria, never an
+  adult score** — the <16 refusal of NEWS2 stands.
+- **Integrated engine**: `criteri_prealert_2025` in every pre-alert (adult and paediatric); conditions
+  derived from the existing pathways (arrest, STEMI, trauma team, FAST+) merge with those declared by
+  the crew (`condizioni`, type-strict, unknown keys refused); an isolated 2025 criterion with a low
+  NEWS2 raises priority to MEDIUM with a coherent action.
+- **`verbale_probatorio.py`** + `POST /ricezione` + `GET /verbale/<id>[?marca=1]` — the ED receipt is
+  signed (closed vocabulary for role and responses; reason for an alternative response mandatory and
+  stored by digest); the per-pre-alert record re-verifies each signature from the canonical record,
+  detects tampering, reports latency; optional RFC 3161 timestamp on the record digest, verified
+  (`Granted` + message imprint), level declared as non-qualified unless a QTSP is used.
+- **Pre-push review by three independent models (same day), each finding verified on the code and
+  fixed, with a test that is red on the previous code:** the JRCALC "needs oxygen" sepsis marker fired
+  on the patient who *held* the target on oxygen and not on the one who did not (now: on oxygen =
+  marker, "still below target" stated); `verifica_marca` accepted a fabricated timestamp reply that
+  merely printed `Granted` (now the CMS signature of the token is verified with the embedded certificate,
+  and the TSA chain with `HEALTH_TSA_CAFILE`); a ledger row could be rewritten and re-signed with an
+  attacker's key because the public key was taken from the row itself (now every signature is checked
+  against the operator's *registered* key, `.audit_keys/fb-<op>.pub`, exported in the verbale);
+  deleting a row was invisible (now every row carries a signed `prev_sha256`; the verbale verifies the
+  chain over the whole ledger — tail truncation remains a declared limit covered by the persisted,
+  timestamped verbale); a child with GCS 8 or CRT 5 s and normal RR/HR got "no pre-alert" because
+  `gcs`/`crt_sec` never reached the paediatric criteria (now via `clinica`); `/valuta` did not pass
+  `condizioni`, `eta_mesi` or `sepsi`; the sepsis function was never called by the engine; "GCS <13 new
+  for patient" fired on chronic deficits (now `clinica.gcs_abituale` excludes them); SpO2 in air (adult)
+  and on oxygen (child) were silent (now declared in `non_valutato`); derived conditions (CDC field
+  triage for MTTT, FAST+ without thrombolysis window) now say how they were derived.
+- **Second review round (same three models), again verified and fixed:** `verified` on a timestamp
+  ignored the TSA trust chain (a token from a self-signed TSA would have been "verified") — now
+  `verified` is True only with the CMS signature *and* the chain to the CA given in `HEALTH_TSA_CAFILE`,
+  None ("coherent, TSA not trusted") without a CA, False with a wrong CA (measured: freeTSA root CA →
+  OK, a self-signed "TSA-FALSA" → refused); operators with keys created before this release had no
+  registered public key (now derived from the existing key on first use); `sepsi` was silently ignored
+  under 16 (now declared as not applicable, with a paediatric sepsis pathway hint); `eta_mesi` accepted
+  with `eta` ≥ 1 (now refused as inconsistent); the Part 11 trail reader used the wrong record layout
+  (now the verbale lists the engine's records and, if the engine refuses a corrupted trail, says so
+  instead of raising). Declared limit written into the verbale: the key registry lives on the same host
+  as the ledger — a third party must receive it out of band or rely on the timestamped verbale.
+- **Third round (Fable + Gemini; Opus out of quota):** a row *without* `prev_sha256` after the start of the chain could impersonate a deleted row by carrying its digest — now legacy rows are accepted only at the head of the ledger, anything else is a break; a missing `HEALTH_TSA_CAFILE` is a named configuration error (`verified` False), not "TSA not trusted"; operator identity model (light enrollment by normalised name) written into the module docstring; a claimed `ensure_ascii` mismatch was checked and is not one (both sides canonicalise identically; test with an accented operator name added).
+- **Tests**: 49 new (boundaries of every threshold, every paediatric band, hostile types, sepsis needs
+  infection history, receipt vocabulary, tamper / re-sign with foreign key / row deletion detection,
+  legacy-key and legacy-row boundaries, fabricated timestamp reply refused, persisted verbale,
+  end-to-end over HTTP, bench-of-the-bench with a deliberately broken threshold) + 2 opt-in network
+  tests with a real TSA (green against freetsa.org with its root CA on 2026-09-13; tampered token and
+  wrong CA refused). 121 in total, in CI with and without `cryptography`; 10 consecutive full runs green
+  in the public configuration.
+
 ## 2026-09-11 (third pass) — what the second independent verification still found
 
 An independent verifier re-ran everything on the *public* configuration (anonymous clone, no private

@@ -75,22 +75,78 @@ def _fb_key(operatore: str) -> "_EdSk":
     path = os.path.join(KEYS_DIR, f"fb-{slug}.key")
     if os.path.exists(path):
         raw = base64.b64decode(open(path).read().strip())
-        return _EdSk.from_private_bytes(raw)
+        sk = _EdSk.from_private_bytes(raw)
+        if not os.path.exists(os.path.join(KEYS_DIR, f"fb-{slug}.pub")):
+            _fb_registra_pubkey(slug, sk)          # chiave nata prima del registro (13/09)
+        return sk
     sk = _EdSk.generate()
     raw = sk.private_bytes(_ser.Encoding.Raw, _ser.PrivateFormat.Raw,
                            _ser.NoEncryption())
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as f:
         f.write(base64.b64encode(raw).decode())
+    _fb_registra_pubkey(slug, sk)
     return sk
 
 
+def _fb_registra_pubkey(slug: str, sk: "_EdSk") -> None:
+    """Registro delle chiavi PUBBLICHE per operatore (`fb-<slug>.pub`, 2026-09-13, council): il verbale
+    verifica una firma SOLO contro la chiave registrata dell'operatore, mai contro la chiave scritta
+    nella riga stessa (con quella, chi riscrive il ledger ri-firma con una chiave propria e passa)."""
+    pk = sk.public_key().public_bytes(_ser.Encoding.Raw, _ser.PublicFormat.Raw)
+    with open(os.path.join(KEYS_DIR, f"fb-{slug}.pub"), "w") as f:
+        f.write(base64.b64encode(pk).decode())
+
+
+def fb_pubkey_registrata(operatore: str) -> Optional[str]:
+    """Chiave pubblica registrata (base64) dell'operatore, o None se mai registrata (fail-closed)."""
+    slug = _slug(operatore) or "anonimo"
+    path = os.path.join(KEYS_DIR, f"fb-{slug}.pub")
+    if not os.path.exists(path):
+        # chiave privata presente ma .pub mancante (installazioni precedenti al 13/09): derivala una volta
+        kpath = os.path.join(KEYS_DIR, f"fb-{slug}.key")
+        if os.path.exists(kpath) and FIRMA_LOCALE_DISPONIBILE:
+            _fb_registra_pubkey(slug, _EdSk.from_private_bytes(base64.b64decode(open(kpath).read().strip())))
+        else:
+            return None
+    with open(path) as f:
+        return f.read().strip()
+
+
+def _fb_ultimo_sha256() -> str:
+    """Ultimo record_sha256 del ledger locale (o GENESIS): l'anello per la catena prev_sha256."""
+    if not os.path.exists(FALLBACK_LEDGER):
+        return "GENESIS"
+    last = None
+    with open(FALLBACK_LEDGER, encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                last = line
+    if not last:
+        return "GENESIS"
+    try:
+        return json.loads(last).get("record_sha256") or "GENESIS"
+    except ValueError:
+        return "GENESIS"
+
+
+_FB_LOCK = __import__("threading").Lock()
+
+
 def _fb_registra(target_id: str, azione: str, dettaglio: Dict, operatore: str) -> Dict:
+    with _FB_LOCK:          # prev_sha256 letto e riga scritta atomicamente (server multi-thread)
+        return _fb_registra_locked(target_id, azione, dettaglio, operatore)
+
+
+def _fb_registra_locked(target_id: str, azione: str, dettaglio: Dict, operatore: str) -> Dict:
     import hashlib
+    # prev_sha256 (2026-09-13, council): catena hash FIRMATA fra le righe. Senza, cancellare o
+    # riordinare una riga (es. la ricezione con risposta alternativa) era invisibile al verbale.
     rec = {"kind": "audit_locale", "target": target_id, "azione": azione,
            "dettaglio": dettaglio, "operatore": operatore,
            "ts": __import__("datetime").datetime.now(
-               __import__("datetime").timezone.utc).isoformat(timespec="seconds")}
+               __import__("datetime").timezone.utc).isoformat(timespec="seconds"),
+           "prev_sha256": _fb_ultimo_sha256()}
     canon = json.dumps(rec, sort_keys=True, separators=(",", ":")).encode()
     digest = hashlib.sha256(canon).digest()
     sk = _fb_key(operatore)
@@ -101,6 +157,8 @@ def _fb_registra(target_id: str, azione: str, dettaglio: Dict, operatore: str) -
              "pubkey_b64": base64.b64encode(pk).decode()}
     with open(FALLBACK_LEDGER, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    if not os.path.exists(os.path.join(KEYS_DIR, f"fb-{_slug(operatore) or 'anonimo'}.pub")):
+        _fb_registra_pubkey(_slug(operatore) or "anonimo", sk)      # chiavi nate prima del registro
     # verifica immediata (mai un verde non provato)
     try:
         _EdPk.from_public_bytes(pk).verify(sig, digest)
@@ -195,6 +253,47 @@ def registra_conferma(prealert_id: str, nota: str, operatore: str) -> Dict:
     ident = _identity(operatore)
     es = t.sign_record(rec, ident, printed_name=operatore,
                        meaning=SignatureMeaning.RESPONSIBILITY)
+    return {"livello": "part11", "record_sha3": rec.canonical_hash(),
+            "firma_verificata": t.verify_signature_for_record(es, rec),
+            "firmatario": operatore, "significato": "responsibility"}
+
+
+def registra_ricezione(prealert_id: str, dettaglio: Dict, operatore_ps: str) -> Dict:
+    """Ricezione del pre-alert nel PS (linea guida RCEM/AACE 2025: «recorded line», clinico senior che
+    attua la risposta, risposta alternativa discussa apertamente) → record CREATE + firma RESPONSIBILITY
+    di chi ha ricevuto. `dettaglio` è già a valori chiusi + digest (verbale_probatorio.registra_ricezione):
+    nel trail non entra testo libero. Separato da registra_conferma: significato diverso (ricevere e decidere
+    la risposta ≠ prendere in carico il percorso)."""
+    if not MOTORE_DISPONIBILE:
+        if FIRMA_LOCALE_DISPONIBILE:
+            return _fb_registra(f"{prealert_id}/ricezione", "ricezione_pre_alert", dettaglio, operatore_ps)
+        return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
+    t = _get_trail()
+    rec = t.log_change(operatore_ps, AuditAction.CREATE, f"{prealert_id}/ricezione",
+                       reason=(f"ricezione pre-alert PS: richiesta {dettaglio.get('risposta_richiesta')} → "
+                               f"attuata {dettaglio.get('risposta_attuata')}"),
+                       new_value=dettaglio)
+    ident = _identity(operatore_ps)
+    es = t.sign_record(rec, ident, printed_name=operatore_ps,
+                       meaning=SignatureMeaning.RESPONSIBILITY)
+    return {"livello": "part11", "record_sha3": rec.canonical_hash(),
+            "firma_verificata": t.verify_signature_for_record(es, rec),
+            "firmatario": operatore_ps, "significato": "responsibility"}
+
+
+def registra_evento_clinico(prealert_id: str, azione: str, dettaglio: Dict, operatore: str) -> Dict:
+    """Eventi di coordinamento firmati (13/09/2026, coordinamento.py): aggiornamento ETA/posizione, messaggio
+    (per digest), allegato (per digest), esito clinico «close the loop». `dettaglio` arriva già a valori chiusi
+    o digest: nel trail non entra testo libero né byte. Significato RESPONSIBILITY (chi lo dichiara ne risponde)."""
+    if not MOTORE_DISPONIBILE:
+        if FIRMA_LOCALE_DISPONIBILE:
+            return _fb_registra(f"{prealert_id}/{azione}", azione, dettaglio, operatore)
+        return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
+    t = _get_trail()
+    rec = t.log_change(operatore, AuditAction.CREATE, f"{prealert_id}/{azione}",
+                       reason=f"evento di coordinamento: {azione}", new_value=dettaglio)
+    ident = _identity(operatore)
+    es = t.sign_record(rec, ident, printed_name=operatore, meaning=SignatureMeaning.RESPONSIBILITY)
     return {"livello": "part11", "record_sha3": rec.canonical_hash(),
             "firma_verificata": t.verify_signature_for_record(es, rec),
             "firmatario": operatore, "significato": "responsibility"}

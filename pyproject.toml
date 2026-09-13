@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omega-health-companion"
-version = "0.2.1"
+version = "0.4.0"
 description = "Ambulance pre-alert companion: honest emergency scores, signed audit, FHIR R4 export, mission case file (pilot software, NOT a medical device)"
 license = {text = "AGPL-3.0-or-later"}
 requires-python = ">=3.9"

@@ -42,14 +42,22 @@ from urllib.parse import parse_qs
 
 import ambulanza_intelligente as A
 import audit_bridge as AB
+import verbale_probatorio as VP
+import coordinamento as CO
 import fhir_export as FX
 import scores_emergenza as S
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 TOKEN_FILE = os.path.join(_HERE, "team_token.txt")
+VERBALI_DIR = os.path.join(_HERE, "verbali")          # verbali probatori marcati (digest-only)
 MAX_BODY = 64 * 1024          # un pre-alert è piccolo: payload enormi = rifiuto
 BOARD: list = []
 _LOCK = threading.Lock()
+ALLEGATI: dict = {}          # (id, n) -> bytes, SOLO in memoria, scadono con la bacheca
+STATO_PS: dict = {"stato": "accetta", "ts": None, "operatore_ps": None}   # divert/capacità, a vocabolario chiuso
+INCIDENTI: list = []         # incidenti maggiori (più pazienti)
+_INCIDENTE_SEQ = [0]         # contatore MONOTONO (council 13/09: len()+1 dopo la scadenza collideva)
+CAP = {"allegati": 10, "messaggi": 200, "posizioni": 100000, "esiti": 20, "ricezioni": 20, "incidenti": 500, "triage": 20}   # posizioni: taglio a 200 dopo append   # tetti per record (RAM)
 
 
 def _token() -> str:
@@ -70,6 +78,10 @@ def _scadenza_bacheca(now: Optional[datetime] = None) -> int:
     n = 0
     for r in BOARD:
         if r.get("vitali") is None and r.get("prealert") is None:
+            # già scaduto: tenerlo VUOTO (ciò che fosse entrato dopo la scadenza non deve restare in RAM)
+            r["messaggi"], r["posizioni"], r["allegati"], r["esiti"], r["ricezioni"] = [], [], [], [], []
+            for k in [k for k in ALLEGATI if k[0] == r["id"]]:
+                ALLEGATI.pop(k, None)
             continue
         try:
             eta_h = (now - datetime.fromisoformat(r["ts"])).total_seconds() / 3600
@@ -79,12 +91,22 @@ def _scadenza_bacheca(now: Optional[datetime] = None) -> int:
             r["vitali"] = None
             r["prealert"] = None
             r["scaduto"] = True
+            r["messaggi"] = []
+            r["posizioni"] = []
+            r["esiti"] = []            # esito clinico + operatore: fuori dalla RAM alla scadenza (il ledger firmato resta, a digest)
+            r["ricezioni"] = []
+            for k in [k for k in ALLEGATI if k[0] == r["id"]]:
+                ALLEGATI.pop(k, None)
+            r["allegati"] = []
             n += 1
+    # incidenti: la lista non cresceva mai (council 13/09) → oltre 2×TTL dall'apertura spariscono
+    for i in [i for i in INCIDENTI if (now - datetime.fromisoformat(i["ts"])).total_seconds() / 3600 > 2 * BOARD_TTL_H]:
+        INCIDENTI.remove(i)
     return n
 
 
 def _pubblica(prealert: dict, vitali: dict | None,
-              operatore: str = "equipaggio-ambulanza") -> dict:
+              operatore: str = "equipaggio-ambulanza", incidente_id: int | None = None) -> dict:
     ts = datetime.now(timezone.utc).isoformat()
     prov = S.ancora_prealert(prealert, ts)          # digest-only di default
     with _LOCK:
@@ -95,7 +117,9 @@ def _pubblica(prealert: dict, vitali: dict | None,
                                      S._hash(prealert), operatore)
         rec = {"id": rid, "ts": ts, "prealert": prealert,
                "vitali": vitali, "provenienza": prov,
-               "audit": audit, "conferme": []}
+               "audit": audit, "conferme": [], "ricezioni": [], "messaggi": [], "posizioni": [],
+               "allegati": [], "esiti": [], "incidente_id": incidente_id,
+               "tipo_paziente": CO.classifica_tipo(prealert)}
         BOARD.append(rec)
         # Ritenzione in memoria (FIX 2026-09-11): la bacheca è effimera per DESIGN, ma senza scadenza i
         # vitali restavano in RAM finché viveva il processo. I record più vecchi di BOARD_TTL_H ore
@@ -158,6 +182,22 @@ button{{background:#0f3460;color:#fff;border:0;border-radius:4px;cursor:pointer}
 NON un dispositivo medico; gli score sono standard validati, la decisione è del medico</div>"""
 
 
+def _evento_su_record(rid: int, lista: str, azione: str, dettaglio: dict, operatore: str, elemento: dict):
+    """Firma nel ledger e append in bacheca sotto LO STESSO lock, dopo il ricontrollo di scadenza e tetto
+    (council 13/09 round 2: firmare prima del ricontrollo lasciava nel trail eventi che la bacheca scartava).
+    Ritorna (codice_http, payload)."""
+    with _LOCK:
+        _scadenza_bacheca()
+        r = next((x for x in BOARD if x["id"] == rid), None)
+        if not r or r.get("prealert") is None:
+            return 404, {"ok": False, "error": f"pre-alert {rid} inesistente o scaduto"}
+        if len(r.setdefault(lista, [])) >= CAP[lista]:
+            return 429, {"ok": False, "error": f"tetto raggiunto per {lista} ({CAP[lista]} per pre-alert)"}
+        audit = AB.registra_evento_clinico(f"prealert-{rid}", azione, dettaglio, operatore)
+        r[lista].append({**elemento, "audit": audit})
+        return 200, {"ok": True, "id": rid, "n": len(r[lista]), "audit": audit, "record": r}
+
+
 def _find(rid: int):
     with _LOCK:
         _scadenza_bacheca()            # round 3: /fhir e /atmist serviranno 410 anche senza nuove POST
@@ -168,9 +208,15 @@ def _find(rid: int):
 
 
 class H(BaseHTTPRequestHandler):
+    timeout = 30            # Slowloris: un body dichiarato ma mai inviato libera il thread dopo 30 s (socket.timeout)
     server_version = "omega-team/1.0"
 
     def _send(self, code, body, ctype="text/html; charset=utf-8", extra=None):
+        if isinstance(body, str):
+            body = body.encode("utf-8")
+        return self._send_bytes(code, body, ctype, extra)
+
+    def _send_bytes(self, code, body: bytes, ctype, extra=None):
         data = body.encode() if isinstance(body, str) else body
         self.send_response(code)
         self.send_header("Content-Type", ctype)
@@ -203,10 +249,46 @@ class H(BaseHTTPRequestHandler):
                 return self._json(200, BOARD)
         if self.path == "/audit":
             return self._json(200, AB.verifica_trail())
-        for prefix, fn in (("/fhir/", self._fhir), ("/atmist/", self._atmist)):
-            if self.path.startswith(prefix):
+        if self.path == "/metriche":                       # QA/QI aggregate, senza PII
+            with _LOCK:
+                _scadenza_bacheca()
+                return self._json(200, CO.metriche(list(BOARD)))
+        if self.path == "/incidenti":
+            with _LOCK:
+                return self._json(200, [CO.riepilogo_incidente(i, list(BOARD)) for i in INCIDENTI])
+        path_noq = self.path.split("?", 1)[0]          # la query (es. ?marca=1) non fa parte dell'id
+        if path_noq.startswith("/allegato/"):
+            try:
+                rid, n = (int(x) for x in path_noq[len("/allegato/"):].split("/"))
+            except ValueError:
+                return self._json(400, {"ok": False, "error": "atteso /allegato/<id>/<n>"})
+            with _LOCK:
+                _scadenza_bacheca()
+                raw = ALLEGATI.get((rid, n))
+                r = next((x for x in BOARD if x["id"] == rid), None)
+                meta = (r["allegati"][n - 1] if r and raw is not None and 0 < n <= len(r["allegati"]) else None)
+            if raw is None or meta is None:
+                return self._json(404, {"ok": False, "error": "allegato inesistente o scaduto"})
+            # mai reso inline nella stessa origine della bacheca (council 13/09: un XHTML come text/xml
+            # eseguirebbe script nel browser del PS): download + nosniff + CSP sandbox
+            return self._send(200, raw, meta["content_type"], extra={
+                "Content-Disposition": f'attachment; filename="prealert-{rid}-{n}"',
+                "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox"})
+        if path_noq.startswith("/incidente/"):
+            try:
+                iid = int(path_noq[len("/incidente/"):])
+            except ValueError:
+                return self._json(400, {"ok": False, "error": "id non numerico"})
+            with _LOCK:
+                inc = next((i for i in INCIDENTI if i["id"] == iid), None)
+                if not inc:
+                    return self._json(404, {"ok": False, "error": "incidente inesistente"})
+                return self._json(200, CO.riepilogo_incidente(inc, list(BOARD)))
+        for prefix, fn in (("/fhir/", self._fhir), ("/atmist/", self._atmist), ("/verbale/", self._verbale),
+                           ("/messaggi/", self._messaggi)):
+            if path_noq.startswith(prefix):
                 try:
-                    rid = int(self.path[len(prefix):])
+                    rid = int(path_noq[len(prefix):])
                 except ValueError:
                     return self._json(400, {"ok": False, "error": "id non numerico"})
                 return fn(rid)
@@ -221,6 +303,40 @@ class H(BaseHTTPRequestHandler):
         b = FX.prealert_to_fhir(r["prealert"], r.get("vitali") or {}, r["ts"],
                                 provenienza_omega=r.get("provenienza"))
         return self._send(200, json.dumps(b, ensure_ascii=False), "application/fhir+json; charset=utf-8")
+
+    def _verbale(self, rid: int):
+        # Verbale probatorio digest-only del pre-alert (2026-09-13): eventi firmati ri-verificati,
+        # cronologia, digest. Marca RFC 3161 SOLO su richiesta esplicita (?marca=1) e solo se
+        # HEALTH_TSA_URL è configurata: nessuna chiamata di rete implicita.
+        r = _find(rid)
+        if not r:
+            return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente"})
+        v = VP.verbale(f"prealert-{rid}")
+        if "marca=1" in (self.path.split("?", 1)[1] if "?" in self.path else ""):
+            tsa = os.environ.get("HEALTH_TSA_URL", "")
+            if not tsa:
+                v["marca_temporale"] = {"anchored": False, "note": "HEALTH_TSA_URL non configurata"}
+            else:
+                m = VP.marca_temporale_rfc3161(v["digest_verbale_sha256"], tsa)
+                if m.get("anchored"):
+                    m["verifica"] = VP.verifica_marca(m["tsr_b64"], v["digest_verbale_sha256"],
+                                                      cafile=os.environ.get("HEALTH_TSA_CAFILE"))
+                v["marca_temporale"] = m
+                # i BYTE marcati vanno conservati (council 13/09): senza, la prova è su un digest che
+                # nessuno custodisce. Solo digest/metadati: nessun dato sanitario nel file.
+                v["persistito"] = VP.persisti_verbale(v, os.environ.get("HEALTH_VERBALI_DIR") or VERBALI_DIR)
+        return self._send(200, json.dumps(v, ensure_ascii=False), "application/json; charset=utf-8")
+
+    def _messaggi(self, rid: int):
+        r = _find(rid)
+        if not r:
+            return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente"})
+        with _LOCK:
+            return self._json(200, {"id": rid, "messaggi": list(r.get("messaggi") or []),
+                                    "eta_corrente_min": r.get("eta_corrente"), "triage_start": r.get("triage_start"),
+                                    "stato_ps": STATO_PS,
+                                    "posizioni": list(r.get("posizioni") or [])[-20:],
+                                    "allegati": list(r.get("allegati") or []), "esiti": list(r.get("esiti") or [])})
 
     def _atmist(self, rid: int):
         r = _find(rid)
@@ -238,6 +354,10 @@ class H(BaseHTTPRequestHandler):
             n = int(self.headers.get("Content-Length", 0))
         except ValueError:
             return self._json(400, {"ok": False, "error": "Content-Length invalido"})
+        if n < 0:
+            return self._json(400, {"ok": False, "error": "Content-Length invalido"})
+        if self.path.startswith("/allegato/"):
+            return self.do_POST_allegato(n)          # binario: mai decodificato come testo
         if n > MAX_BODY:
             return self._json(413, {"ok": False, "error": "payload troppo grande"})
         raw = self.rfile.read(n).decode(errors="replace")
@@ -279,7 +399,9 @@ class H(BaseHTTPRequestHandler):
                 out = A.valuta_paziente(
                     body["vitali"], body.get("farmaci") or [], body.get("eta"),
                     body.get("eta_arrivo_min", 0),           # validato dentro valuta_paziente (0-600)
-                    fast_segni=body.get("fast_segni"), clinica=body.get("clinica"))
+                    fast_segni=body.get("fast_segni"), clinica=body.get("clinica"),
+                    condizioni=body.get("condizioni"), eta_mesi=body.get("eta_mesi"),
+                    sepsi=body.get("sepsi"))
             except ValueError as e:
                 # messaggi NOSTRI (validazione nominata), mai il testo di un'eccezione interna
                 return self._json(400, {"ok": False, "error": f"input invalido: {e}"})
@@ -287,13 +409,151 @@ class H(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "error": "input invalido: struttura del payload non conforme"})
             except Exception:                                    # noqa: BLE001 — l'input arriva dalla rete
                 return self._json(400, {"ok": False, "error": "input invalido"})
+            ts_start = body.get("triage_start")
+            if ts_start is not None and ts_start not in CO.TRIAGE_START:
+                return self._json(400, {"ok": False, "error": f"triage_start non ammesso: {ts_start!r} (ammessi: {', '.join(CO.TRIAGE_START)})"})
+            inc = body.get("incidente_id")
+            if inc is not None:
+                with _LOCK:
+                    esiste = (not isinstance(inc, bool)) and isinstance(inc, int) and any(i["id"] == inc for i in INCIDENTI)
+                if not esiste:
+                    return self._json(400, {"ok": False, "error": f"incidente_id inesistente: {inc!r}"})
             rec = _pubblica(out["PRE_ALERT_INTEGRATO"], body.get("vitali"),
-                            operatore=str(body.get("operatore") or "equipaggio-ambulanza")[:60])
+                            operatore=str(body.get("operatore") or "equipaggio-ambulanza")[:60], incidente_id=inc)
+            if ts_start is not None:          # tag iniziale: firmato come ogni decisione clinica
+                _evento_su_record(rec["id"], "triage", "triage_start", {"triage_start": ts_start},
+                                  str(body.get("operatore") or "equipaggio-ambulanza")[:60],
+                                  {"triage_start": ts_start, "operatore": str(body.get("operatore") or "equipaggio-ambulanza")[:60]})
+                with _LOCK:
+                    rec["triage_start"] = ts_start
+            with _LOCK:
+                stato_ps = dict(STATO_PS)
             return self._json(200, {"ok": True, "id": rec["id"],
                                     "prealert": out["PRE_ALERT_INTEGRATO"],
+                                    "tipo_paziente": rec["tipo_paziente"], "stato_ps": stato_ps,
                                     "provenienza": rec["provenienza"]})
 
+    def do_POST_allegato(self, n: int):
+        """ECG / foto della scena / documento: byte in memoria (scadono con la bacheca), digest nel ledger
+        firmato, nessuna interpretazione automatica. Come Pulsara/Twiage condividono immagini, ma verificabile."""
+        if not self._authed():
+            return self._json(401, {"ok": False, "error": "X-Omega-Token mancante o errato"})
+        if n > CO.MAX_ALLEGATO:
+            return self._json(413, {"ok": False, "error": f"allegato troppo grande (max {CO.MAX_ALLEGATO} byte)"})
+        try:
+            rid = int(self.path[len("/allegato/"):].split("?")[0])
+        except ValueError:
+            return self._json(400, {"ok": False, "error": "id non numerico"})
+        raw = self.rfile.read(n)
+        tipo = (self.headers.get("X-Omega-Tipo") or "").strip().lower()
+        ct = self.headers.get("Content-Type") or ""
+        operatore = (self.headers.get("X-Omega-Operatore") or "equipaggio-ambulanza")[:60]
+        problemi = CO.valida_allegato(tipo, ct, raw)
+        if problemi:
+            return self._json(400, {"ok": False, "error": "allegato rifiutato", "problemi": problemi})
+        meta = CO.descrivi_allegato(tipo, ct, raw)
+        with _LOCK:
+            _scadenza_bacheca()
+            r = next((x for x in BOARD if x["id"] == rid), None)
+            if not r or r.get("prealert") is None:
+                return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente o scaduto"})
+            if len(r["allegati"]) >= CAP["allegati"]:
+                return self._json(429, {"ok": False, "error": f"tetto raggiunto per allegati ({CAP['allegati']} per pre-alert)"})
+            audit = AB.registra_evento_clinico(f"prealert-{rid}", "allegato",
+                                               {k: meta[k] for k in ("tipo", "content_type", "bytes", "sha256")}, operatore)
+            r["allegati"].append({**meta, "operatore": operatore, "audit": audit})
+            n_all = len(r["allegati"])
+            ALLEGATI[(rid, n_all)] = raw
+        return self._json(200, {"ok": True, "id": rid, "n": n_all, "sha256": meta["sha256"], "audit": audit})
+
     def do_POST_altri(self, body):
+        if self.path == "/incidente":
+            desc = str(body.get("descrizione") or "")[:120].strip()
+            operatore = str(body.get("operatore") or "centrale")[:60]
+            if not desc:
+                return self._json(400, {"ok": False, "error": "descrizione richiesta (≤120 caratteri)"})
+            with _LOCK:
+                if len(INCIDENTI) >= CAP["incidenti"]:
+                    return self._json(429, {"ok": False, "error": "tetto incidenti aperti raggiunto"})
+                _INCIDENTE_SEQ[0] += 1
+                inc = {"id": _INCIDENTE_SEQ[0], "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                       "descrizione": desc, "aperto_da": operatore}      # descrizione SOLO in memoria
+                INCIDENTI.append(inc)
+            # nel ledger va il DIGEST della descrizione (luogo/targhe/nomi = testo libero), evento CREATE firmato
+            audit = AB.registra_evento_clinico(f"incidente-{inc['id']}", "apertura_incidente",
+                                               {"descrizione": CO.impronta_testo(desc)}, operatore)
+            return self._json(200, {"ok": True, "incidente": inc, "audit": audit})
+        if self.path == "/triage":
+            # tag START (rosso/giallo/verde/nero): decisione clinica → FIRMATA e ri-aggiornabile (il re-triage è la norma)
+            try:
+                rid = int(body.get("id"))
+            except (TypeError, ValueError):
+                return self._json(400, {"ok": False, "error": "id non numerico"})
+            tag = body.get("triage_start")
+            if tag not in CO.TRIAGE_START:
+                return self._json(400, {"ok": False, "error": f"triage_start non ammesso: {tag!r} (ammessi: {', '.join(CO.TRIAGE_START)})"})
+            op = str(body.get("operatore") or "equipaggio-ambulanza")[:60]
+            code, out = _evento_su_record(rid, "triage", "triage_start", {"triage_start": tag}, op, {"triage_start": tag, "operatore": op})
+            if code == 200:
+                with _LOCK:
+                    out["record"]["triage_start"] = tag
+                out = {k: v for k, v in out.items() if k != "record"}
+            return self._json(code, out)
+        if self.path == "/stato_ps":
+            # divert / capacità (colonna portante di Pulsara/Twiage): il PS dichiara se accetta, è saturo o dirotta
+            stato, op, dest = body.get("stato"), str(body.get("operatore_ps") or "")[:60], body.get("destinazione_alternativa")
+            problemi = CO.valida_stato_ps(stato, op, dest)
+            if problemi:
+                return self._json(400, {"ok": False, "error": "stato rifiutato", "problemi": problemi})
+            det = {"stato": stato, "destinazione_alternativa": (CO.impronta_testo(dest) if dest else None)}
+            audit = AB.registra_evento_clinico("ps", "stato_ps", det, op)
+            with _LOCK:
+                STATO_PS.update({"stato": stato, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                                 "operatore_ps": op, "destinazione_alternativa": dest})
+            return self._json(200, {"ok": True, "stato_ps": dict(STATO_PS), "audit": audit})
+        if self.path in ("/posizione", "/messaggio", "/esito"):
+            try:
+                rid = int(body.get("id"))
+            except (TypeError, ValueError):
+                return self._json(400, {"ok": False, "error": "id non numerico"})
+            ts_now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            if self.path == "/posizione":
+                lat, lon, eta = body.get("lat"), body.get("lon"), body.get("eta_arrivo_min")
+                problemi = CO.valida_posizione(lat, lon, eta)
+                if problemi:
+                    return self._json(400, {"ok": False, "error": "posizione rifiutata", "problemi": problemi})
+                ev = CO.evento_posizione(lat, lon, eta)          # nel ledger: ETA + DIGEST della posizione, mai coordinate
+                code, out = _evento_su_record(rid, "posizioni", "aggiornamento_eta", ev,
+                                              str(body.get("operatore") or "equipaggio-ambulanza")[:60],
+                                              {"lat": lat, "lon": lon, "eta_arrivo_min": eta, "ts": ev["ts"]})
+                if code == 200:
+                    with _LOCK:
+                        out["record"]["posizioni"] = out["record"]["posizioni"][-200:]
+                        out["record"]["eta_corrente"] = eta   # il pre-alert ancorato NON si muta
+                    out = {"ok": True, "id": rid, "eta_arrivo_min": eta, "audit": out["audit"]}
+                return self._json(code, out)
+            if self.path == "/messaggio":
+                da, op, testo = body.get("da"), str(body.get("operatore") or "")[:60], body.get("testo")
+                problemi = CO.valida_messaggio(da, op, testo)
+                if problemi:
+                    return self._json(400, {"ok": False, "error": "messaggio rifiutato", "problemi": problemi})
+                imp = CO.impronta_testo(testo)
+                code, out = _evento_su_record(rid, "messaggi", "messaggio", {"da": da, **imp}, op,
+                                              {"da": da, "operatore": op, "testo": testo, "ts": ts_now, "sha256": imp["sha256"]})
+                return self._json(code, {k: v for k, v in out.items() if k != "record"})
+            # /esito — close the loop
+            op = str(body.get("operatore_ps") or "")[:60]
+            esito, diag, tempo = body.get("esito"), body.get("diagnosi_confermata"), body.get("tempo_porta_intervento_min")
+            problemi = CO.valida_esito(op, esito, diag, tempo)
+            if problemi:
+                return self._json(400, {"ok": False, "error": "esito rifiutato", "problemi": problemi})
+            nota = body.get("nota")
+            det = {"esito": esito, "diagnosi_confermata": diag, "tempo_porta_intervento_min": tempo,
+                   "nota": (CO.impronta_testo(str(nota)[:500]) if nota else None)}
+            code, out = _evento_su_record(rid, "esiti", "esito_clinico", det, op, {**det, "operatore_ps": op, "ts": ts_now})
+            if code == 200:
+                out = {"ok": True, "id": rid, "esito": esito, "audit": out["audit"]}
+            return self._json(code, out)
         if self.path == "/rimuovi-nota":
             # DICHIARATO alla DPGA (9B/9C): «the organisation can remove any note».
             # Disciplina Part 11: la rimozione è REGISTRATA con motivo e operatore
@@ -329,6 +589,32 @@ class H(BaseHTTPRequestHandler):
             audit = AB.registra_evento_sistema("sistema/token", "rotazione_token", "rotazione token di accesso",
                                                str(body.get("operatore") or "admin")[:60])
             return self._json(200, {"ok": True, "nuovo_token": nuovo, "audit": audit})
+        if self.path == "/ricezione":
+            # Ricezione firmata del pre-alert nel PS (linea guida RCEM/AACE 2025: linea registrata,
+            # clinico senior, risposta richiesta vs attuata con motivo se diversa). Valori chiusi +
+            # digest: mai testo libero in chiaro nel ledger (verbale_probatorio.registra_ricezione).
+            if not isinstance(body, dict):
+                return self._json(400, {"ok": False, "error": "payload non conforme"})
+            try:
+                rid = int(body.get("id"))
+            except (TypeError, ValueError):
+                return self._json(400, {"ok": False, "error": "id non numerico"})
+            with _LOCK:
+                _scadenza_bacheca()
+                r = next((x for x in BOARD if x["id"] == rid), None)
+                if not r or r.get("prealert") is None:
+                    return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente o scaduto"})
+                if len(r.setdefault("ricezioni", [])) >= CAP["ricezioni"]:
+                    return self._json(429, {"ok": False, "error": "tetto ricezioni raggiunto"})
+                out = VP.registra_ricezione(f"prealert-{rid}", str(body.get("operatore_ps") or "")[:60],
+                                            body.get("ruolo"), body.get("risposta_richiesta"),
+                                            body.get("risposta_attuata"),
+                                            motivo_alternativa=body.get("motivo_alternativa"),
+                                            ts_emissione=r["ts"])
+                if not out["ok"]:
+                    return self._json(400, {"ok": False, "error": "ricezione non registrata", "problemi": out["problemi"]})
+                r["ricezioni"].append({k: out[k] for k in ("ts", "latenza_s", "risposta_alternativa", "audit")})
+            return self._json(200, out)
         if self.path == "/prealert":
             # FIX 2026-09-11 (round 3): accettava un pre-alert PRE-CALCOLATO dal client con due soli campi
             # controllati → bypass del gate pediatrico e della validazione, PII arbitraria in bacheca
