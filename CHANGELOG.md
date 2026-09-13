@@ -40,12 +40,24 @@ Twiage, corpuls.mission, NIDA, WebEMS): none of them makes the pre-alert itself 
   for patient" fired on chronic deficits (now `clinica.gcs_abituale` excludes them); SpO2 in air (adult)
   and on oxygen (child) were silent (now declared in `non_valutato`); derived conditions (CDC field
   triage for MTTT, FAST+ without thrombolysis window) now say how they were derived.
-- **Tests**: 40 new (boundaries of every threshold, every paediatric band, hostile types, sepsis needs
+- **Second review round (same three models), again verified and fixed:** `verified` on a timestamp
+  ignored the TSA trust chain (a token from a self-signed TSA would have been "verified") — now
+  `verified` is True only with the CMS signature *and* the chain to the CA given in `HEALTH_TSA_CAFILE`,
+  None ("coherent, TSA not trusted") without a CA, False with a wrong CA (measured: freeTSA root CA →
+  OK, a self-signed "TSA-FALSA" → refused); operators with keys created before this release had no
+  registered public key (now derived from the existing key on first use); `sepsi` was silently ignored
+  under 16 (now declared as not applicable, with a paediatric sepsis pathway hint); `eta_mesi` accepted
+  with `eta` ≥ 1 (now refused as inconsistent); the Part 11 trail reader used the wrong record layout
+  (now the verbale lists the engine's records and, if the engine refuses a corrupted trail, says so
+  instead of raising). Declared limit written into the verbale: the key registry lives on the same host
+  as the ledger — a third party must receive it out of band or rely on the timestamped verbale.
+- **Tests**: 46 new (boundaries of every threshold, every paediatric band, hostile types, sepsis needs
   infection history, receipt vocabulary, tamper / re-sign with foreign key / row deletion detection,
-  fabricated timestamp reply refused, persisted verbale, end-to-end over HTTP, bench-of-the-bench with
-  a deliberately broken threshold) + 1 opt-in network test with a real TSA (green against freetsa.org on
-  2026-09-13, tampered token refused). 112 in total, in CI with and without `cryptography`; 10 consecutive
-  full runs green in the public configuration.
+  legacy-key and legacy-row boundaries, fabricated timestamp reply refused, persisted verbale,
+  end-to-end over HTTP, bench-of-the-bench with a deliberately broken threshold) + 2 opt-in network
+  tests with a real TSA (green against freetsa.org with its root CA on 2026-09-13; tampered token and
+  wrong CA refused). 118 in total, in CI with and without `cryptography`; 10 consecutive full runs green
+  in the public configuration.
 
 ## 2026-09-11 (third pass) — what the second independent verification still found
 

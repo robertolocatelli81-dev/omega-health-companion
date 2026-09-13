@@ -283,8 +283,13 @@ class TestVerbale(unittest.TestCase):
         d = hashlib.sha256(b"verbale di prova").hexdigest()
         m = VP.marca_temporale_rfc3161(d, os.environ["HEALTH_TSA_URL"])
         self.assertTrue(m["anchored"], m)
-        self.assertTrue(VP.verifica_marca(m["tsr_b64"], d)["verified"])
+        senza_ca = VP.verifica_marca(m["tsr_b64"], d)
+        self.assertTrue(senza_ca["firma_cms_ok"] and senza_ca["imprint_ok"] and senza_ca["granted"])
+        self.assertIsNone(senza_ca["verified"])                                   # coerente, ma TSA non fidata senza CA
         self.assertFalse(VP.verifica_marca(m["tsr_b64"], "00" * 32)["verified"])   # digest diverso → NO
+        import base64
+        raw = bytearray(base64.b64decode(m["tsr_b64"])); raw[-40] ^= 0x01
+        self.assertFalse(VP.verifica_marca(base64.b64encode(bytes(raw)).decode(), d)["firma_cms_ok"])   # token manomesso → NO
 
 
 @unittest.skipUnless(AB.FIRMA_LOCALE_DISPONIBILE, "cryptography assente")
@@ -495,6 +500,93 @@ class TestVerbaleContrattacchi(unittest.TestCase):
         self.assertEqual(hashlib.sha256(raw).hexdigest(), p["sha256_file"])
         self.assertEqual(json.loads(raw)["digest_verbale_sha256"], v["digest_verbale_sha256"])
         self.assertNotIn("sbp", raw.decode())
+
+
+
+class TestRound2(unittest.TestCase):
+    """Rilievi del council round 2, ciascuno rosso sul codice precedente."""
+
+    def test_eta_mesi_incoerente_con_eta(self):
+        r = PC.criteri_pediatrici(1, dict(rr=25, hr=110, spo2=98, su_ossigeno=False, temp=39.0), 2)
+        self.assertTrue(any("incoerente" in x for x in r["problemi_dati"]))
+        out = A.valuta_paziente(dict(rr=25, spo2=98, su_ossigeno=False, sbp=100, hr=110, alert_coscienza=True, temp=39.0),
+                                [], 1, 10, eta_mesi=2)["PRE_ALERT_INTEGRATO"]
+        self.assertEqual(out["priorita"], "NON_VALUTABILE_DATI_INVALIDI")
+        r = PC.criteri_pediatrici(0, dict(rr=25, hr=110, spo2=98, su_ossigeno=False), 12)
+        self.assertTrue(r["problemi_dati"])
+
+    def test_sepsi_pediatrica_non_scartata_in_silenzio(self):
+        v = dict(rr=25, spo2=98, su_ossigeno=False, sbp=100, hr=110, alert_coscienza=True, temp=39.0)
+        out = A.valuta_paziente(v, [], 6, 10, sepsi={"storia_infezione": True,
+                                                    "segni": {"rash_non_sbiancante": True}})["PRE_ALERT_INTEGRATO"]
+        self.assertTrue(any("sepsi" in x.lower() for x in out["criteri_prealert_2025"]["non_valutato"]))
+        self.assertTrue(any("SEPSI PEDIATRICA" in p for p in out["percorsi_attivare"]))
+        self.assertEqual(out["sepsi_jrcalc"], {"non_applicabile_pediatrico": True})
+
+    def test_sepsi_coscienza_assente_dichiarata(self):
+        s = PC.sepsi_alto_rischio_jrcalc(dict(rr=16, spo2=98, su_ossigeno=False, sbp=125, hr=72), None, True)
+        self.assertTrue(any("alert_coscienza" in x for x in s["non_valutato"]))
+
+
+@unittest.skipUnless(AB.FIRMA_LOCALE_DISPONIBILE, "cryptography assente")
+class TestRound2Verbale(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="verb3_")
+        self._orig = (AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR)
+        AB.MOTORE_DISPONIBILE = False
+        AB.FALLBACK_LEDGER = os.path.join(self.tmp, "fb.jsonl")
+        AB.KEYS_DIR = os.path.join(self.tmp, "keys")
+
+    def tearDown(self):
+        AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR = self._orig
+
+    def test_chiave_legacy_senza_pub_viene_registrata(self):
+        # pilota pre-13/09: esiste solo fb-<op>.key; il verbale non deve dire «senza chiave registrata»
+        import base64
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives import serialization as ser
+        os.makedirs(AB.KEYS_DIR)
+        sk = Ed25519PrivateKey.generate()
+        with open(os.path.join(AB.KEYS_DIR, "fb-vecchio-op.key"), "w") as f:
+            f.write(base64.b64encode(sk.private_bytes(ser.Encoding.Raw, ser.PrivateFormat.Raw, ser.NoEncryption())).decode())
+        AB.registra_prealert("prealert-2", "ab" * 32, "vecchio-op")
+        v = VP.verbale("prealert-2")
+        self.assertTrue(v["firme_tutte_verificate"], v["eventi"])
+        self.assertIn("vecchio-op", v["registro_chiavi"])
+
+    def test_catena_al_confine_con_righe_legacy(self):
+        # riga pre-13/09 (senza prev_sha256) seguita da righe nuove: fuori catena 1, catena ok
+        AB.registra_prealert("prealert-4", "ab" * 32, "op")
+        with open(AB.FALLBACK_LEDGER, encoding="utf-8") as f:
+            e = json.loads(f.readline())
+        legacy = {k: v for k, v in e.items() if k != "prev_sha256"}
+        with open(AB.FALLBACK_LEDGER, "w", encoding="utf-8") as f:
+            f.write(json.dumps(legacy) + "\n")
+        AB.registra_conferma("prealert-4", "ok", "op")
+        v = VP.verbale("prealert-4")
+        self.assertTrue(v["catena"]["catena_ok"])
+        self.assertEqual(v["catena"]["righe_fuori_catena"], 1)
+        self.assertFalse(v["eventi"][0]["firma_ok"])        # la riga legacy ha un digest senza prev: NON verificata come nuova
+        self.assertTrue(v["eventi"][1]["firma_ok"])
+
+    @unittest.skipUnless(os.environ.get("HEALTH_TSA_URL") and os.environ.get("HEALTH_TSA_CAFILE"), "TSA e CA reali opt-in")
+    def test_fiducia_tsa_con_ca_vera_e_ca_falsa(self):
+        import hashlib, tempfile as tf, subprocess
+        d = hashlib.sha256(b"fiducia").hexdigest()
+        m = VP.marca_temporale_rfc3161(d, os.environ["HEALTH_TSA_URL"])
+        self.assertTrue(m["anchored"], m)
+        senza = VP.verifica_marca(m["tsr_b64"], d)
+        self.assertIsNone(senza["verified"])                       # coerente ma TSA non fidata
+        self.assertEqual(senza["livello_marca"], "rfc3161-coerente-tsa-non-fidata")
+        con = VP.verifica_marca(m["tsr_b64"], d, cafile=os.environ["HEALTH_TSA_CAFILE"])
+        self.assertTrue(con["verified"], con)
+        self.assertEqual(con["livello_marca"], "rfc3161-catena-verificata")
+        fake = os.path.join(tf.mkdtemp(), "fake.pem")
+        subprocess.run(["openssl", "req", "-x509", "-newkey", "ed25519", "-nodes", "-keyout", fake + ".key",
+                        "-out", fake, "-subj", "/CN=TSA-FALSA", "-days", "1"], capture_output=True, check=True)
+        falsa = VP.verifica_marca(m["tsr_b64"], d, cafile=fake)
+        self.assertFalse(falsa["verified"])
+        self.assertFalse(falsa["catena_tsa_ok"])
 
 
 if __name__ == "__main__":

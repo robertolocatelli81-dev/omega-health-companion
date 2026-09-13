@@ -99,8 +99,10 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
             if mp is not None and (isinstance(mp, bool) or not isinstance(mp, (int, float)) or not (0 <= mp <= 200)):
                 problemi_extra.append(f"sepsi.map_mmhg non valido: {mp!r}")
     if eta_mesi is not None and (isinstance(eta_mesi, bool) or not isinstance(eta_mesi, (int, float))
-                                 or eta_mesi != eta_mesi or not (0 <= eta_mesi <= 24)):
-        problemi_extra.append(f"eta_mesi non valida: {eta_mesi!r} (atteso numero 0-24)")
+                                 or eta_mesi != eta_mesi or not (0 <= eta_mesi <= 11)):
+        problemi_extra.append(f"eta_mesi non valida: {eta_mesi!r} (atteso numero 0-11, solo sotto l'anno)")
+    elif eta_mesi is not None and isinstance(eta, (int, float)) and not isinstance(eta, bool) and eta >= 1:
+        problemi_extra.append(f"eta_mesi={eta_mesi!r} incoerente con eta={eta!r} (i mesi valgono solo sotto l'anno)")
     if isinstance(eta_arrivo_min, bool) or not isinstance(eta_arrivo_min, (int, float)) \
             or eta_arrivo_min != eta_arrivo_min or not (0 <= eta_arrivo_min <= 600):
         problemi_extra.append(f"eta_arrivo_min non valido: {eta_arrivo_min!r} (atteso numero 0-600 minuti)")
@@ -135,6 +137,14 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
         crit_ped = PC.decisione_prealert(eta, vitali, gcs=cl.get("gcs"), condizioni=condizioni, eta_mesi=eta_mesi,
                                          crt_sec=cl.get("crt_sec"))
         percorsi_ped = ["PERCORSO PEDIATRICO: valutazione clinica diretta"]
+        if sepsi is not None and isinstance(crit_ped, dict):
+            # i marcatori JRCALC adulti NON valgono <16 (council round 2: prima venivano scartati in silenzio)
+            crit_ped.setdefault("non_valutato", []).append(
+                "sepsi: i marcatori JRCALC adulti non si applicano sotto i 16 anni — usare i criteri pediatrici "
+                "per fascia d'età e dichiarare condizioni.sepsi_alto_rischio_pediatrica")
+            if sepsi.get("storia_infezione") and sepsi.get("segni"):
+                percorsi_ped.append("SOSPETTO SEPSI PEDIATRICA (storia di infezione + segni dichiarati): valutare "
+                                    "i criteri JRCALC per età — non classificato automaticamente")
         if crit_ped.get("pre_alert_indicato"):
             percorsi_ped.insert(0, "PRE-ALERT PEDIATRICO INDICATO (criteri RCEM/AACE 2025 per fascia d'età): "
                                 + ", ".join(c["criterio"] for c in crit_ped["criteri_fisiologici"])
@@ -147,7 +157,8 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
                                             "adulti NON validati — usare PEWS/percorso pediatrico, "
                                             "comunicazione diretta col medico"),
                     "percorsi_attivare": percorsi_ped,
-                    "criteri_prealert_2025": crit_ped},
+                    "criteri_prealert_2025": crit_ped,
+                    "sepsi_jrcalc": ({"non_applicabile_pediatrico": True} if sepsi is not None else None)},
                 "confine": "score adulti non applicabili in pediatria: rifiuto dichiarato, non un numero sbagliato",
                 "privacy": "dati effimeri, trasmessi solo all'ospedale di destinazione"}
     pa = B.prealert(eta, vitali, eta_arrivo_min)

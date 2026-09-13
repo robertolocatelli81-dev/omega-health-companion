@@ -75,7 +75,10 @@ def _fb_key(operatore: str) -> "_EdSk":
     path = os.path.join(KEYS_DIR, f"fb-{slug}.key")
     if os.path.exists(path):
         raw = base64.b64decode(open(path).read().strip())
-        return _EdSk.from_private_bytes(raw)
+        sk = _EdSk.from_private_bytes(raw)
+        if not os.path.exists(os.path.join(KEYS_DIR, f"fb-{slug}.pub")):
+            _fb_registra_pubkey(slug, sk)          # chiave nata prima del registro (13/09)
+        return sk
     sk = _EdSk.generate()
     raw = sk.private_bytes(_ser.Encoding.Raw, _ser.PrivateFormat.Raw,
                            _ser.NoEncryption())

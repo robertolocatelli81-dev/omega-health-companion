@@ -201,8 +201,11 @@ def valida_vitali_pediatrici(v: Dict) -> List[str]:
 def criteri_pediatrici(eta_anni: float, vitali: Dict, eta_mesi: Optional[int] = None) -> Dict:
     """Criteri di pre-alert per fasce d'età (<16). NON è un punteggio pediatrico."""
     problemi = valida_vitali_pediatrici(vitali)
-    if eta_mesi is not None and (not _num(eta_mesi) or not (0 <= eta_mesi <= 24)):
-        problemi.append(f"eta_mesi non valida: {eta_mesi!r} (atteso 0-24)")
+    if eta_mesi is not None:
+        if not _num(eta_mesi) or not (0 <= eta_mesi <= 11):
+            problemi.append(f"eta_mesi non valida: {eta_mesi!r} (atteso 0-11, solo sotto l'anno)")
+        elif eta_anni >= 1:
+            problemi.append(f"eta_mesi={eta_mesi!r} incoerente con eta={eta_anni!r} (i mesi valgono solo sotto l'anno)")
     if problemi:
         return {"criteri": [], "problemi_dati": problemi, "fascia": None}
     f = _fascia(eta_anni)
@@ -251,6 +254,9 @@ def sepsi_alto_rischio_jrcalc(vitali: Dict, segni: Optional[Dict], storia_infezi
     T = SOGLIE_SEPSI
     m: List[str] = []
     sg = segni or {}
+    non_val: List[str] = []
+    if "alert_coscienza" not in vitali and not sg.get("confusione_nuova_o_risponde_solo_a_voce_dolore_o_non_risponde"):
+        non_val.append("stato di coscienza (alert_coscienza assente): marcatore confusione non valutato")
     if sg.get("confusione_nuova_o_risponde_solo_a_voce_dolore_o_non_risponde") or not vitali.get("alert_coscienza", True):
         m.append(SEGNI_SEPSI["confusione_nuova_o_risponde_solo_a_voce_dolore_o_non_risponde"])
     if vitali["sbp"] <= T["sbp"] or sg.get("calo_sbp_40_dal_normale") or (map_mmhg is not None and map_mmhg < T["map"]):
@@ -272,7 +278,7 @@ def sepsi_alto_rischio_jrcalc(vitali: Dict, segni: Optional[Dict], storia_infezi
               "chemioterapia_ultime_6_settimane"):
         if sg.get(k):
             m.append(SEGNI_SEPSI[k])
-    out = {"marcatori": m, "storia_infezione": storia_infezione,
+    out = {"marcatori": m, "storia_infezione": storia_infezione, "non_valutato": non_val,
            "alto_rischio": bool(m) and storia_infezione,
            "nota": ("NEWS2 ≥5 suggerisce il sospetto ma NON è diagnostico (linea guida); i marcatori valgono "
                     "in un paziente con storia di infezione")}

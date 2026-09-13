@@ -126,6 +126,9 @@ def registro_chiavi() -> Dict[str, str]:
     reg: Dict[str, str] = {}
     if os.path.isdir(AB.KEYS_DIR):
         for n in sorted(os.listdir(AB.KEYS_DIR)):
+            if n.startswith("fb-") and n.endswith(".key") and not os.path.exists(os.path.join(AB.KEYS_DIR, n[:-4] + ".pub")):
+                AB.fb_pubkey_registrata(n[3:-4])       # chiave nata prima del registro (13/09): deriva la .pub
+        for n in sorted(os.listdir(AB.KEYS_DIR)):
             if n.startswith("fb-") and n.endswith(".pub"):
                 with open(os.path.join(AB.KEYS_DIR, n)) as f:
                     reg[n[3:-4]] = f.read().strip()
@@ -204,6 +207,7 @@ def _eventi_part11(prealert_id: str) -> List[Dict]:
                 e = json.loads(line)
             except ValueError:
                 continue
+            e = e.get("data") if isinstance(e.get("data"), dict) else e     # PersistentLedger: {data, idx, prev_hash, self_hash}
             if e.get("kind") != "part11_audit":
                 continue
             tgt = str(e.get("target_record_id", ""))
@@ -221,11 +225,14 @@ def verbale(prealert_id: str) -> Dict:
     catena: Dict = {"catena_ok": None}
     eventi_motore = None
     if AB.MOTORE_DISPONIBILE:
-        ver = AB.verifica_trail()
+        try:
+            ver = AB.verifica_trail()
+        except Exception as ex:  # noqa: BLE001 — trail corrotto: il motore rifiuta di caricarlo (fail-closed), il verbale lo DICE
+            ver = {"chain_ok": False, "record_digests_bound": False, "errore": f"{type(ex).__name__}: {str(ex)[:120]}"}
         eventi = _eventi_part11(prealert_id)
         eventi_motore = {"verifica_trail": {k: v for k, v in ver.items() if k != "records"}}
         # il motore verifica catena e firme dell'INTERO trail: ogni evento eredita quel verdetto
-        ok_trail = bool(ver.get("valid", ver.get("ok", False)))
+        ok_trail = bool(ver.get("chain_ok")) and bool(ver.get("record_digests_bound", True))
         for e in eventi:
             e["firma_ok"] = ok_trail
             e["verifica"] = "trail Part 11 verificato dal motore" if ok_trail else "trail Part 11 NON verificato"
@@ -249,7 +256,10 @@ def verbale(prealert_id: str) -> Dict:
              "motore_part11": eventi_motore,
              "confine": ("solo digest, firme e metadati: nessun dato sanitario; le firme sono ri-verificate "
                          "ricalcolando il digest dal record canonico contro la chiave REGISTRATA dell'operatore; "
-                         "firme_tutte_verificate richiede anche la catena prev_sha256 integra su tutto il ledger")}
+                         "firme_tutte_verificate richiede anche la catena prev_sha256 integra su tutto il ledger. "
+                         "LIMITE: il registro chiavi vive sullo stesso host del ledger — un terzo deve riceverlo "
+                         "fuori banda (o fidarsi del verbale marcato nel tempo); il troncamento della coda del "
+                         "ledger è coperto solo dal verbale persistito con marca")}
     canon = json.dumps(corpo, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     corpo["digest_verbale_sha256"] = hashlib.sha256(canon).hexdigest()
     return corpo
@@ -305,9 +315,10 @@ def verifica_marca(tsr_b64: str, digest_atteso_hex: str, timeout: int = 15, cafi
     """Verifica CRITTOGRAFICA del token RFC 3161, in tre strati dichiarati separatamente:
       1. status Granted e message imprint == digest atteso (openssl ts -reply -text);
       2. firma CMS del token valida con il certificato incluso nel token (openssl cms -verify -noverify):
-         un TSR fabbricato con «Granted» e imprint giusto qui CADE (council 13/09: prima non c'era);
-      3. se `cafile` è dato: catena di fiducia della TSA (openssl ts -verify -CAfile) → `catena_ok`.
-    `verified` è True solo con 1 E 2; il livello resta «non qualificata» senza QTSP. Senza openssl: None."""
+         un TSR MODIFICATO o senza firma CMS qui cade; un token INVENTATO da una TSA self-signed no;
+      3. catena di fiducia della TSA (openssl ts -verify -CAfile `cafile`) → `catena_tsa_ok`.
+    `verified` è True SOLO con 1 E 2 E 3; con 1 E 2 ma senza CA: None («coerente, TSA non fidata»).
+    Il livello resta «non qualificata» senza QTSP eIDAS. Senza openssl: None."""
     import subprocess  # nosec B404
     import tempfile
     exe = shutil.which("openssl")
@@ -348,13 +359,22 @@ def verifica_marca(tsr_b64: str, digest_atteso_hex: str, timeout: int = 15, cafi
                 hexbytes += [h for h in hexpart.replace("-", " ").split() if len(h) == 2]
         imprint = "".join(hexbytes).lower()
         imprint_ok = imprint == digest_atteso_hex.lower()
-        ok = granted and imprint_ok and firma_cms
-        return {"verified": ok, "granted": granted, "imprint_ok": imprint_ok, "firma_cms_ok": firma_cms,
-                "catena_tsa_ok": catena_ok,
-                "livello_marca": ("rfc3161-catena-verificata" if ok and catena_ok else
-                                  "rfc3161-non-qualificata" if ok else None),
-                "nota": ("firma CMS verificata col certificato incluso nel token; la fiducia nella TSA "
-                         "(catena) richiede HEALTH_TSA_CAFILE; marca qualificata solo con un QTSP")}
+        coerente = granted and imprint_ok and firma_cms          # token integro e coerente con SE STESSO
+        # `verified` (council round 2): True SOLO se anche la CATENA verso una CA fidata regge. Senza
+        # cafile un token firmato da una TSA self-signed «CN=TSA-FALSA» sarebbe coerente ma non fidato:
+        # verified=None e livello «coerente-non-fidata», mai True.
+        if not coerente:
+            verified, livello = False, None
+        elif catena_ok is True:
+            verified, livello = True, "rfc3161-catena-verificata"
+        elif catena_ok is False:
+            verified, livello = False, None
+        else:
+            verified, livello = None, "rfc3161-coerente-tsa-non-fidata"
+        return {"verified": verified, "granted": granted, "imprint_ok": imprint_ok, "firma_cms_ok": firma_cms,
+                "catena_tsa_ok": catena_ok, "livello_marca": livello,
+                "nota": ("verified=True solo con firma CMS valida E catena verso la CA data (HEALTH_TSA_CAFILE); "
+                         "senza CA: coerente ma TSA non fidata (None); marca QUALIFICATA solo con un QTSP eIDAS")}
     except Exception as e:  # noqa: BLE001
         return {"verified": False, "note": f"{type(e).__name__}: {str(e)[:80]}"}
     finally:
