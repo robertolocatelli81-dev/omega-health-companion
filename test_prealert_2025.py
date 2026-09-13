@@ -364,5 +364,138 @@ class TestE2ERicezione(unittest.TestCase):
         self.assertEqual(self._req("GET", f"/verbale/{rid}")[0], 401)
 
 
+
+class TestCorrezioniCouncil(unittest.TestCase):
+    """Ogni difetto trovato dal council del 13/09 ha qui il suo test: rosso sul codice di prima."""
+
+    def test_sepsi_marcatore_ossigeno_sul_paziente_che_non_regge(self):
+        # in O2 con SpO2 90 (<92): il marcatore «needs oxygen» DEVE esserci (prima era omesso)
+        s = PC.sepsi_alto_rischio_jrcalc(_v(spo2=90, su_ossigeno=True), None, storia_infezione=True)
+        self.assertTrue(any("Needs oxygen" in m and "below target" in m for m in s["marcatori"]))
+        s2 = PC.sepsi_alto_rischio_jrcalc(_v(spo2=96, su_ossigeno=True), None, storia_infezione=True)
+        self.assertTrue(any("Needs oxygen" in m for m in s2["marcatori"]))
+        s3 = PC.sepsi_alto_rischio_jrcalc(_v(spo2=90, su_ossigeno=False), None, storia_infezione=True)
+        self.assertFalse(any("Needs oxygen" in m for m in s3["marcatori"]))
+        # BPCO: «more than 88%» → a 88 in O2 è ancora sotto target
+        s4 = PC.sepsi_alto_rischio_jrcalc(_v(spo2=88, su_ossigeno=True, bpco_scala2=True), None, storia_infezione=True)
+        self.assertTrue(any("below target" in m for m in s4["marcatori"]))
+
+    def test_gcs_abituale_esclude_deficit_cronico(self):
+        con = [c["criterio"] for c in PC.criteri_adulto(_v(), gcs=10, gcs_abituale=10)["criteri"]]
+        self.assertNotIn("GCS", con)
+        peggiore = [c["criterio"] for c in PC.criteri_adulto(_v(), gcs=9, gcs_abituale=10)["criteri"]]
+        self.assertIn("GCS", peggiore)
+
+    def test_spo2_in_aria_dichiarata_non_silenziosa(self):
+        nv = PC.criteri_adulto(_v(spo2=70, su_ossigeno=False))["non_valutato"]
+        self.assertTrue(any("IN ARIA" in x for x in nv))
+        r = PC.criteri_pediatrici(7, dict(rr=25, hr=110, spo2=85, su_ossigeno=True))
+        self.assertTrue(any("IN OSSIGENO" in x for x in r["non_valutato"]))
+
+    def test_pediatrico_gcs_e_crt_arrivano_dal_motore(self):
+        # bambino con FR/FC normali e GCS 8 (via clinica) → pre-alert indicato (prima: «nessun pre-alert»)
+        v = dict(rr=22, spo2=98, su_ossigeno=False, sbp=100, hr=95, alert_coscienza=False, temp=36.8)
+        out = A.valuta_paziente(v, [], 8, 10, clinica={"gcs": 8})["PRE_ALERT_INTEGRATO"]
+        self.assertTrue(out["criteri_prealert_2025"]["pre_alert_indicato"])
+        self.assertIn("GCS", [c["criterio"] for c in out["criteri_prealert_2025"]["criteri_fisiologici"]])
+        out = A.valuta_paziente(dict(v, alert_coscienza=True), [], 8, 10, clinica={"crt_sec": 5})["PRE_ALERT_INTEGRATO"]
+        self.assertTrue(out["criteri_prealert_2025"]["pre_alert_indicato"])
+        out = A.valuta_paziente(dict(v, alert_coscienza=True), [], 8, 10, clinica={"crt_sec": "5"})["PRE_ALERT_INTEGRATO"]
+        self.assertEqual(out["priorita"], "NON_VALUTABILE_DATI_INVALIDI")
+
+    def test_sepsi_entra_nel_motore_integrato(self):
+        out = A.valuta_paziente(_v(rr=26, hr=132, sbp=88), [], 70, 10,
+                                sepsi={"storia_infezione": True, "segni": {"cianosi": True}})["PRE_ALERT_INTEGRATO"]
+        self.assertTrue(out["sepsi_jrcalc"]["alto_rischio"])
+        self.assertIn("sepsi_alto_rischio_adulto", [c["condizione"] for c in out["criteri_prealert_2025"]["condizioni_specifiche"]])
+        out = A.valuta_paziente(_v(), [], 70, 10, sepsi={"storia_infezione": "sì"})["PRE_ALERT_INTEGRATO"]
+        self.assertEqual(out["priorita"], "NON_VALUTABILE_DATI_INVALIDI")
+
+    def test_condizioni_derivate_dichiarano_la_derivazione(self):
+        out = A.valuta_paziente(_v(), [], 60, 10, fast_segni={"face": True})["PRE_ALERT_INTEGRATO"]
+        c = [c for c in out["criteri_prealert_2025"]["condizioni_specifiche"] if c["condizione"] == "ictus_fast_positivo_in_finestra"][0]
+        self.assertIn("NON è verificata", c["derivazione"])
+
+
+@unittest.skipUnless(AB.FIRMA_LOCALE_DISPONIBILE, "cryptography assente")
+class TestVerbaleContrattacchi(unittest.TestCase):
+    """Le tre falsificazioni indicate dal council: chiave estranea, cancellazione, TSR fabbricato."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="verb2_")
+        self._orig = (AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR)
+        AB.MOTORE_DISPONIBILE = False
+        AB.FALLBACK_LEDGER = os.path.join(self.tmp, "fb.jsonl")
+        AB.KEYS_DIR = os.path.join(self.tmp, "keys")
+
+    def tearDown(self):
+        AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR = self._orig
+
+    def _ledger(self):
+        with open(AB.FALLBACK_LEDGER, encoding="utf-8") as f:
+            return [json.loads(l) for l in f if l.strip()]
+
+    def _scrivi(self, entries):
+        with open(AB.FALLBACK_LEDGER, "w", encoding="utf-8") as f:
+            for e in entries:
+                f.write(json.dumps(e, ensure_ascii=False) + "\n")
+
+    def test_riga_rifirmata_con_chiave_estranea_non_passa(self):
+        import base64, hashlib
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives import serialization as ser
+        AB.registra_prealert("prealert-5", "ab" * 32, "equipaggio-1")
+        VP.registra_ricezione("prealert-5", "dr-a", "medico", "resus", "resus")
+        self.assertTrue(VP.verbale("prealert-5")["firme_tutte_verificate"])
+        # l'attaccante riscrive la ricezione e la ri-firma con una chiave SUA, coerente col digest
+        es = self._ledger()
+        e = es[1]
+        rec = {k: e[k] for k in ("kind", "target", "azione", "dettaglio", "operatore", "ts", "prev_sha256")}
+        rec["dettaglio"]["risposta_attuata"] = "nessuna_risposta_specifica"
+        digest = hashlib.sha256(json.dumps(rec, sort_keys=True, separators=(",", ":")).encode()).digest()
+        sk = Ed25519PrivateKey.generate()
+        e2 = {**rec, "record_sha256": digest.hex(), "firma_ed25519_b64": base64.b64encode(sk.sign(digest)).decode(),
+              "pubkey_b64": base64.b64encode(sk.public_key().public_bytes(ser.Encoding.Raw, ser.PublicFormat.Raw)).decode()}
+        self._scrivi([es[0], e2])
+        v = VP.verbale("prealert-5")
+        self.assertFalse(v["firme_tutte_verificate"])
+        self.assertFalse(v["eventi"][1]["firma_ok"])
+        self.assertIn("registrata", v["eventi"][1]["verifica"])
+
+    def test_cancellazione_riga_rilevata_dalla_catena(self):
+        AB.registra_prealert("prealert-6", "ab" * 32, "equipaggio-1")
+        VP.registra_ricezione("prealert-6", "dr-a", "clinico_senior", "resus", "revisione_senior_immediata",
+                              motivo_alternativa="resus piena")
+        AB.registra_conferma("prealert-6", "preso in carico", "dr-b")
+        self.assertTrue(VP.verbale("prealert-6")["catena"]["catena_ok"])
+        es = self._ledger()
+        self._scrivi([es[0], es[2]])        # sparisce la ricezione con risposta alternativa
+        v = VP.verbale("prealert-6")
+        self.assertFalse(v["catena"]["catena_ok"])
+        self.assertEqual(v["catena"]["rotture"][0]["riga"], 2)
+        self.assertFalse(v["firme_tutte_verificate"])
+        self.assertEqual(v["ricezioni"], 0)
+
+    def test_tsr_fabbricato_non_passa(self):
+        # un «token» che non è CMS: openssl non estrae né verifica → verified False, mai True
+        import base64
+        finto = base64.b64encode(b"Status: Granted\nMessage data:\n    0000 - " + b"ab " * 32).decode()
+        r = VP.verifica_marca(finto, "ab" * 32)
+        self.assertIn(r["verified"], (False, None))
+        if r["verified"] is False:
+            self.assertFalse(r["firma_cms_ok"])
+
+    def test_persistenza_verbale(self):
+        AB.registra_prealert("prealert-3", "ab" * 32, "equipaggio-1")
+        v = VP.verbale("prealert-3")
+        p = VP.persisti_verbale(v, os.path.join(self.tmp, "verbali"))
+        with open(p["path"], "rb") as f:
+            raw = f.read()
+        import hashlib
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), p["sha256_file"])
+        self.assertEqual(json.loads(raw)["digest_verbale_sha256"], v["digest_verbale_sha256"])
+        self.assertNotIn("sbp", raw.decode())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

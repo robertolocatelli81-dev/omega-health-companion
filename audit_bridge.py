@@ -82,15 +82,68 @@ def _fb_key(operatore: str) -> "_EdSk":
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as f:
         f.write(base64.b64encode(raw).decode())
+    _fb_registra_pubkey(slug, sk)
     return sk
 
 
+def _fb_registra_pubkey(slug: str, sk: "_EdSk") -> None:
+    """Registro delle chiavi PUBBLICHE per operatore (`fb-<slug>.pub`, 2026-09-13, council): il verbale
+    verifica una firma SOLO contro la chiave registrata dell'operatore, mai contro la chiave scritta
+    nella riga stessa (con quella, chi riscrive il ledger ri-firma con una chiave propria e passa)."""
+    pk = sk.public_key().public_bytes(_ser.Encoding.Raw, _ser.PublicFormat.Raw)
+    with open(os.path.join(KEYS_DIR, f"fb-{slug}.pub"), "w") as f:
+        f.write(base64.b64encode(pk).decode())
+
+
+def fb_pubkey_registrata(operatore: str) -> Optional[str]:
+    """Chiave pubblica registrata (base64) dell'operatore, o None se mai registrata (fail-closed)."""
+    slug = _slug(operatore) or "anonimo"
+    path = os.path.join(KEYS_DIR, f"fb-{slug}.pub")
+    if not os.path.exists(path):
+        # chiave privata presente ma .pub mancante (installazioni precedenti al 13/09): derivala una volta
+        kpath = os.path.join(KEYS_DIR, f"fb-{slug}.key")
+        if os.path.exists(kpath) and FIRMA_LOCALE_DISPONIBILE:
+            _fb_registra_pubkey(slug, _EdSk.from_private_bytes(base64.b64decode(open(kpath).read().strip())))
+        else:
+            return None
+    with open(path) as f:
+        return f.read().strip()
+
+
+def _fb_ultimo_sha256() -> str:
+    """Ultimo record_sha256 del ledger locale (o GENESIS): l'anello per la catena prev_sha256."""
+    if not os.path.exists(FALLBACK_LEDGER):
+        return "GENESIS"
+    last = None
+    with open(FALLBACK_LEDGER, encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                last = line
+    if not last:
+        return "GENESIS"
+    try:
+        return json.loads(last).get("record_sha256") or "GENESIS"
+    except ValueError:
+        return "GENESIS"
+
+
+_FB_LOCK = __import__("threading").Lock()
+
+
 def _fb_registra(target_id: str, azione: str, dettaglio: Dict, operatore: str) -> Dict:
+    with _FB_LOCK:          # prev_sha256 letto e riga scritta atomicamente (server multi-thread)
+        return _fb_registra_locked(target_id, azione, dettaglio, operatore)
+
+
+def _fb_registra_locked(target_id: str, azione: str, dettaglio: Dict, operatore: str) -> Dict:
     import hashlib
+    # prev_sha256 (2026-09-13, council): catena hash FIRMATA fra le righe. Senza, cancellare o
+    # riordinare una riga (es. la ricezione con risposta alternativa) era invisibile al verbale.
     rec = {"kind": "audit_locale", "target": target_id, "azione": azione,
            "dettaglio": dettaglio, "operatore": operatore,
            "ts": __import__("datetime").datetime.now(
-               __import__("datetime").timezone.utc).isoformat(timespec="seconds")}
+               __import__("datetime").timezone.utc).isoformat(timespec="seconds"),
+           "prev_sha256": _fb_ultimo_sha256()}
     canon = json.dumps(rec, sort_keys=True, separators=(",", ":")).encode()
     digest = hashlib.sha256(canon).digest()
     sk = _fb_key(operatore)
@@ -101,6 +154,8 @@ def _fb_registra(target_id: str, azione: str, dettaglio: Dict, operatore: str) -
              "pubkey_b64": base64.b64encode(pk).decode()}
     with open(FALLBACK_LEDGER, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    if not os.path.exists(os.path.join(KEYS_DIR, f"fb-{_slug(operatore) or 'anonimo'}.pub")):
+        _fb_registra_pubkey(_slug(operatore) or "anonimo", sk)      # chiavi nate prima del registro
     # verifica immediata (mai un verde non provato)
     try:
         _EdPk.from_public_bytes(pk).verify(sig, digest)

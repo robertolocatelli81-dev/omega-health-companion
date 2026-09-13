@@ -95,27 +95,81 @@ def registra_ricezione(prealert_id: str, operatore_ps: str, ruolo: str, risposta
             "nota": "ricezione firmata: chi, quando, risposta richiesta vs attuata; motivo per digest"}
 
 
-def _verifica_entry_locale(e: Dict) -> bool:
-    """Ri-verifica INDIPENDENTE di una riga del ledger firma-locale: ricanonizza, ricalcola il
-    digest, verifica la firma Ed25519 con la chiave pubblica contenuta nella riga."""
+def _verifica_entry_locale(e: Dict, registro: Dict[str, str]) -> Dict:
+    """Ri-verifica INDIPENDENTE di una riga del ledger firma-locale: ricanonizza (prev_sha256 incluso),
+    ricalcola il digest, verifica la firma Ed25519 contro la chiave REGISTRATA dell'operatore
+    (`registro`: operatore → pubkey base64). La chiave scritta nella riga NON fa fede (council 13/09:
+    chi riscrive il ledger ri-firma con una chiave propria). Ritorna {ok, motivo}."""
     try:
-        rec = {k: e[k] for k in ("kind", "target", "azione", "dettaglio", "operatore", "ts")}
+        chiavi = ("kind", "target", "azione", "dettaglio", "operatore", "ts") + (("prev_sha256",) if "prev_sha256" in e else ())
+        rec = {k: e[k] for k in chiavi}
         canon = json.dumps(rec, sort_keys=True, separators=(",", ":")).encode()
         digest = hashlib.sha256(canon).digest()
         if digest.hex() != e.get("record_sha256"):
-            return False
+            return {"ok": False, "motivo": "digest non corrisponde al record canonico"}
+        pk_reg = registro.get(str(e.get("operatore")))
+        if not pk_reg:
+            return {"ok": False, "motivo": "operatore senza chiave registrata (fail-closed)"}
+        if pk_reg != e.get("pubkey_b64"):
+            return {"ok": False, "motivo": "chiave nella riga diversa da quella registrata per l'operatore"}
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-        Ed25519PublicKey.from_public_bytes(base64.b64decode(e["pubkey_b64"])).verify(
+        Ed25519PublicKey.from_public_bytes(base64.b64decode(pk_reg)).verify(
             base64.b64decode(e["firma_ed25519_b64"]), digest)
-        return True
-    except Exception:  # noqa: BLE001 — qualunque difetto è «non verificata», mai un'eccezione
-        return False
+        return {"ok": True, "motivo": "firma verificata contro la chiave registrata"}
+    except Exception as ex:  # noqa: BLE001 — qualunque difetto è «non verificata», mai un'eccezione
+        return {"ok": False, "motivo": f"{type(ex).__name__}"}
+
+
+def registro_chiavi() -> Dict[str, str]:
+    """operatore(slug) → chiave pubblica registrata: legge KEYS_DIR/fb-*.pub. Esportato nel verbale
+    così un terzo verifica offline contro un registro che custodisce lui."""
+    reg: Dict[str, str] = {}
+    if os.path.isdir(AB.KEYS_DIR):
+        for n in sorted(os.listdir(AB.KEYS_DIR)):
+            if n.startswith("fb-") and n.endswith(".pub"):
+                with open(os.path.join(AB.KEYS_DIR, n)) as f:
+                    reg[n[3:-4]] = f.read().strip()
+    return reg
+
+
+def _catena_locale() -> Dict:
+    """Continuità della catena prev_sha256 su TUTTO il ledger locale (non solo sul pre-alert): una riga
+    cancellata o riordinata rompe l'anello successivo. Righe precedenti al 13/09 (senza prev_sha256)
+    sono dichiarate «fuori catena», mai contate come verificate."""
+    if not os.path.exists(AB.FALLBACK_LEDGER):
+        return {"catena_ok": None, "righe": 0, "nota": "ledger assente"}
+    prev, righe, fuori, rotture = "GENESIS", 0, 0, []
+    with open(AB.FALLBACK_LEDGER, encoding="utf-8") as f:
+        for n, line in enumerate(f, 1):
+            if not line.strip():
+                continue
+            righe += 1
+            try:
+                e = json.loads(line)
+            except ValueError:
+                rotture.append({"riga": n, "motivo": "illeggibile"})
+                continue
+            if "prev_sha256" not in e:
+                fuori += 1
+                prev = e.get("record_sha256") or prev
+                continue
+            if e["prev_sha256"] != prev:
+                rotture.append({"riga": n, "motivo": "prev_sha256 non corrisponde alla riga precedente (cancellazione/riordino?)"})
+            prev = e.get("record_sha256") or prev
+    return {"catena_ok": not rotture and righe > 0, "righe": righe, "righe_fuori_catena": fuori, "rotture": rotture,
+            "limite": ("rileva cancellazioni/riordini IN MEZZO al ledger; il troncamento della CODA con nuove righe "
+                       "appese resta coerente: lo copre il verbale persistito con marca temporale")}
 
 
 def _eventi_locali(prealert_id: str) -> List[Dict]:
     out = []
     if not os.path.exists(AB.FALLBACK_LEDGER):
         return out
+    registro = {}
+    for slug, pk in registro_chiavi().items():
+        registro[slug] = pk
+    def _pk(operatore):        # il registro è per slug; la riga porta il nome dell'operatore
+        return registro.get(AB._slug(str(operatore)) or "anonimo")
     with open(AB.FALLBACK_LEDGER, encoding="utf-8") as f:
         for n, line in enumerate(f, 1):
             line = line.strip()
@@ -130,9 +184,33 @@ def _eventi_locali(prealert_id: str) -> List[Dict]:
                 continue
             tgt = str(e.get("target", ""))
             if tgt == prealert_id or tgt.startswith(prealert_id + "/"):
+                ver = _verifica_entry_locale(e, {str(e.get("operatore")): _pk(e.get("operatore"))})
                 out.append({"riga": n, "target": tgt, "azione": e.get("azione"), "operatore": e.get("operatore"),
                             "ts": e.get("ts"), "record_sha256": e.get("record_sha256"),
-                            "dettaglio": e.get("dettaglio"), "firma_ok": _verifica_entry_locale(e)})
+                            "prev_sha256": e.get("prev_sha256"),
+                            "dettaglio": e.get("dettaglio"), "firma_ok": ver["ok"], "verifica": ver["motivo"]})
+    return out
+
+
+def _eventi_part11(prealert_id: str) -> List[Dict]:
+    """Con il motore Part 11 (deploy privato) gli eventi stanno nel trail: elencati per target e
+    accompagnati dalla verifica INTERA del trail (catena + firme) fatta dal motore stesso."""
+    out = []
+    if not os.path.exists(AB.TRAIL_PATH):
+        return out
+    with open(AB.TRAIL_PATH, encoding="utf-8") as f:
+        for n, line in enumerate(f, 1):
+            try:
+                e = json.loads(line)
+            except ValueError:
+                continue
+            if e.get("kind") != "part11_audit":
+                continue
+            tgt = str(e.get("target_record_id", ""))
+            if tgt == prealert_id or tgt.startswith(prealert_id + "/"):
+                out.append({"riga": n, "target": tgt, "azione": e.get("action"), "operatore": e.get("operator_id"),
+                            "ts": e.get("timestamp_utc"), "record_sha3": e.get("record_sha3"),
+                            "dettaglio": e.get("new_value"), "motivo": e.get("reason")})
     return out
 
 
@@ -140,31 +218,53 @@ def verbale(prealert_id: str) -> Dict:
     """Verbale probatorio digest-only di un pre-alert: eventi firmati ri-verificati, cronologia, digest."""
     livello = "part11" if AB.MOTORE_DISPONIBILE else ("firma-locale" if AB.FIRMA_LOCALE_DISPONIBILE else "base")
     eventi: List[Dict] = []
+    catena: Dict = {"catena_ok": None}
+    eventi_motore = None
     if AB.MOTORE_DISPONIBILE:
         ver = AB.verifica_trail()
+        eventi = _eventi_part11(prealert_id)
         eventi_motore = {"verifica_trail": {k: v for k, v in ver.items() if k != "records"}}
-    else:
-        eventi_motore = None
-    if AB.FIRMA_LOCALE_DISPONIBILE:
+        # il motore verifica catena e firme dell'INTERO trail: ogni evento eredita quel verdetto
+        ok_trail = bool(ver.get("valid", ver.get("ok", False)))
+        for e in eventi:
+            e["firma_ok"] = ok_trail
+            e["verifica"] = "trail Part 11 verificato dal motore" if ok_trail else "trail Part 11 NON verificato"
+        catena = {"catena_ok": ok_trail, "fonte": "motore Part 11"}
+    elif AB.FIRMA_LOCALE_DISPONIBILE:
         eventi = _eventi_locali(prealert_id)
-    emissione = next((e for e in eventi if e.get("azione") == "emissione"), None)
-    ricezioni = [e for e in eventi if e.get("azione") == "ricezione_pre_alert"]
+        catena = _catena_locale()
+    emissione = next((e for e in eventi if e.get("azione") in ("emissione", "create")), None)
+    ricezioni = [e for e in eventi if e.get("azione") == "ricezione_pre_alert" or str(e.get("target", "")).endswith("/ricezione")]
     latenze = [e["dettaglio"].get("latenza_s") for e in ricezioni
                if isinstance(e.get("dettaglio"), dict) and e["dettaglio"].get("latenza_s") is not None]
-    tutte_ok = bool(eventi) and all(e.get("firma_ok") for e in eventi)
+    tutte_ok = bool(eventi) and all(e.get("firma_ok") for e in eventi) and bool(catena.get("catena_ok"))
     corpo = {"kind": "verbale_probatorio_prealert", "prealert_id": prealert_id, "generato_il": _utc(),
              "livello": livello, "eventi": eventi, "n_eventi": len(eventi),
-             "firme_tutte_verificate": tutte_ok,
+             "firme_tutte_verificate": tutte_ok, "catena": catena,
+             "registro_chiavi": registro_chiavi() if livello == "firma-locale" else None,
              "emissione_ts": emissione.get("ts") if emissione else None,
              "ricezioni": len(ricezioni), "latenza_emissione_ricezione_s": (min(latenze) if latenze else None),
              "risposte_alternative": sum(1 for e in ricezioni if isinstance(e.get("dettaglio"), dict)
                                          and e["dettaglio"].get("risposta_alternativa")),
              "motore_part11": eventi_motore,
              "confine": ("solo digest, firme e metadati: nessun dato sanitario; le firme sono ri-verificate "
-                         "ricalcolando il digest dal record canonico (mai fidandosi del digest dichiarato)")}
+                         "ricalcolando il digest dal record canonico contro la chiave REGISTRATA dell'operatore; "
+                         "firme_tutte_verificate richiede anche la catena prev_sha256 integra su tutto il ledger")}
     canon = json.dumps(corpo, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     corpo["digest_verbale_sha256"] = hashlib.sha256(canon).hexdigest()
     return corpo
+
+
+def persisti_verbale(v: Dict, directory: str) -> Dict:
+    """Scrive i BYTE esatti del verbale (con l'eventuale marca) in `directory`: la marca RFC 3161 prova un
+    digest, e il digest prova solo bytes che qualcuno custodisce. Solo digest/metadati nel file."""
+    os.makedirs(directory, exist_ok=True)
+    nome = f"{v.get('prealert_id')}-{v.get('digest_verbale_sha256', '')[:16]}.json"
+    path = os.path.join(directory, nome)
+    raw = json.dumps(v, ensure_ascii=False, sort_keys=True, indent=1).encode()
+    with open(path, "wb") as f:
+        f.write(raw)
+    return {"path": path, "bytes": len(raw), "sha256_file": hashlib.sha256(raw).hexdigest()}
 
 
 def marca_temporale_rfc3161(digest_hex: str, tsa_url: str, timeout: int = 20) -> Dict:
@@ -201,9 +301,13 @@ def marca_temporale_rfc3161(digest_hex: str, tsa_url: str, timeout: int = 20) ->
         shutil.rmtree(d, ignore_errors=True)
 
 
-def verifica_marca(tsr_b64: str, digest_atteso_hex: str, timeout: int = 15) -> Dict:
-    """Verifica crittografica del token: status Granted E message imprint == digest atteso
-    (openssl ts -reply -text). Senza openssl: verified=None (registrato, NON verificato)."""
+def verifica_marca(tsr_b64: str, digest_atteso_hex: str, timeout: int = 15, cafile: Optional[str] = None) -> Dict:
+    """Verifica CRITTOGRAFICA del token RFC 3161, in tre strati dichiarati separatamente:
+      1. status Granted e message imprint == digest atteso (openssl ts -reply -text);
+      2. firma CMS del token valida con il certificato incluso nel token (openssl cms -verify -noverify):
+         un TSR fabbricato con «Granted» e imprint giusto qui CADE (council 13/09: prima non c'era);
+      3. se `cafile` è dato: catena di fiducia della TSA (openssl ts -verify -CAfile) → `catena_ok`.
+    `verified` è True solo con 1 E 2; il livello resta «non qualificata» senza QTSP. Senza openssl: None."""
     import subprocess  # nosec B404
     import tempfile
     exe = shutil.which("openssl")
@@ -214,6 +318,19 @@ def verifica_marca(tsr_b64: str, digest_atteso_hex: str, timeout: int = 15) -> D
         tsr = os.path.join(d, "t.tsr")
         with open(tsr, "wb") as f:
             f.write(base64.b64decode(tsr_b64))
+        # strato 2: token CMS estratto dalla reply e firma verificata col certificato incluso
+        tk = os.path.join(d, "t.tk")
+        r2 = subprocess.run([exe, "ts", "-reply", "-in", tsr, "-token_out", "-out", tk], capture_output=True, timeout=timeout)  # nosec B603
+        firma_cms = False
+        if r2.returncode == 0 and os.path.exists(tk):
+            r3 = subprocess.run([exe, "cms", "-verify", "-noverify", "-inform", "DER", "-in", tk, "-out", os.devnull],  # nosec B603
+                                capture_output=True, timeout=timeout)
+            firma_cms = r3.returncode == 0
+        catena_ok = None
+        if cafile and os.path.exists(cafile):
+            r4 = subprocess.run([exe, "ts", "-verify", "-digest", digest_atteso_hex, "-sha256", "-in", tsr, "-CAfile", cafile],  # nosec B603
+                                capture_output=True, timeout=timeout)
+            catena_ok = r4.returncode == 0
         r = subprocess.run([exe, "ts", "-reply", "-in", tsr, "-text"], capture_output=True, text=True, timeout=timeout)  # nosec B603
         text = r.stdout or ""
         granted = "Status: Granted" in text or "Granted." in text
@@ -230,9 +347,14 @@ def verifica_marca(tsr_b64: str, digest_atteso_hex: str, timeout: int = 15) -> D
                 hexpart = ln.split(" - ", 1)[1].split("   ")[0]
                 hexbytes += [h for h in hexpart.replace("-", " ").split() if len(h) == 2]
         imprint = "".join(hexbytes).lower()
-        ok = granted and imprint == digest_atteso_hex.lower()
-        return {"verified": ok, "granted": granted, "imprint_ok": imprint == digest_atteso_hex.lower(),
-                "livello_marca": "rfc3161-non-qualificata" if ok else None}
+        imprint_ok = imprint == digest_atteso_hex.lower()
+        ok = granted and imprint_ok and firma_cms
+        return {"verified": ok, "granted": granted, "imprint_ok": imprint_ok, "firma_cms_ok": firma_cms,
+                "catena_tsa_ok": catena_ok,
+                "livello_marca": ("rfc3161-catena-verificata" if ok and catena_ok else
+                                  "rfc3161-non-qualificata" if ok else None),
+                "nota": ("firma CMS verificata col certificato incluso nel token; la fiducia nella TSA "
+                         "(catena) richiede HEALTH_TSA_CAFILE; marca qualificata solo con un QTSP")}
     except Exception as e:  # noqa: BLE001
         return {"verified": False, "note": f"{type(e).__name__}: {str(e)[:80]}"}
     finally:
@@ -264,13 +386,24 @@ def banco_controllo() -> Dict:
         lines[-1] = lines[-1].replace("revisione_senior_immediata", "resus")
         open(AB.FALLBACK_LEDGER, "w", encoding="utf-8").write("\n".join(lines) + "\n")
         v2 = verbale("prealert-7")
+        # cancellazione di una riga IN MEZZO (la ricezione, prima invisibile): la catena la rileva.
+        # Limite dichiarato: troncare la CODA e ri-appendere resta coerente con prev_sha256; quel caso lo
+        # copre solo il verbale persistito con marca temporale (fissa l'ultimo digest nel tempo).
+        AB.registra_prealert("prealert-8", "ef" * 32, "equipaggio-12")   # terza riga, dopo la ricezione
+        with open(AB.FALLBACK_LEDGER, encoding="utf-8") as f:
+            l3 = f.read().splitlines()
+        with open(AB.FALLBACK_LEDGER, "w", encoding="utf-8") as f:
+            f.write(l3[0] + "\n" + l3[2] + "\n")
+        v3 = verbale("prealert-8")
         ok = (r_bad["ok"] is False and r_alt["ok"] is False and r_ok["ok"] is True
+              and v3["catena"]["catena_ok"] is False and v3["firme_tutte_verificate"] is False
               and r_ok["audit"]["livello"] == "firma-locale" and r_ok["risposta_alternativa"] is True
               and v1["n_eventi"] == 2 and v1["firme_tutte_verificate"] is True and v1["risposte_alternative"] == 1
               and v2["firme_tutte_verificate"] is False and v1["digest_verbale_sha256"] != v2["digest_verbale_sha256"])
         return {"banco_sa_fallire": ok, "ricezione_firmata": r_ok["ok"], "valori_chiusi_rifiutati": not r_bad["ok"],
                 "motivo_obbligatorio_se_alternativa": not r_alt["ok"], "verbale_verificato": v1["firme_tutte_verificate"],
-                "manomissione_rilevata": not v2["firme_tutte_verificate"]}
+                "manomissione_rilevata": not v2["firme_tutte_verificate"],
+                "cancellazione_rilevata": v3["catena"]["catena_ok"] is False}
     finally:
         AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR = orig
         shutil.rmtree(tmp, ignore_errors=True)

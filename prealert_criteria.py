@@ -127,7 +127,7 @@ def _flags(d: Optional[Dict], ammessi, nome: str) -> List[str]:
     return p
 
 
-def criteri_adulto(vitali: Dict, gcs: Optional[int] = None) -> Dict:
+def criteri_adulto(vitali: Dict, gcs: Optional[int] = None, gcs_abituale: Optional[int] = None) -> Dict:
     """Fisiologia alterata nell'adulto (≥16 anni). `vitali` nello schema del companion
     (rr, spo2, su_ossigeno, sbp, hr, alert_coscienza, temp, bpco_scala2 opzionale)."""
     S = SOGLIE_ADULTO
@@ -147,11 +147,21 @@ def criteri_adulto(vitali: Dict, gcs: Optional[int] = None) -> Dict:
         crit.append({"criterio": "frequenza cardiaca", "valore": hr,
                      "soglia": f"≤{S['hr_bassa']} o ≥{S['hr_alta']}"})
     if gcs is not None and gcs < S["gcs"]:
-        crit.append({"criterio": "GCS", "valore": gcs, "soglia": f"<{S['gcs']} (la linea guida: 'new for patient' — "
-                     "non verificabile qui, criterio attivato in modo conservativo)"})
-    return {"criteri": crit, "non_valutato": [
-        "pressione sistolica in calo con sintomi (serve una serie di misure, qui una sola)",
-        "GCS 'nuovo per il paziente' (GCS abituale non disponibile: ogni GCS <13 attiva il criterio)"]}
+        # «GCS <13 (new for patient)»: se è noto il GCS abituale e quello attuale non è peggiore, NON è
+        # nuovo (paziente con danno neurologico cronico: falso positivo sistematico, council 13/09).
+        if gcs_abituale is not None and gcs >= gcs_abituale:
+            pass
+        else:
+            crit.append({"criterio": "GCS", "valore": gcs, "soglia": f"<{S['gcs']}" + (
+                " (nuovo: peggiore del GCS abituale)" if gcs_abituale is not None else
+                " (la linea guida: 'new for patient' — GCS abituale non fornito: criterio attivato in modo conservativo)")})
+    nv = ["pressione sistolica in calo con sintomi (serve una serie di misure, qui una sola)"]
+    if gcs_abituale is None:
+        nv.append("GCS 'nuovo per il paziente' (fornire clinica.gcs_abituale per escludere un deficit cronico)")
+    if not vitali.get("su_ossigeno") and spo2 < 92:
+        nv.append(f"SpO2 {spo2}% IN ARIA: la linea guida adulti fissa soglie solo IN OSSIGENO; il NEWS2 la copre "
+                  "(SpO2 ≤91 = 3 punti) — valutare ossigeno e rimisurare")
+    return {"criteri": crit, "non_valutato": nv}
 
 
 def _fascia(eta_anni: float) -> Optional[Dict]:
@@ -214,6 +224,9 @@ def criteri_pediatrici(eta_anni: float, vitali: Dict, eta_mesi: Optional[int] = 
     if eta_mesi is not None and eta_mesi < P["mesi_lattante"] and "temp" in vitali and vitali["temp"] >= P["temp_lattante"]:
         crit.append({"criterio": "temperatura (lattante <3 mesi)", "valore": vitali["temp"], "soglia": f"≥{P['temp_lattante']} °C"})
     non_val = []
+    if vitali["su_ossigeno"]:
+        non_val.append(f"SpO2 {vitali['spo2']}% IN OSSIGENO: la tabella pediatrica vale IN ARIA (<91%); "
+                       "un bambino che richiede ossigeno va comunque discusso col PS")
     if "crt_sec" not in vitali:
         non_val.append("tempo di riempimento capillare (non fornito)")
     if "gcs" not in vitali:
@@ -246,9 +259,15 @@ def sepsi_alto_rischio_jrcalc(vitali: Dict, segni: Optional[Dict], storia_infezi
         m.append(f"Heart rate ≥{T['hr']}")
     if vitali["rr"] >= T["rr"]:
         m.append(f"Respiratory rate ≥{T['rr']}")
-    target = T["spo2_target_bpco"] if vitali.get("bpco_scala2") else T["spo2_target"]
-    if vitali.get("su_ossigeno") and vitali["spo2"] >= target:
-        m.append(f"Needs oxygen to keep SpO2 ≥{target}%")
+    # «Needs oxygen to keep SpO2 ≥92% (or more than 88% in known COPD)»: il marcatore è il BISOGNO di
+    # ossigeno. Prima (bug trovato dal council 13/09) scattava solo se in O2 la SpO2 era ≥ target, cioè
+    # sul paziente che regge e NON su quello che in O2 resta sotto (il più grave). Ora: in ossigeno =
+    # marcatore; se in ossigeno è ancora sotto il target, lo dice.
+    if vitali.get("su_ossigeno"):
+        bpco = bool(vitali.get("bpco_scala2"))
+        sotto = (vitali["spo2"] <= T["spo2_target_bpco"]) if bpco else (vitali["spo2"] < T["spo2_target"])
+        m.append("Needs oxygen to keep SpO2 " + (">88% (known COPD)" if bpco else "≥92%")
+                 + (" — AND still below target on oxygen" if sotto else ""))
     for k in ("cute_marezzata_o_cinerea", "rash_non_sbiancante", "cianosi", "nessuna_minzione_18h",
               "chemioterapia_ultime_6_settimane"):
         if sg.get(k):
@@ -266,29 +285,41 @@ def sepsi_alto_rischio_jrcalc(vitali: Dict, segni: Optional[Dict], storia_infezi
 
 def decisione_prealert(eta: float, vitali: Dict, gcs: Optional[int] = None,
                        condizioni: Optional[Dict] = None, eta_mesi: Optional[int] = None,
-                       sepsi: Optional[Dict] = None) -> Dict:
+                       sepsi: Optional[Dict] = None, crt_sec: Optional[float] = None,
+                       gcs_abituale: Optional[int] = None, note_derivazione: Optional[Dict] = None) -> Dict:
     """Il pre-alert è indicato dalla linea guida? Ritorna criteri, condizioni, scope e fonte.
     `condizioni`: dict di booleani con chiavi di CONDIZIONI_SPECIFICHE. `sepsi`: output di
     sepsi_alto_rischio_jrcalc (opzionale: se alto_rischio True conta come condizione specifica)."""
     problemi = _flags(condizioni, CONDIZIONI_SPECIFICHE, "condizioni")
-    if gcs is not None and (isinstance(gcs, bool) or not isinstance(gcs, int) or not (3 <= gcs <= 15)):
-        problemi.append(f"gcs non valido: {gcs!r} (atteso intero 3-15)")
+    for nome, g in (("gcs", gcs), ("gcs_abituale", gcs_abituale)):
+        if g is not None and (isinstance(g, bool) or not isinstance(g, int) or not (3 <= g <= 15)):
+            problemi.append(f"{nome} non valido: {g!r} (atteso intero 3-15)")
+    if crt_sec is not None and (not _num(crt_sec) or not (0 <= crt_sec <= 30)):
+        problemi.append(f"crt_sec non valido: {crt_sec!r} (atteso numero 0-30 secondi)")
     if not _num(eta) or not (0 <= eta <= 130):
         problemi.append(f"eta non valida: {eta!r}")
     if problemi:
         return {"pre_alert_indicato": None, "problemi_dati": problemi, "fonte": FONTE}
     pediatrico = eta < 16
     if pediatrico:
-        fis = criteri_pediatrici(eta, vitali, eta_mesi)
+        # gcs e crt_sec arrivano da `clinica` (non da vitali, che li rifiuta per nome): entrano qui
+        # (bug trovato dal council 13/09: bambino con GCS 8 o CRT 5 s e FR/FC normali usciva «nessun pre-alert»)
+        vp = dict(vitali)
+        if gcs is not None:
+            vp["gcs"] = gcs
+        if crt_sec is not None:
+            vp["crt_sec"] = crt_sec
+        fis = criteri_pediatrici(eta, vp, eta_mesi)
     else:
         import barella_prealert as B
         p = B.valida_vitali(vitali)
         if p:
             return {"pre_alert_indicato": None, "problemi_dati": p, "fonte": FONTE}
-        fis = criteri_adulto(vitali, gcs)
+        fis = criteri_adulto(vitali, gcs, gcs_abituale)
     if fis.get("problemi_dati"):
         return {"pre_alert_indicato": None, "problemi_dati": fis["problemi_dati"], "fonte": FONTE}
-    cond = [{"condizione": k, "linea_guida": CONDIZIONI_SPECIFICHE[k]}
+    cond = [{"condizione": k, "linea_guida": CONDIZIONI_SPECIFICHE[k],
+             **({"derivazione": note_derivazione[k]} if note_derivazione and k in note_derivazione else {})}
             for k, v in (condizioni or {}).items() if v]
     if sepsi and sepsi.get("alto_rischio") and not any(c["condizione"].startswith("sepsi") for c in cond):
         cond.append({"condizione": "sepsi_alto_rischio_adulto", "linea_guida": CONDIZIONI_SPECIFICHE["sepsi_alto_rischio_adulto"],

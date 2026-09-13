@@ -48,6 +48,7 @@ import scores_emergenza as S
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 TOKEN_FILE = os.path.join(_HERE, "team_token.txt")
+VERBALI_DIR = os.path.join(_HERE, "verbali")          # verbali probatori marcati (digest-only)
 MAX_BODY = 64 * 1024          # un pre-alert è piccolo: payload enormi = rifiuto
 BOARD: list = []
 _LOCK = threading.Lock()
@@ -239,8 +240,12 @@ class H(BaseHTTPRequestHandler):
             else:
                 m = VP.marca_temporale_rfc3161(v["digest_verbale_sha256"], tsa)
                 if m.get("anchored"):
-                    m["verifica"] = VP.verifica_marca(m["tsr_b64"], v["digest_verbale_sha256"])
+                    m["verifica"] = VP.verifica_marca(m["tsr_b64"], v["digest_verbale_sha256"],
+                                                      cafile=os.environ.get("HEALTH_TSA_CAFILE"))
                 v["marca_temporale"] = m
+                # i BYTE marcati vanno conservati (council 13/09): senza, la prova è su un digest che
+                # nessuno custodisce. Solo digest/metadati: nessun dato sanitario nel file.
+                v["persistito"] = VP.persisti_verbale(v, os.environ.get("HEALTH_VERBALI_DIR") or VERBALI_DIR)
         return self._send(200, json.dumps(v, ensure_ascii=False), "application/json; charset=utf-8")
 
     def _atmist(self, rid: int):
@@ -300,7 +305,9 @@ class H(BaseHTTPRequestHandler):
                 out = A.valuta_paziente(
                     body["vitali"], body.get("farmaci") or [], body.get("eta"),
                     body.get("eta_arrivo_min", 0),           # validato dentro valuta_paziente (0-600)
-                    fast_segni=body.get("fast_segni"), clinica=body.get("clinica"))
+                    fast_segni=body.get("fast_segni"), clinica=body.get("clinica"),
+                    condizioni=body.get("condizioni"), eta_mesi=body.get("eta_mesi"),
+                    sepsi=body.get("sepsi"))
             except ValueError as e:
                 # messaggi NOSTRI (validazione nominata), mai il testo di un'eccezione interna
                 return self._json(400, {"ok": False, "error": f"input invalido: {e}"})

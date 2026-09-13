@@ -57,7 +57,8 @@ class TestFirmaLocaleFallback(unittest.TestCase):
         # ricanonizza il record, ricalcola il digest, verifica la firma
         entry = json.loads(open(AB.FALLBACK_LEDGER).readline())
         rec = {k: entry[k] for k in ("kind", "target", "azione", "dettaglio",
-                                     "operatore", "ts")}
+                                     "operatore", "ts", "prev_sha256")}
+        self.assertEqual(entry["prev_sha256"], "GENESIS")     # prima riga del ledger in sandbox
         canon = json.dumps(rec, sort_keys=True, separators=(",", ":")).encode()
         digest = hashlib.sha256(canon).digest()
         self.assertEqual(digest.hex(), entry["record_sha256"])

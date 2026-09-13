@@ -29,7 +29,8 @@ from datetime import datetime, timezone
 def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
                     eta_arrivo_min: int, fast_segni: Optional[Dict] = None,
                     clinica: Optional[Dict] = None, ancora: bool = False,
-                    condizioni: Optional[Dict] = None, eta_mesi: Optional[int] = None) -> Dict:
+                    condizioni: Optional[Dict] = None, eta_mesi: Optional[int] = None,
+                    sepsi: Optional[Dict] = None) -> Dict:
     """Il flusso completo dell'ambulanza intelligente → pre-alert integrato.
     fast_segni: {'face','arm','speech'}.
     clinica (tutte opzionali): {'gcs', 'meccanismo_maggiore', 'lesione_penetrante',
@@ -63,11 +64,15 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
             for k in FLAG_CLINICA:
                 if k in clinica and not isinstance(clinica[k], bool):
                     problemi_extra.append(f"non booleano: clinica.{k}={clinica[k]!r} (atteso true/false JSON)")
-            if "gcs" in clinica and (isinstance(clinica["gcs"], bool) or not isinstance(clinica["gcs"], int)
-                                     or not (3 <= clinica["gcs"] <= 15)):
-                problemi_extra.append(f"clinica.gcs non valido: {clinica.get('gcs')!r} (atteso intero 3-15)")
+            for g in ("gcs", "gcs_abituale"):
+                if g in clinica and (isinstance(clinica[g], bool) or not isinstance(clinica[g], int)
+                                     or not (3 <= clinica[g] <= 15)):
+                    problemi_extra.append(f"clinica.{g} non valido: {clinica.get(g)!r} (atteso intero 3-15)")
+            if "crt_sec" in clinica and (isinstance(clinica["crt_sec"], bool) or not isinstance(clinica["crt_sec"], (int, float))
+                                         or clinica["crt_sec"] != clinica["crt_sec"] or not (0 <= clinica["crt_sec"] <= 30)):
+                problemi_extra.append(f"clinica.crt_sec non valido: {clinica.get('crt_sec')!r} (atteso numero 0-30 s)")
             for k in clinica:
-                if k not in FLAG_CLINICA and k != "gcs":
+                if k not in FLAG_CLINICA and k not in ("gcs", "gcs_abituale", "crt_sec"):
                     problemi_extra.append(f"clinica.{k}: campo non riconosciuto (ignorato sarebbe un rischio: rifiutato)")
     if fast_segni is not None:
         if not isinstance(fast_segni, dict):
@@ -79,6 +84,20 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
                 elif not isinstance(v, bool):
                     problemi_extra.append(f"non booleano: fast_segni.{k}={v!r} (atteso true/false JSON)")
     problemi_extra += PC._flags(condizioni, PC.CONDIZIONI_SPECIFICHE, "condizioni")
+    # sepsi (opzionale): {"storia_infezione": bool, "segni": {...flag JRCALC...}, "map_mmhg": numero}
+    if sepsi is not None:
+        if not isinstance(sepsi, dict):
+            problemi_extra.append(f"sepsi non è un oggetto (ricevuto {type(sepsi).__name__})")
+        else:
+            for k in sepsi:
+                if k not in ("storia_infezione", "segni", "map_mmhg"):
+                    problemi_extra.append(f"sepsi.{k}: campo non riconosciuto")
+            if not isinstance(sepsi.get("storia_infezione", False), bool):
+                problemi_extra.append(f"non booleano: sepsi.storia_infezione={sepsi.get('storia_infezione')!r}")
+            problemi_extra += PC._flags(sepsi.get("segni"), PC.SEGNI_SEPSI, "sepsi.segni")
+            mp = sepsi.get("map_mmhg")
+            if mp is not None and (isinstance(mp, bool) or not isinstance(mp, (int, float)) or not (0 <= mp <= 200)):
+                problemi_extra.append(f"sepsi.map_mmhg non valido: {mp!r}")
     if eta_mesi is not None and (isinstance(eta_mesi, bool) or not isinstance(eta_mesi, (int, float))
                                  or eta_mesi != eta_mesi or not (0 <= eta_mesi <= 24)):
         problemi_extra.append(f"eta_mesi non valida: {eta_mesi!r} (atteso numero 0-24)")
@@ -113,7 +132,8 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
     if eta < 16:
         # 2026-09-13: lo score resta RIFIUTATO, ma i CRITERI DI PRE-ALERT per fascia d'età (tabella
         # PEWS-adattata della linea guida RCEM/AACE 2025) sì: dicono se il PS va allertato e perché.
-        crit_ped = PC.decisione_prealert(eta, vitali, gcs=cl.get("gcs"), condizioni=condizioni, eta_mesi=eta_mesi)
+        crit_ped = PC.decisione_prealert(eta, vitali, gcs=cl.get("gcs"), condizioni=condizioni, eta_mesi=eta_mesi,
+                                         crt_sec=cl.get("crt_sec"))
         percorsi_ped = ["PERCORSO PEDIATRICO: valutazione clinica diretta"]
         if crit_ped.get("pre_alert_indicato"):
             percorsi_ped.insert(0, "PRE-ALERT PEDIATRICO INDICATO (criteri RCEM/AACE 2025 per fascia d'età): "
@@ -190,17 +210,29 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
     # guida + condizioni specifiche. Quelle già DERIVATE dai percorsi (arresto, STEMI, trauma team,
     # FAST+) si uniscono a quelle DICHIARATE dall'equipaggio (`condizioni`). Il pre-alert è indicato
     # solo se attiva una risposta specifica: gli «heads up» sono vietati dalla linea guida.
-    derivate = {}
+    derivate, note_der = {}, {}
     if ar["arresto"] or ar.get("arresto_respiratorio"):
         derivate["arresto_cardiaco_o_respiratorio"] = True
+        note_der["arresto_cardiaco_o_respiratorio"] = "derivata dalla logica ERC di scores_emergenza.acr"
     if ca["sospetto"] and cl.get("ecg_stemi"):
         derivate["stemi"] = True
+        note_der["stemi"] = "derivata da clinica.ecg_stemi (ECG letto dall'equipaggio)"
     if tr["attiva_trauma_team"]:
         derivate["trauma_maggiore_step_1_2"] = True
+        note_der["trauma_maggiore_step_1_2"] = ("derivata dal CDC field triage (scores_emergenza.trauma), equivalente "
+                                                 "locale dichiarato del Major Trauma Triage Tool UK, non il MTTT stesso")
     if fs and fs["sospetto_ictus"]:
-        derivate["ictus_fast_positivo_in_finestra"] = True    # finestra trombolisi: da confermare dall'equipaggio
-    crit25 = PC.decisione_prealert(eta, vitali, gcs=cl.get("gcs"),
-                                   condizioni={**derivate, **(condizioni or {})} or None)
+        derivate["ictus_fast_positivo_in_finestra"] = True
+        note_der["ictus_fast_positivo_in_finestra"] = ("FAST+ dal BE-FAST; la FINESTRA per la trombolisi NON è "
+                                                        "verificata dal codice: confermare l'orario di esordio")
+    sep = None
+    if sepsi is not None:
+        sep = PC.sepsi_alto_rischio_jrcalc(vitali, sepsi.get("segni"), bool(sepsi.get("storia_infezione", False)),
+                                           news2=pa["score"].get("NEWS2") if isinstance(pa.get("score"), dict) else None,
+                                           map_mmhg=sepsi.get("map_mmhg"))
+    crit25 = PC.decisione_prealert(eta, vitali, gcs=cl.get("gcs"), gcs_abituale=cl.get("gcs_abituale"),
+                                   condizioni={**derivate, **(condizioni or {})} or None,
+                                   sepsi=sep, note_derivazione=note_der)
     if crit25.get("pre_alert_indicato") and priorita == "BASSO":
         # criterio 2025 attivo con NEWS2 basso (es. FC 132 isolata): la priorità sale, l'azione lo dice
         priorita = "MEDIO"
@@ -219,6 +251,7 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
         "cardio": ca["sospetto"],
         "percorsi_attivare": percorsi,
         "criteri_prealert_2025": crit25,
+        "sepsi_jrcalc": sep,
     }
     out = {
         "PRE_ALERT_INTEGRATO": prealert_integrato,

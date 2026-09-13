@@ -24,10 +24,28 @@ Twiage, corpuls.mission, NIDA, WebEMS): none of them makes the pre-alert itself 
   stored by digest); the per-pre-alert record re-verifies each signature from the canonical record,
   detects tampering, reports latency; optional RFC 3161 timestamp on the record digest, verified
   (`Granted` + message imprint), level declared as non-qualified unless a QTSP is used.
-- **Tests**: 30 new (boundaries of every threshold, every paediatric band, hostile types, sepsis needs
-  infection history, receipt vocabulary, tamper detection, end-to-end over HTTP, bench-of-the-bench with
-  a deliberately broken threshold) + 1 opt-in network test with a real TSA. 102 in total, in CI with and
-  without `cryptography`.
+- **Pre-push review by three independent models (same day), each finding verified on the code and
+  fixed, with a test that is red on the previous code:** the JRCALC "needs oxygen" sepsis marker fired
+  on the patient who *held* the target on oxygen and not on the one who did not (now: on oxygen =
+  marker, "still below target" stated); `verifica_marca` accepted a fabricated timestamp reply that
+  merely printed `Granted` (now the CMS signature of the token is verified with the embedded certificate,
+  and the TSA chain with `HEALTH_TSA_CAFILE`); a ledger row could be rewritten and re-signed with an
+  attacker's key because the public key was taken from the row itself (now every signature is checked
+  against the operator's *registered* key, `.audit_keys/fb-<op>.pub`, exported in the verbale);
+  deleting a row was invisible (now every row carries a signed `prev_sha256`; the verbale verifies the
+  chain over the whole ledger — tail truncation remains a declared limit covered by the persisted,
+  timestamped verbale); a child with GCS 8 or CRT 5 s and normal RR/HR got "no pre-alert" because
+  `gcs`/`crt_sec` never reached the paediatric criteria (now via `clinica`); `/valuta` did not pass
+  `condizioni`, `eta_mesi` or `sepsi`; the sepsis function was never called by the engine; "GCS <13 new
+  for patient" fired on chronic deficits (now `clinica.gcs_abituale` excludes them); SpO2 in air (adult)
+  and on oxygen (child) were silent (now declared in `non_valutato`); derived conditions (CDC field
+  triage for MTTT, FAST+ without thrombolysis window) now say how they were derived.
+- **Tests**: 40 new (boundaries of every threshold, every paediatric band, hostile types, sepsis needs
+  infection history, receipt vocabulary, tamper / re-sign with foreign key / row deletion detection,
+  fabricated timestamp reply refused, persisted verbale, end-to-end over HTTP, bench-of-the-bench with
+  a deliberately broken threshold) + 1 opt-in network test with a real TSA (green against freetsa.org on
+  2026-09-13, tampered token refused). 112 in total, in CI with and without `cryptography`; 10 consecutive
+  full runs green in the public configuration.
 
 ## 2026-09-11 (third pass) — what the second independent verification still found
 
