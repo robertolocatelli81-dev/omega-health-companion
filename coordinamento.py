@@ -98,10 +98,11 @@ def valida_posizione(lat, lon, eta_arrivo_min) -> List[str]:
 
 
 def evento_posizione(lat, lon, eta_arrivo_min) -> Dict:
-    """Ciò che va nel ledger: ETA e posizione ARROTONDATA a 2 decimali (~1 km): la posizione esatta
-    dell'ambulanza resta in memoria per il PS, il ledger tiene la traccia grossolana verificabile."""
+    """Ciò che va nel ledger: ETA e DIGEST della posizione (council 13/09: nemmeno ~1 km su disco — la
+    prima posizione è la scena). La posizione esatta resta in memoria per il PS; chi ha la posizione può
+    provare che è quella, chi ha il disco non legge dove."""
     return {"eta_arrivo_min": eta_arrivo_min,
-            "posizione_approx": ([round(lat, 2), round(lon, 2)] if lat is not None else None),
+            "posizione_sha256": (hashlib.sha256(f"{lat:.5f},{lon:.5f}".encode()).hexdigest() if lat is not None else None),
             "ts": datetime.now(timezone.utc).isoformat(timespec="seconds")}
 
 

@@ -29,9 +29,22 @@ board TTL, nothing clinical on disk:
   status / divert** (`POST /stato_ps`: accetta | saturo | dirotta, alternative destination by digest,
   returned with every `/valuta`), **escalation on missing receipt** (`da_escalare` in `/metriche` after 120 s),
   **START triage tags** per incident (`triage_start` on `/valuta`, counted in `/incidente/<id>`).
+- **Second review round, verified and fixed:** incident ids were `len(list)+1` after expiry removal (collision,
+  patients of two incidents mixed) — now a monotonic counter; expiry left `esiti` and `ricezioni` in RAM — now
+  cleared; the ledger signature happened *before* the under-lock expiry re-check (trail could hold an event the
+  board discarded) — now check, sign and append happen under the same lock (`_evento_su_record`); `/ricezione`
+  accepted an expired record — now 404 and capped; START tags were not signed nor updatable — now `POST /triage`
+  (signed, re-triage allowed) and the initial tag on `/valuta` is signed too; no per-record caps (RAM exhaustion
+  with a valid token) — now 10 attachments, 200 messages, 20 outcomes, 20 receipts, 500 incidents (429);
+  the ~1 km position went to disk — now only the ETA and a digest of the position; `INCIDENTI` read outside the
+  lock; a 30 s socket timeout on the handler against a declared-but-never-sent body. One claim checked and
+  found false (the `arresto` key). Named as still missing and left out on purpose: push notifications
+  (infrastructure), manual specialist invitation and per-message read receipts (candidates for a next step).
 - Tests: `test_coordinamento.py` (bench-of-the-bench + one end-to-end flow over HTTP covering every endpoint,
-  negatives first, ledger checked for absence of free text and bytes, download headers, expiry with no
-  repopulation, negative Content-Length). 125 in total; 10 consecutive full runs green.
+  negatives first, ledger checked for absence of free text, bytes and coordinates, download headers, caps,
+  monotonic incident ids, expiry with no repopulation, negative Content-Length). 125 in total. Honesty note:
+  one transient red of `test_health.py` in 43 sequential runs (run 4 of 10), not reproduced in the following
+  32 runs and with no captured output; cause not identified.
 
 ## 2026-09-13 — from pilot to product: national pre-alert criteria and legal-grade evidence (v0.3.0)
 

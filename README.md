@@ -96,11 +96,11 @@ closed-vocabulary or a digest: no free text and no health data on disk.
 | Pre-arrival notification with vitals, ETA | yes | yes (`/valuta`), plus the **national 2025 criteria** saying *why* |
 | Patient types → team | Pulsara: 12 patient types | `tipo_paziente` / `team_da_allertare`, derived, closed vocabulary |
 | ECG / photo / document sharing | yes | `POST /allegato/<id>` — bytes in memory (TTL), digest in the signed ledger, magic bytes checked |
-| GPS / ETA updates en route | yes | `POST /posizione` — exact position in memory, ~1 km in the ledger |
+| GPS / ETA updates en route | yes | `POST /posizione` — exact position in memory, only ETA + a digest of the position in the ledger |
 | Two-way secure chat | yes | `POST /messaggio` — text in memory, digest signed |
 | Outcome feedback ("close the loop") | Pulsara | `POST /esito` — closed vocabulary, signed |
 | QA/QI performance data | Pulsara, corpuls.web ANALYSE | `GET /metriche` — aggregates, no identifiers |
-| Mass-casualty / multi-patient | Pulsara | `POST /incidente`, `GET /incidente/<id>`, START tags per patient |
+| Mass-casualty / multi-patient | Pulsara | `POST /incidente`, `GET /incidente/<id>`, START tags per patient (`POST /triage`, signed, re-triage allowed) |
 | ED status / divert | Pulsara, Twiage | `POST /stato_ps` — accetta / saturo / dirotta, signed, returned with every pre-alert |
 | Escalation when nobody takes the call | Pulsara | `da_escalare` in `GET /metriche` (no receipt after 120 s) |
 | **Evidentiary record of the pre-alert** (who said what, who answered, chain, timestamp) | none documented | `GET /verbale/<id>` — this is the difference |

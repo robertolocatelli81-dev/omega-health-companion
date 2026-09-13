@@ -56,6 +56,8 @@ _LOCK = threading.Lock()
 ALLEGATI: dict = {}          # (id, n) -> bytes, SOLO in memoria, scadono con la bacheca
 STATO_PS: dict = {"stato": "accetta", "ts": None, "operatore_ps": None}   # divert/capacità, a vocabolario chiuso
 INCIDENTI: list = []         # incidenti maggiori (più pazienti)
+_INCIDENTE_SEQ = [0]         # contatore MONOTONO (council 13/09: len()+1 dopo la scadenza collideva)
+CAP = {"allegati": 10, "messaggi": 200, "posizioni": 100000, "esiti": 20, "ricezioni": 20, "incidenti": 500, "triage": 20}   # posizioni: taglio a 200 dopo append   # tetti per record (RAM)
 
 
 def _token() -> str:
@@ -77,7 +79,7 @@ def _scadenza_bacheca(now: Optional[datetime] = None) -> int:
     for r in BOARD:
         if r.get("vitali") is None and r.get("prealert") is None:
             # già scaduto: tenerlo VUOTO (ciò che fosse entrato dopo la scadenza non deve restare in RAM)
-            r["messaggi"], r["posizioni"], r["allegati"] = [], [], []
+            r["messaggi"], r["posizioni"], r["allegati"], r["esiti"], r["ricezioni"] = [], [], [], [], []
             for k in [k for k in ALLEGATI if k[0] == r["id"]]:
                 ALLEGATI.pop(k, None)
             continue
@@ -91,6 +93,8 @@ def _scadenza_bacheca(now: Optional[datetime] = None) -> int:
             r["scaduto"] = True
             r["messaggi"] = []
             r["posizioni"] = []
+            r["esiti"] = []            # esito clinico + operatore: fuori dalla RAM alla scadenza (il ledger firmato resta, a digest)
+            r["ricezioni"] = []
             for k in [k for k in ALLEGATI if k[0] == r["id"]]:
                 ALLEGATI.pop(k, None)
             r["allegati"] = []
@@ -178,6 +182,22 @@ button{{background:#0f3460;color:#fff;border:0;border-radius:4px;cursor:pointer}
 NON un dispositivo medico; gli score sono standard validati, la decisione è del medico</div>"""
 
 
+def _evento_su_record(rid: int, lista: str, azione: str, dettaglio: dict, operatore: str, elemento: dict):
+    """Firma nel ledger e append in bacheca sotto LO STESSO lock, dopo il ricontrollo di scadenza e tetto
+    (council 13/09 round 2: firmare prima del ricontrollo lasciava nel trail eventi che la bacheca scartava).
+    Ritorna (codice_http, payload)."""
+    with _LOCK:
+        _scadenza_bacheca()
+        r = next((x for x in BOARD if x["id"] == rid), None)
+        if not r or r.get("prealert") is None:
+            return 404, {"ok": False, "error": f"pre-alert {rid} inesistente o scaduto"}
+        if len(r.setdefault(lista, [])) >= CAP[lista]:
+            return 429, {"ok": False, "error": f"tetto raggiunto per {lista} ({CAP[lista]} per pre-alert)"}
+        audit = AB.registra_evento_clinico(f"prealert-{rid}", azione, dettaglio, operatore)
+        r[lista].append({**elemento, "audit": audit})
+        return 200, {"ok": True, "id": rid, "n": len(r[lista]), "audit": audit, "record": r}
+
+
 def _find(rid: int):
     with _LOCK:
         _scadenza_bacheca()            # round 3: /fhir e /atmist serviranno 410 anche senza nuove POST
@@ -188,6 +208,7 @@ def _find(rid: int):
 
 
 class H(BaseHTTPRequestHandler):
+    timeout = 30            # Slowloris: un body dichiarato ma mai inviato libera il thread dopo 30 s (socket.timeout)
     server_version = "omega-team/1.0"
 
     def _send(self, code, body, ctype="text/html; charset=utf-8", extra=None):
@@ -393,11 +414,16 @@ class H(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "error": f"triage_start non ammesso: {ts_start!r} (ammessi: {', '.join(CO.TRIAGE_START)})"})
             inc = body.get("incidente_id")
             if inc is not None:
-                if isinstance(inc, bool) or not isinstance(inc, int) or not any(i["id"] == inc for i in INCIDENTI):
+                with _LOCK:
+                    esiste = (not isinstance(inc, bool)) and isinstance(inc, int) and any(i["id"] == inc for i in INCIDENTI)
+                if not esiste:
                     return self._json(400, {"ok": False, "error": f"incidente_id inesistente: {inc!r}"})
             rec = _pubblica(out["PRE_ALERT_INTEGRATO"], body.get("vitali"),
                             operatore=str(body.get("operatore") or "equipaggio-ambulanza")[:60], incidente_id=inc)
-            if ts_start is not None:
+            if ts_start is not None:          # tag iniziale: firmato come ogni decisione clinica
+                _evento_su_record(rec["id"], "triage", "triage_start", {"triage_start": ts_start},
+                                  str(body.get("operatore") or "equipaggio-ambulanza")[:60],
+                                  {"triage_start": ts_start, "operatore": str(body.get("operatore") or "equipaggio-ambulanza")[:60]})
                 with _LOCK:
                     rec["triage_start"] = ts_start
             with _LOCK:
@@ -425,16 +451,16 @@ class H(BaseHTTPRequestHandler):
         problemi = CO.valida_allegato(tipo, ct, raw)
         if problemi:
             return self._json(400, {"ok": False, "error": "allegato rifiutato", "problemi": problemi})
-        r = _find(rid)
-        if not r or r.get("prealert") is None:
-            return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente o scaduto"})
         meta = CO.descrivi_allegato(tipo, ct, raw)
-        audit = AB.registra_evento_clinico(f"prealert-{rid}", "allegato",
-                                           {k: meta[k] for k in ("tipo", "content_type", "bytes", "sha256")}, operatore)
         with _LOCK:
             _scadenza_bacheca()
-            if r.get("prealert") is None:          # scaduto fra il controllo e l'append (TOCTOU, council 13/09)
-                return self._json(410, {"ok": False, "error": f"pre-alert {rid} scaduto"})
+            r = next((x for x in BOARD if x["id"] == rid), None)
+            if not r or r.get("prealert") is None:
+                return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente o scaduto"})
+            if len(r["allegati"]) >= CAP["allegati"]:
+                return self._json(429, {"ok": False, "error": f"tetto raggiunto per allegati ({CAP['allegati']} per pre-alert)"})
+            audit = AB.registra_evento_clinico(f"prealert-{rid}", "allegato",
+                                               {k: meta[k] for k in ("tipo", "content_type", "bytes", "sha256")}, operatore)
             r["allegati"].append({**meta, "operatore": operatore, "audit": audit})
             n_all = len(r["allegati"])
             ALLEGATI[(rid, n_all)] = raw
@@ -447,13 +473,32 @@ class H(BaseHTTPRequestHandler):
             if not desc:
                 return self._json(400, {"ok": False, "error": "descrizione richiesta (≤120 caratteri)"})
             with _LOCK:
-                inc = {"id": len(INCIDENTI) + 1, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                if len(INCIDENTI) >= CAP["incidenti"]:
+                    return self._json(429, {"ok": False, "error": "tetto incidenti aperti raggiunto"})
+                _INCIDENTE_SEQ[0] += 1
+                inc = {"id": _INCIDENTE_SEQ[0], "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                        "descrizione": desc, "aperto_da": operatore}      # descrizione SOLO in memoria
                 INCIDENTI.append(inc)
             # nel ledger va il DIGEST della descrizione (luogo/targhe/nomi = testo libero), evento CREATE firmato
             audit = AB.registra_evento_clinico(f"incidente-{inc['id']}", "apertura_incidente",
                                                {"descrizione": CO.impronta_testo(desc)}, operatore)
             return self._json(200, {"ok": True, "incidente": inc, "audit": audit})
+        if self.path == "/triage":
+            # tag START (rosso/giallo/verde/nero): decisione clinica → FIRMATA e ri-aggiornabile (il re-triage è la norma)
+            try:
+                rid = int(body.get("id"))
+            except (TypeError, ValueError):
+                return self._json(400, {"ok": False, "error": "id non numerico"})
+            tag = body.get("triage_start")
+            if tag not in CO.TRIAGE_START:
+                return self._json(400, {"ok": False, "error": f"triage_start non ammesso: {tag!r} (ammessi: {', '.join(CO.TRIAGE_START)})"})
+            op = str(body.get("operatore") or "equipaggio-ambulanza")[:60]
+            code, out = _evento_su_record(rid, "triage", "triage_start", {"triage_start": tag}, op, {"triage_start": tag, "operatore": op})
+            if code == 200:
+                with _LOCK:
+                    out["record"]["triage_start"] = tag
+                out = {k: v for k, v in out.items() if k != "record"}
+            return self._json(code, out)
         if self.path == "/stato_ps":
             # divert / capacità (colonna portante di Pulsara/Twiage): il PS dichiara se accetta, è saturo o dirotta
             stato, op, dest = body.get("stato"), str(body.get("operatore_ps") or "")[:60], body.get("destinazione_alternativa")
@@ -471,40 +516,31 @@ class H(BaseHTTPRequestHandler):
                 rid = int(body.get("id"))
             except (TypeError, ValueError):
                 return self._json(400, {"ok": False, "error": "id non numerico"})
-            r = _find(rid)
-            if not r or r.get("prealert") is None:
-                return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente o scaduto"})
+            ts_now = datetime.now(timezone.utc).isoformat(timespec="seconds")
             if self.path == "/posizione":
                 lat, lon, eta = body.get("lat"), body.get("lon"), body.get("eta_arrivo_min")
                 problemi = CO.valida_posizione(lat, lon, eta)
                 if problemi:
                     return self._json(400, {"ok": False, "error": "posizione rifiutata", "problemi": problemi})
-                ev = CO.evento_posizione(lat, lon, eta)
-                audit = AB.registra_evento_clinico(f"prealert-{rid}", "aggiornamento_eta", ev,
-                                                   str(body.get("operatore") or "equipaggio-ambulanza")[:60])
-                with _LOCK:
-                    _scadenza_bacheca()
-                    if r.get("prealert") is None:
-                        return self._json(410, {"ok": False, "error": f"pre-alert {rid} scaduto"})
-                    r["posizioni"].append({"lat": lat, "lon": lon, "eta_arrivo_min": eta, "ts": ev["ts"]})
-                    r["posizioni"] = r["posizioni"][-200:]
-                    r["eta_corrente"] = eta        # il pre-alert ancorato NON si muta (provenienza.self_hash resta vera)
-                return self._json(200, {"ok": True, "id": rid, "eta_arrivo_min": eta, "audit": audit})
+                ev = CO.evento_posizione(lat, lon, eta)          # nel ledger: ETA + DIGEST della posizione, mai coordinate
+                code, out = _evento_su_record(rid, "posizioni", "aggiornamento_eta", ev,
+                                              str(body.get("operatore") or "equipaggio-ambulanza")[:60],
+                                              {"lat": lat, "lon": lon, "eta_arrivo_min": eta, "ts": ev["ts"]})
+                if code == 200:
+                    with _LOCK:
+                        out["record"]["posizioni"] = out["record"]["posizioni"][-200:]
+                        out["record"]["eta_corrente"] = eta   # il pre-alert ancorato NON si muta
+                    out = {"ok": True, "id": rid, "eta_arrivo_min": eta, "audit": out["audit"]}
+                return self._json(code, out)
             if self.path == "/messaggio":
                 da, op, testo = body.get("da"), str(body.get("operatore") or "")[:60], body.get("testo")
                 problemi = CO.valida_messaggio(da, op, testo)
                 if problemi:
                     return self._json(400, {"ok": False, "error": "messaggio rifiutato", "problemi": problemi})
                 imp = CO.impronta_testo(testo)
-                audit = AB.registra_evento_clinico(f"prealert-{rid}", "messaggio", {"da": da, **imp}, op)
-                with _LOCK:
-                    _scadenza_bacheca()
-                    if r.get("prealert") is None:
-                        return self._json(410, {"ok": False, "error": f"pre-alert {rid} scaduto"})
-                    r["messaggi"].append({"da": da, "operatore": op, "testo": testo,
-                                          "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                                          "sha256": imp["sha256"], "audit": audit})
-                return self._json(200, {"ok": True, "id": rid, "n": len(r["messaggi"]), "audit": audit})
+                code, out = _evento_su_record(rid, "messaggi", "messaggio", {"da": da, **imp}, op,
+                                              {"da": da, "operatore": op, "testo": testo, "ts": ts_now, "sha256": imp["sha256"]})
+                return self._json(code, {k: v for k, v in out.items() if k != "record"})
             # /esito — close the loop
             op = str(body.get("operatore_ps") or "")[:60]
             esito, diag, tempo = body.get("esito"), body.get("diagnosi_confermata"), body.get("tempo_porta_intervento_min")
@@ -514,14 +550,10 @@ class H(BaseHTTPRequestHandler):
             nota = body.get("nota")
             det = {"esito": esito, "diagnosi_confermata": diag, "tempo_porta_intervento_min": tempo,
                    "nota": (CO.impronta_testo(str(nota)[:500]) if nota else None)}
-            audit = AB.registra_evento_clinico(f"prealert-{rid}", "esito_clinico", det, op)
-            with _LOCK:
-                _scadenza_bacheca()
-                if r.get("prealert") is None:
-                    return self._json(410, {"ok": False, "error": f"pre-alert {rid} scaduto"})
-                r["esiti"].append({**det, "operatore_ps": op, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                                   "audit": audit})
-            return self._json(200, {"ok": True, "id": rid, "esito": esito, "audit": audit})
+            code, out = _evento_su_record(rid, "esiti", "esito_clinico", det, op, {**det, "operatore_ps": op, "ts": ts_now})
+            if code == 200:
+                out = {"ok": True, "id": rid, "esito": esito, "audit": out["audit"]}
+            return self._json(code, out)
         if self.path == "/rimuovi-nota":
             # DICHIARATO alla DPGA (9B/9C): «the organisation can remove any note».
             # Disciplina Part 11: la rimozione è REGISTRATA con motivo e operatore
@@ -567,18 +599,21 @@ class H(BaseHTTPRequestHandler):
                 rid = int(body.get("id"))
             except (TypeError, ValueError):
                 return self._json(400, {"ok": False, "error": "id non numerico"})
-            r = _find(rid)
-            if not r:
-                return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente"})
-            out = VP.registra_ricezione(f"prealert-{rid}", str(body.get("operatore_ps") or "")[:60],
-                                        body.get("ruolo"), body.get("risposta_richiesta"),
-                                        body.get("risposta_attuata"),
-                                        motivo_alternativa=body.get("motivo_alternativa"),
-                                        ts_emissione=r["ts"])
-            if not out["ok"]:
-                return self._json(400, {"ok": False, "error": "ricezione non registrata", "problemi": out["problemi"]})
             with _LOCK:
-                r.setdefault("ricezioni", []).append({k: out[k] for k in ("ts", "latenza_s", "risposta_alternativa", "audit")})
+                _scadenza_bacheca()
+                r = next((x for x in BOARD if x["id"] == rid), None)
+                if not r or r.get("prealert") is None:
+                    return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente o scaduto"})
+                if len(r.setdefault("ricezioni", [])) >= CAP["ricezioni"]:
+                    return self._json(429, {"ok": False, "error": "tetto ricezioni raggiunto"})
+                out = VP.registra_ricezione(f"prealert-{rid}", str(body.get("operatore_ps") or "")[:60],
+                                            body.get("ruolo"), body.get("risposta_richiesta"),
+                                            body.get("risposta_attuata"),
+                                            motivo_alternativa=body.get("motivo_alternativa"),
+                                            ts_emissione=r["ts"])
+                if not out["ok"]:
+                    return self._json(400, {"ok": False, "error": "ricezione non registrata", "problemi": out["problemi"]})
+                r["ricezioni"].append({k: out[k] for k in ("ts", "latenza_s", "risposta_alternativa", "audit")})
             return self._json(200, out)
         if self.path == "/prealert":
             # FIX 2026-09-11 (round 3): accettava un pre-alert PRE-CALCOLATO dal client con due soli campi

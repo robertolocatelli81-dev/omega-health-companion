@@ -156,6 +156,21 @@ class TestE2ECoordinamento(unittest.TestCase):
         self.assertEqual(self._req("POST", "/valuta", {"vitali": STABILE, "eta": 30, "eta_arrivo_min": 5, "triage_start": "blu"})[0], 400)
         st, ri = self._req("GET", f"/incidente/{iid}")
         self.assertEqual(ri["per_triage_start"], {"giallo": 1})
+        # re-triage firmato e aggiornabile
+        self.assertEqual(self._req("POST", "/triage", {"id": v3["id"], "triage_start": "viola"})[0], 400)
+        st, tr = self._req("POST", "/triage", {"id": v3["id"], "triage_start": "rosso", "operatore": "eq-2"})
+        self.assertEqual(st, 200); self.assertEqual(tr["audit"]["livello"], "firma-locale")
+        self.assertEqual(self._req("GET", f"/incidente/{iid}")[1]["per_triage_start"], {"rosso": 1})
+        # id incidente MONOTONO anche dopo la scadenza di un incidente
+        st, inc2 = self._req("POST", "/incidente", {"descrizione": "secondo"})
+        self.assertGreater(inc2["incidente"]["id"], iid)
+        # tetto allegati per record (RAM): l'11° è rifiutato con 429
+        for _ in range(9):
+            self.assertEqual(self._req("POST", f"/allegato/{rid}", raw=PNG, headers={"Content-Type": "image/png", "X-Omega-Tipo": "foto"})[0], 200)
+        self.assertEqual(self._req("POST", f"/allegato/{rid}", raw=PNG, headers={"Content-Type": "image/png", "X-Omega-Tipo": "foto"})[0], 429)
+        # ricezione su pre-alert inesistente → 404; su record vivo → firmata sotto lock
+        self.assertEqual(self._req("POST", "/ricezione", {"id": 999, "operatore_ps": "a", "ruolo": "medico", "risposta_richiesta": "resus", "risposta_attuata": "resus"})[0], 404)
+        self.assertEqual(self._req("POST", "/ricezione", {"id": rid, "operatore_ps": "dr-z", "ruolo": "clinico_senior", "risposta_richiesta": "resus", "risposta_attuata": "resus"})[0], 200)
         self._req("POST", "/stato_ps", {"stato": "accetta", "operatore_ps": "dr-z"})
         # l'ETA aggiornata NON muta il pre-alert ancorato: sta in eta_corrente
         st, msgs = self._req("GET", f"/messaggi/{rid}")
@@ -165,14 +180,16 @@ class TestE2ECoordinamento(unittest.TestCase):
         # metriche QA/QI
         st, mt = self._req("GET", "/metriche")
         self.assertEqual(mt["pre_alert"], 3); self.assertEqual(mt["esiti_registrati"], 2)
+        self.assertEqual(mt["ricezioni"], 1)
         self.assertEqual([x["id"] for x in mt["da_escalare"]], [])     # appena emessi: sotto i 120 s
         self.assertEqual(mt["over_triage_proxy"], 1)        # FC 132 → criteri 2025 indicato, esito non necessario
         self.assertEqual(mt["tempo_porta_intervento_min"]["mediana"], 32.5)
         # NIENTE testo libero né byte nel ledger: solo digest
         with open(AB.FALLBACK_LEDGER, encoding="utf-8") as f:
             led = f.read()
-        for s in ("MARIO ROSSI", "paziente peggiora", "resus pronta", "PNG", "tamponamento", "Ospedale Nord"):
-            self.assertNotIn(s, led)
+        for s in ("MARIO ROSSI", "paziente peggiora", "resus pronta", "PNG", "tamponamento", "Ospedale Nord", "45.46", "9.19"):
+            self.assertNotIn(s, led)             # nemmeno la posizione (a ~1 km) va su disco: solo il digest
+        self.assertIn("posizione_sha256", led); self.assertIn("triage_start", led)
         self.assertIn("apertura_incidente", led); self.assertIn("stato_ps", led)
         self.assertIn("aggiornamento_eta", led); self.assertIn("esito_clinico", led); self.assertIn("allegato", led)
         # il verbale elenca gli eventi di coordinamento firmati
@@ -190,6 +207,9 @@ class TestE2ECoordinamento(unittest.TestCase):
         self.assertEqual(self._req("POST", f"/allegato/{rid}", raw=PNG, headers={"Content-Type": "image/png", "X-Omega-Tipo": "ecg"})[0], 404)
         st, msgs = self._req("GET", f"/messaggi/{rid}")
         self.assertEqual(msgs["messaggi"], [])
+        self.assertEqual(msgs["esiti"], [])                   # anche esiti e ricezioni escono dalla RAM
+        self.assertEqual(self._req("POST", "/esito", {"id": rid, "operatore_ps": "dr-z", "esito": "dimesso"})[0], 404)
+        self.assertEqual(self._req("POST", "/ricezione", {"id": rid, "operatore_ps": "dr-z", "ruolo": "medico", "risposta_richiesta": "resus", "risposta_attuata": "resus"})[0], 404)
         # con TTL 0 anche gli incidenti (oltre 2×TTL) spariscono
         self.assertEqual(self._req("GET", "/incidenti")[1], [])
         # Content-Length negativo → 400, non hang
