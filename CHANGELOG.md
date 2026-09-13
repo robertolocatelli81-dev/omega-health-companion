@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-13 — v0.4.1, packaging fix
+
+The 0.4.0 wheel published minutes earlier did not contain `prealert_criteria`, `verbale_probatorio`,
+`coordinamento` (nor `news2_certificate`): `pyproject.toml` lists modules by hand and the list had not been
+updated. Found by installing from the public index into a clean venv. Fixed, and `test_packaging.py` now fails
+whenever a product module is not in the list. The 0.4.0 release is kept for the record and marked superseded;
+the index serves 0.4.1.
+
 ## 2026-09-13 (second step) — what the field leaders do, done the OMEGA way (v0.4.0)
 
 Order of the author: «check the competitors and add what is missing». Compared online (Pulsara,
