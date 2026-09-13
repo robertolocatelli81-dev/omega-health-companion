@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """news2_certificate — certificato di concordanza del NEWS2, 2026-09-08.
 
-Metodo QRAFT-RA portato nel companion (ordine Roberto 08/09 «aggiorna tutto
-e testali»): un GIUDICE INDIPENDENTE table-driven (stessa fonte: Royal
+Metodo del certificato che sa fallire (giudice indipendente + controllo
+positivo, 2026-09-08): un GIUDICE INDIPENDENTE table-driven (stessa fonte: Royal
 College of Physicians 2017, Scala 1) ricalcola punteggio e componenti su una
 GRIGLIA dei confini clinici (tutti i bordi delle bande ±1 passo) e deve
 concordare con `barella_prealert.news2` su OGNI vettore; il banco dimostra
