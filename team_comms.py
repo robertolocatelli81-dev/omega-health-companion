@@ -54,6 +54,7 @@ MAX_BODY = 64 * 1024          # un pre-alert è piccolo: payload enormi = rifiut
 BOARD: list = []
 _LOCK = threading.Lock()
 ALLEGATI: dict = {}          # (id, n) -> bytes, SOLO in memoria, scadono con la bacheca
+STATO_PS: dict = {"stato": "accetta", "ts": None, "operatore_ps": None}   # divert/capacità, a vocabolario chiuso
 INCIDENTI: list = []         # incidenti maggiori (più pazienti)
 
 
@@ -75,6 +76,10 @@ def _scadenza_bacheca(now: Optional[datetime] = None) -> int:
     n = 0
     for r in BOARD:
         if r.get("vitali") is None and r.get("prealert") is None:
+            # già scaduto: tenerlo VUOTO (ciò che fosse entrato dopo la scadenza non deve restare in RAM)
+            r["messaggi"], r["posizioni"], r["allegati"] = [], [], []
+            for k in [k for k in ALLEGATI if k[0] == r["id"]]:
+                ALLEGATI.pop(k, None)
             continue
         try:
             eta_h = (now - datetime.fromisoformat(r["ts"])).total_seconds() / 3600
@@ -90,6 +95,9 @@ def _scadenza_bacheca(now: Optional[datetime] = None) -> int:
                 ALLEGATI.pop(k, None)
             r["allegati"] = []
             n += 1
+    # incidenti: la lista non cresceva mai (council 13/09) → oltre 2×TTL dall'apertura spariscono
+    for i in [i for i in INCIDENTI if (now - datetime.fromisoformat(i["ts"])).total_seconds() / 3600 > 2 * BOARD_TTL_H]:
+        INCIDENTI.remove(i)
     return n
 
 
@@ -237,10 +245,14 @@ class H(BaseHTTPRequestHandler):
                 _scadenza_bacheca()
                 raw = ALLEGATI.get((rid, n))
                 r = next((x for x in BOARD if x["id"] == rid), None)
-            if raw is None or not r:
+                meta = (r["allegati"][n - 1] if r and raw is not None and 0 < n <= len(r["allegati"]) else None)
+            if raw is None or meta is None:
                 return self._json(404, {"ok": False, "error": "allegato inesistente o scaduto"})
-            meta = r["allegati"][n - 1]
-            return self._send(200, raw, meta["content_type"])
+            # mai reso inline nella stessa origine della bacheca (council 13/09: un XHTML come text/xml
+            # eseguirebbe script nel browser del PS): download + nosniff + CSP sandbox
+            return self._send(200, raw, meta["content_type"], extra={
+                "Content-Disposition": f'attachment; filename="prealert-{rid}-{n}"',
+                "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox"})
         if path_noq.startswith("/incidente/"):
             try:
                 iid = int(path_noq[len("/incidente/"):])
@@ -300,6 +312,8 @@ class H(BaseHTTPRequestHandler):
             return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente"})
         with _LOCK:
             return self._json(200, {"id": rid, "messaggi": list(r.get("messaggi") or []),
+                                    "eta_corrente_min": r.get("eta_corrente"), "triage_start": r.get("triage_start"),
+                                    "stato_ps": STATO_PS,
                                     "posizioni": list(r.get("posizioni") or [])[-20:],
                                     "allegati": list(r.get("allegati") or []), "esiti": list(r.get("esiti") or [])})
 
@@ -318,6 +332,8 @@ class H(BaseHTTPRequestHandler):
         try:
             n = int(self.headers.get("Content-Length", 0))
         except ValueError:
+            return self._json(400, {"ok": False, "error": "Content-Length invalido"})
+        if n < 0:
             return self._json(400, {"ok": False, "error": "Content-Length invalido"})
         if self.path.startswith("/allegato/"):
             return self.do_POST_allegato(n)          # binario: mai decodificato come testo
@@ -372,15 +388,23 @@ class H(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "error": "input invalido: struttura del payload non conforme"})
             except Exception:                                    # noqa: BLE001 — l'input arriva dalla rete
                 return self._json(400, {"ok": False, "error": "input invalido"})
+            ts_start = body.get("triage_start")
+            if ts_start is not None and ts_start not in CO.TRIAGE_START:
+                return self._json(400, {"ok": False, "error": f"triage_start non ammesso: {ts_start!r} (ammessi: {', '.join(CO.TRIAGE_START)})"})
             inc = body.get("incidente_id")
             if inc is not None:
                 if isinstance(inc, bool) or not isinstance(inc, int) or not any(i["id"] == inc for i in INCIDENTI):
                     return self._json(400, {"ok": False, "error": f"incidente_id inesistente: {inc!r}"})
             rec = _pubblica(out["PRE_ALERT_INTEGRATO"], body.get("vitali"),
                             operatore=str(body.get("operatore") or "equipaggio-ambulanza")[:60], incidente_id=inc)
+            if ts_start is not None:
+                with _LOCK:
+                    rec["triage_start"] = ts_start
+            with _LOCK:
+                stato_ps = dict(STATO_PS)
             return self._json(200, {"ok": True, "id": rec["id"],
                                     "prealert": out["PRE_ALERT_INTEGRATO"],
-                                    "tipo_paziente": rec["tipo_paziente"],
+                                    "tipo_paziente": rec["tipo_paziente"], "stato_ps": stato_ps,
                                     "provenienza": rec["provenienza"]})
 
     def do_POST_allegato(self, n: int):
@@ -408,6 +432,9 @@ class H(BaseHTTPRequestHandler):
         audit = AB.registra_evento_clinico(f"prealert-{rid}", "allegato",
                                            {k: meta[k] for k in ("tipo", "content_type", "bytes", "sha256")}, operatore)
         with _LOCK:
+            _scadenza_bacheca()
+            if r.get("prealert") is None:          # scaduto fra il controllo e l'append (TOCTOU, council 13/09)
+                return self._json(410, {"ok": False, "error": f"pre-alert {rid} scaduto"})
             r["allegati"].append({**meta, "operatore": operatore, "audit": audit})
             n_all = len(r["allegati"])
             ALLEGATI[(rid, n_all)] = raw
@@ -421,10 +448,24 @@ class H(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "error": "descrizione richiesta (≤120 caratteri)"})
             with _LOCK:
                 inc = {"id": len(INCIDENTI) + 1, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                       "descrizione": desc, "aperto_da": operatore}
+                       "descrizione": desc, "aperto_da": operatore}      # descrizione SOLO in memoria
                 INCIDENTI.append(inc)
-            audit = AB.registra_evento_sistema(f"incidente-{inc['id']}", "apertura_incidente", desc[:120], operatore)
+            # nel ledger va il DIGEST della descrizione (luogo/targhe/nomi = testo libero), evento CREATE firmato
+            audit = AB.registra_evento_clinico(f"incidente-{inc['id']}", "apertura_incidente",
+                                               {"descrizione": CO.impronta_testo(desc)}, operatore)
             return self._json(200, {"ok": True, "incidente": inc, "audit": audit})
+        if self.path == "/stato_ps":
+            # divert / capacità (colonna portante di Pulsara/Twiage): il PS dichiara se accetta, è saturo o dirotta
+            stato, op, dest = body.get("stato"), str(body.get("operatore_ps") or "")[:60], body.get("destinazione_alternativa")
+            problemi = CO.valida_stato_ps(stato, op, dest)
+            if problemi:
+                return self._json(400, {"ok": False, "error": "stato rifiutato", "problemi": problemi})
+            det = {"stato": stato, "destinazione_alternativa": (CO.impronta_testo(dest) if dest else None)}
+            audit = AB.registra_evento_clinico("ps", "stato_ps", det, op)
+            with _LOCK:
+                STATO_PS.update({"stato": stato, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                                 "operatore_ps": op, "destinazione_alternativa": dest})
+            return self._json(200, {"ok": True, "stato_ps": dict(STATO_PS), "audit": audit})
         if self.path in ("/posizione", "/messaggio", "/esito"):
             try:
                 rid = int(body.get("id"))
@@ -442,9 +483,12 @@ class H(BaseHTTPRequestHandler):
                 audit = AB.registra_evento_clinico(f"prealert-{rid}", "aggiornamento_eta", ev,
                                                    str(body.get("operatore") or "equipaggio-ambulanza")[:60])
                 with _LOCK:
+                    _scadenza_bacheca()
+                    if r.get("prealert") is None:
+                        return self._json(410, {"ok": False, "error": f"pre-alert {rid} scaduto"})
                     r["posizioni"].append({"lat": lat, "lon": lon, "eta_arrivo_min": eta, "ts": ev["ts"]})
                     r["posizioni"] = r["posizioni"][-200:]
-                    r["prealert"]["eta_arrivo_stimato_min"] = eta
+                    r["eta_corrente"] = eta        # il pre-alert ancorato NON si muta (provenienza.self_hash resta vera)
                 return self._json(200, {"ok": True, "id": rid, "eta_arrivo_min": eta, "audit": audit})
             if self.path == "/messaggio":
                 da, op, testo = body.get("da"), str(body.get("operatore") or "")[:60], body.get("testo")
@@ -454,6 +498,9 @@ class H(BaseHTTPRequestHandler):
                 imp = CO.impronta_testo(testo)
                 audit = AB.registra_evento_clinico(f"prealert-{rid}", "messaggio", {"da": da, **imp}, op)
                 with _LOCK:
+                    _scadenza_bacheca()
+                    if r.get("prealert") is None:
+                        return self._json(410, {"ok": False, "error": f"pre-alert {rid} scaduto"})
                     r["messaggi"].append({"da": da, "operatore": op, "testo": testo,
                                           "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                                           "sha256": imp["sha256"], "audit": audit})
@@ -469,6 +516,9 @@ class H(BaseHTTPRequestHandler):
                    "nota": (CO.impronta_testo(str(nota)[:500]) if nota else None)}
             audit = AB.registra_evento_clinico(f"prealert-{rid}", "esito_clinico", det, op)
             with _LOCK:
+                _scadenza_bacheca()
+                if r.get("prealert") is None:
+                    return self._json(410, {"ok": False, "error": f"pre-alert {rid} scaduto"})
                 r["esiti"].append({**det, "operatore_ps": op, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                                    "audit": audit})
             return self._json(200, {"ok": True, "id": rid, "esito": esito, "audit": audit})

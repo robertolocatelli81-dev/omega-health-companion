@@ -100,7 +100,9 @@ closed-vocabulary or a digest: no free text and no health data on disk.
 | Two-way secure chat | yes | `POST /messaggio` — text in memory, digest signed |
 | Outcome feedback ("close the loop") | Pulsara | `POST /esito` — closed vocabulary, signed |
 | QA/QI performance data | Pulsara, corpuls.web ANALYSE | `GET /metriche` — aggregates, no identifiers |
-| Mass-casualty / multi-patient | Pulsara | `POST /incidente`, `GET /incidente/<id>` |
+| Mass-casualty / multi-patient | Pulsara | `POST /incidente`, `GET /incidente/<id>`, START tags per patient |
+| ED status / divert | Pulsara, Twiage | `POST /stato_ps` — accetta / saturo / dirotta, signed, returned with every pre-alert |
+| Escalation when nobody takes the call | Pulsara | `da_escalare` in `GET /metriche` (no receipt after 120 s) |
 | **Evidentiary record of the pre-alert** (who said what, who answered, chain, timestamp) | none documented | `GET /verbale/<id>` — this is the difference |
 | Audio/video calls, live 12-lead telemetry | yes | **not done**: infrastructure, not evidence; integrate with those tools instead |
 | Patient identity lookup / pre-registration | Twiage | **not done by design**: PII-free |

@@ -17,8 +17,21 @@ board TTL, nothing clinical on disk:
   (`POST /incidente`, `GET /incidente/<id>`, `GET /incidenti`, `incidente_id` on `/valuta`).
 - Deliberately **not** added: audio/video calls and live telemetry (infrastructure, not evidence),
   patient identity lookup (PII-free by design), NEMSIS export (Europe = FHIR).
+- **Review by three independent models (same day), verified on the code and fixed:** the incident
+  description (free text: place, plates, names) went to the ledger in clear — now by digest; attachments
+  were served inline in the board's origin (an XHTML uploaded as `text/xml` could run script in the ED
+  browser) — now download-only with `nosniff` and `CSP: sandbox`; check-then-append races with the board
+  expiry — now re-checked under the lock (410 if expired meanwhile), expired records stay empty, incidents
+  expire at 2×TTL; an ETA update mutated the already-anchored pre-alert — now `eta_corrente` on the record,
+  the anchored object is immutable; over/under-triage counted every outcome — now once per pre-alert on the
+  last one; negative `Content-Length` refused. Two claims were checked and found false (GET endpoints
+  without token; truncated code). Added what the reviewers named as still missing and in scope: **ED
+  status / divert** (`POST /stato_ps`: accetta | saturo | dirotta, alternative destination by digest,
+  returned with every `/valuta`), **escalation on missing receipt** (`da_escalare` in `/metriche` after 120 s),
+  **START triage tags** per incident (`triage_start` on `/valuta`, counted in `/incidente/<id>`).
 - Tests: `test_coordinamento.py` (bench-of-the-bench + one end-to-end flow over HTTP covering every endpoint,
-  negatives first, ledger checked for absence of free text and bytes, expiry). 125 in total.
+  negatives first, ledger checked for absence of free text and bytes, download headers, expiry with no
+  repopulation, negative Content-Length). 125 in total; 10 consecutive full runs green.
 
 ## 2026-09-13 — from pilot to product: national pre-alert criteria and legal-grade evidence (v0.3.0)
 

@@ -131,8 +131,12 @@ class TestE2ECoordinamento(unittest.TestCase):
         self.assertEqual(self._req("POST", "/allegato/999", raw=PNG, headers={"Content-Type": "image/png", "X-Omega-Tipo": "ecg"})[0], 404)
         st, a = self._req("POST", f"/allegato/{rid}", raw=PNG, headers={"Content-Type": "image/png", "X-Omega-Tipo": "ecg", "X-Omega-Operatore": "eq-1"})
         self.assertEqual(st, 200); self.assertEqual(a["n"], 1)
-        st, raw = self._req("GET", f"/allegato/{rid}/1")
-        self.assertEqual(st, 200); self.assertEqual(raw, PNG)
+        req = urllib.request.Request(self.base + f"/allegato/{rid}/1", headers={"X-Omega-Token": self.token})
+        resp = urllib.request.urlopen(req, timeout=10)
+        self.assertEqual(resp.read(), PNG)
+        self.assertEqual(resp.headers.get("X-Content-Type-Options"), "nosniff")
+        self.assertIn("attachment", resp.headers.get("Content-Disposition", ""))
+        self.assertEqual(resp.headers.get("Content-Security-Policy"), "sandbox")
         self.assertEqual(self._req("GET", f"/allegato/{rid}/2")[0], 404)
         self.assertEqual(self._req("GET", f"/allegato/{rid}/1", token=False)[0], 401)
         # esito: close the loop
@@ -142,28 +146,57 @@ class TestE2ECoordinamento(unittest.TestCase):
                                                "diagnosi_confermata": False, "tempo_porta_intervento_min": 25, "nota": "MARIO ROSSI stabile"})
         self.assertEqual(st, 200)
         st, es2 = self._req("POST", "/esito", {"id": out2["id"], "operatore_ps": "dr-z", "esito": "percorso_confermato", "tempo_porta_intervento_min": 40})
+        # stato PS (divert/capacità) a vocabolario chiuso, destinazione per digest
+        self.assertEqual(self._req("POST", "/stato_ps", {"stato": "chiuso", "operatore_ps": "dr-z"})[0], 400)
+        self.assertEqual(self._req("POST", "/stato_ps", {"stato": "dirotta", "operatore_ps": "dr-z"})[0], 400)
+        st, sp = self._req("POST", "/stato_ps", {"stato": "dirotta", "operatore_ps": "dr-z", "destinazione_alternativa": "Ospedale Nord, Trauma Center"})
+        self.assertEqual(st, 200); self.assertEqual(sp["stato_ps"]["stato"], "dirotta")
+        st, v3 = self._req("POST", "/valuta", {"vitali": STABILE, "eta": 30, "eta_arrivo_min": 5, "triage_start": "giallo", "incidente_id": iid})
+        self.assertEqual(v3["stato_ps"]["stato"], "dirotta")
+        self.assertEqual(self._req("POST", "/valuta", {"vitali": STABILE, "eta": 30, "eta_arrivo_min": 5, "triage_start": "blu"})[0], 400)
+        st, ri = self._req("GET", f"/incidente/{iid}")
+        self.assertEqual(ri["per_triage_start"], {"giallo": 1})
+        self._req("POST", "/stato_ps", {"stato": "accetta", "operatore_ps": "dr-z"})
+        # l'ETA aggiornata NON muta il pre-alert ancorato: sta in eta_corrente
+        st, msgs = self._req("GET", f"/messaggi/{rid}")
+        self.assertEqual(msgs["eta_corrente_min"], 9)
+        st, board = self._req("GET", "/api/board")
+        self.assertEqual([b for b in board if b["id"] == rid][0]["prealert"]["eta_arrivo_stimato_min"], 15)
         # metriche QA/QI
         st, mt = self._req("GET", "/metriche")
-        self.assertEqual(mt["pre_alert"], 2); self.assertEqual(mt["esiti_registrati"], 2)
+        self.assertEqual(mt["pre_alert"], 3); self.assertEqual(mt["esiti_registrati"], 2)
+        self.assertEqual([x["id"] for x in mt["da_escalare"]], [])     # appena emessi: sotto i 120 s
         self.assertEqual(mt["over_triage_proxy"], 1)        # FC 132 → criteri 2025 indicato, esito non necessario
         self.assertEqual(mt["tempo_porta_intervento_min"]["mediana"], 32.5)
         # NIENTE testo libero né byte nel ledger: solo digest
         with open(AB.FALLBACK_LEDGER, encoding="utf-8") as f:
             led = f.read()
-        for s in ("MARIO ROSSI", "paziente peggiora", "resus pronta", "PNG"):
+        for s in ("MARIO ROSSI", "paziente peggiora", "resus pronta", "PNG", "tamponamento", "Ospedale Nord"):
             self.assertNotIn(s, led)
+        self.assertIn("apertura_incidente", led); self.assertIn("stato_ps", led)
         self.assertIn("aggiornamento_eta", led); self.assertIn("esito_clinico", led); self.assertIn("allegato", led)
         # il verbale elenca gli eventi di coordinamento firmati
         import verbale_probatorio as VP
         v = VP.verbale(f"prealert-{rid}")
         self.assertTrue(v["firme_tutte_verificate"])
         self.assertGreaterEqual(v["n_eventi"], 6)     # emissione + eta + 2 messaggi + allegato + esito
-        # scadenza: allegati e messaggi spariscono con la bacheca
+        # scadenza: allegati e messaggi spariscono con la bacheca, e NULLA si ripopola dopo (410)
         T.BOARD_TTL_H = 0.0
         self.assertEqual(self._req("GET", f"/allegato/{rid}/1")[0], 404)
         st, msgs = self._req("GET", f"/messaggi/{rid}")
         self.assertEqual(msgs["messaggi"], [])
         self.assertEqual(len(T.ALLEGATI), 0)
+        self.assertEqual(self._req("POST", "/messaggio", {"id": rid, "da": "ps", "operatore": "dr-z", "testo": "tardi"})[0], 404)
+        self.assertEqual(self._req("POST", f"/allegato/{rid}", raw=PNG, headers={"Content-Type": "image/png", "X-Omega-Tipo": "ecg"})[0], 404)
+        st, msgs = self._req("GET", f"/messaggi/{rid}")
+        self.assertEqual(msgs["messaggi"], [])
+        # con TTL 0 anche gli incidenti (oltre 2×TTL) spariscono
+        self.assertEqual(self._req("GET", "/incidenti")[1], [])
+        # Content-Length negativo → 400, non hang
+        import http.client
+        c = http.client.HTTPConnection("127.0.0.1", self.srv.server_address[1], timeout=5)
+        c.putrequest("POST", "/valuta"); c.putheader("X-Omega-Token", self.token); c.putheader("Content-Length", "-5"); c.endheaders()
+        self.assertEqual(c.getresponse().status, 400)
 
 
 if __name__ == "__main__":

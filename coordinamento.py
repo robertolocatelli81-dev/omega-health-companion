@@ -199,6 +199,11 @@ def metriche(board: List[Dict]) -> Dict:
             esiti[e["esito"]] = esiti.get(e["esito"], 0) + 1
             if e.get("tempo_porta_intervento_min") is not None:
                 tempi.append(e["tempo_porta_intervento_min"])
+        # over/under-triage: UNA volta per pre-alert, sull'ULTIMO esito registrato (council 13/09: prima
+        # ogni esito contava, doppio conteggio se un pre-alert ne aveva più d'uno)
+        ultimi = r.get("esiti") or []
+        if ultimi:
+            e = ultimi[-1]
             indicato = (pa.get("criteri_prealert_2025") or {}).get("pre_alert_indicato")
             if indicato is True and e["esito"] == "percorso_non_necessario":
                 over += 1
@@ -206,8 +211,22 @@ def metriche(board: List[Dict]) -> Dict:
                 under += 1
             if e["esito"] == "percorso_confermato":
                 conf += 1
+    # escalation su mancata ricezione (Pulsara: ri-allerta se nessuno prende la chiamata): pre-alert vivi
+    # senza alcuna ricezione oltre ESCALATION_S dall'emissione
+    now = datetime.now(timezone.utc)
+    da_escalare = []
+    for r in board:
+        if r.get("prealert") is None or r.get("ricezioni"):
+            continue
+        try:
+            eta_s = (now - datetime.fromisoformat(r["ts"])).total_seconds()
+        except (KeyError, ValueError):
+            continue
+        if eta_s > ESCALATION_S:
+            da_escalare.append({"id": r["id"], "secondi_senza_ricezione": int(eta_s)})
     return {
         "pre_alert": n, "per_priorita": prio, "ricezioni": ric,
+        "da_escalare": da_escalare, "escalation_dopo_s": ESCALATION_S,
         "latenza_ricezione_s": ({"mediana": statistics.median(lat), "max": max(lat), "n": len(lat)} if lat else None),
         "risposte_alternative": alt, "quota_risposte_alternative": (round(alt / ric, 3) if ric else None),
         "esiti": esiti, "esiti_registrati": esiti_n,
@@ -218,17 +237,42 @@ def metriche(board: List[Dict]) -> Dict:
     }
 
 
+ESCALATION_S = 120          # nessuna ricezione entro 2 minuti dall'emissione → da escalare (dichiarato, configurabile)
+
+# ── 6b. Stato del PS: accetta / saturo / dirotta (divert) — a vocabolario chiuso, firmato ──────
+STATI_PS = ("accetta", "saturo", "dirotta")
+
+
+def valida_stato_ps(stato: str, operatore_ps: str, destinazione_alternativa: Optional[str]) -> List[str]:
+    p = []
+    if stato not in STATI_PS:
+        p.append(f"stato non ammesso: {stato!r} (ammessi: {', '.join(STATI_PS)})")
+    if not isinstance(operatore_ps, str) or not operatore_ps.strip() or len(operatore_ps) > 60:
+        p.append("operatore_ps: stringa 1-60 caratteri")
+    if destinazione_alternativa is not None and (not isinstance(destinazione_alternativa, str) or len(destinazione_alternativa) > 80):
+        p.append("destinazione_alternativa: stringa ≤80 caratteri")
+    if stato == "dirotta" and not (destinazione_alternativa or "").strip():
+        p.append("stato=dirotta richiede destinazione_alternativa")
+    return p
+
+
+# ── 6c. Triage START per incidente maggiore (colori) ─────────────────────────────────────
+TRIAGE_START = ("rosso", "giallo", "verde", "nero")
+
 # ── 7. Incidenti maggiori (più pazienti) ─────────────────────────────────────────────────
 def riepilogo_incidente(incidente: Dict, board: List[Dict]) -> Dict:
     pre = [r for r in board if r.get("incidente_id") == incidente["id"]]
     conte: Dict[str, int] = {}
+    start: Dict[str, int] = {}
     for r in pre:
         p = (r.get("prealert") or {}).get("priorita", "SCADUTO")
         conte[p] = conte.get(p, 0) + 1
-    return {**incidente, "pazienti": len(pre), "per_priorita": conte,
+        if r.get("triage_start"):
+            start[r["triage_start"]] = start.get(r["triage_start"], 0) + 1
+    return {**incidente, "pazienti": len(pre), "per_priorita": conte, "per_triage_start": start,
             "pre_alert": [{"id": r["id"], "priorita": (r.get("prealert") or {}).get("priorita"),
-                           "tipi": (r.get("tipo_paziente") or {}).get("tipi"),
-                           "eta_arrivo_min": (r.get("prealert") or {}).get("eta_arrivo_stimato_min")} for r in pre]}
+                           "tipi": (r.get("tipo_paziente") or {}).get("tipi"), "triage_start": r.get("triage_start"),
+                           "eta_arrivo_min": r.get("eta_corrente", (r.get("prealert") or {}).get("eta_arrivo_stimato_min"))} for r in pre]}
 
 
 # ── banco che SA FALLIRE ────────────────────────────────────────────────────────────────
@@ -239,18 +283,22 @@ def banco_controllo() -> Dict:
     ped = {"priorita": "NON_VALUTABILE_PEDIATRICO", "percorsi_attivare": []}
     t1, t2, t3 = classifica_tipo(stemi), classifica_tipo(gen), classifica_tipo(ped)
     png = b"\x89PNG\r\n\x1a\n" + b"0" * 10
-    ok = (t1["team_da_allertare"] == ["cath_lab"] and t2["tipi"] == ["generale"] and t3["tipi"][0] == "pediatrico"
+    ok = bool(t1["team_da_allertare"] == ["cath_lab"] and t2["tipi"] == ["generale"] and t3["tipi"][0] == "pediatrico"
           and not valida_posizione(45.4, 9.2, 12) and valida_posizione(95, 9.2, 12) and valida_posizione(None, 9.2, 12)
           and not valida_messaggio("ps", "dr", "ok") and valida_messaggio("medico", "dr", "ok")
           and not valida_allegato("ecg", "image/png", png) and valida_allegato("ecg", "image/png", b"GIF89a")
           and valida_allegato("ecg", "image/gif", png) and valida_allegato("ecg", "image/png", b"\x89PNG\r\n\x1a\n" + b"0" * MAX_ALLEGATO)
           and not valida_esito("dr", "percorso_confermato", True, 35) and valida_esito("dr", "guarito", None, None))
-    b = [{"id": 1, "prealert": {"priorita": "ALTO", "criteri_prealert_2025": {"pre_alert_indicato": True}},
-          "ricezioni": [{"latenza_s": 40, "risposta_alternativa": True}], "esiti": [{"esito": "percorso_non_necessario"}]},
-         {"id": 2, "prealert": {"priorita": "BASSO", "criteri_prealert_2025": {"pre_alert_indicato": False}},
+    b = [{"id": 1, "ts": "2026-09-13T10:00:00+00:00", "prealert": {"priorita": "ALTO", "criteri_prealert_2025": {"pre_alert_indicato": True}},
+          "ricezioni": [{"latenza_s": 40, "risposta_alternativa": True}],
+          "esiti": [{"esito": "percorso_confermato"}, {"esito": "percorso_non_necessario"}]},   # conta solo l'ULTIMO
+         {"id": 2, "ts": "2026-09-13T10:00:00+00:00", "prealert": {"priorita": "BASSO", "criteri_prealert_2025": {"pre_alert_indicato": False}},
           "ricezioni": [], "esiti": [{"esito": "percorso_confermato", "tempo_porta_intervento_min": 20}]}]
     m = metriche(b)
-    ok = ok and m["over_triage_proxy"] == 1 and m["under_triage_proxy"] == 1 and m["quota_risposte_alternative"] == 1.0
+    ok = (ok and m["over_triage_proxy"] == 1 and m["under_triage_proxy"] == 1 and m["quota_risposte_alternative"] == 1.0
+          and m["percorsi_confermati"] == 1 and [x["id"] for x in m["da_escalare"]] == [2]
+          and not valida_stato_ps("saturo", "dr", None) and valida_stato_ps("dirotta", "dr", None)
+          and bool(valida_stato_ps("chiuso", "dr", None)))
     return {"banco_sa_fallire": ok, "tipi": t1["team_da_allertare"], "metriche": {k: m[k] for k in ("over_triage_proxy", "under_triage_proxy")}}
 
 
