@@ -200,6 +200,29 @@ def registra_conferma(prealert_id: str, nota: str, operatore: str) -> Dict:
             "firmatario": operatore, "significato": "responsibility"}
 
 
+def registra_ricezione(prealert_id: str, dettaglio: Dict, operatore_ps: str) -> Dict:
+    """Ricezione del pre-alert nel PS (linea guida RCEM/AACE 2025: «recorded line», clinico senior che
+    attua la risposta, risposta alternativa discussa apertamente) → record CREATE + firma RESPONSIBILITY
+    di chi ha ricevuto. `dettaglio` è già a valori chiusi + digest (verbale_probatorio.registra_ricezione):
+    nel trail non entra testo libero. Separato da registra_conferma: significato diverso (ricevere e decidere
+    la risposta ≠ prendere in carico il percorso)."""
+    if not MOTORE_DISPONIBILE:
+        if FIRMA_LOCALE_DISPONIBILE:
+            return _fb_registra(f"{prealert_id}/ricezione", "ricezione_pre_alert", dettaglio, operatore_ps)
+        return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
+    t = _get_trail()
+    rec = t.log_change(operatore_ps, AuditAction.CREATE, f"{prealert_id}/ricezione",
+                       reason=(f"ricezione pre-alert PS: richiesta {dettaglio.get('risposta_richiesta')} → "
+                               f"attuata {dettaglio.get('risposta_attuata')}"),
+                       new_value=dettaglio)
+    ident = _identity(operatore_ps)
+    es = t.sign_record(rec, ident, printed_name=operatore_ps,
+                       meaning=SignatureMeaning.RESPONSIBILITY)
+    return {"livello": "part11", "record_sha3": rec.canonical_hash(),
+            "firma_verificata": t.verify_signature_for_record(es, rec),
+            "firmatario": operatore_ps, "significato": "responsibility"}
+
+
 def registra_evento_sistema(target_id: str, azione: str, motivo: str, operatore: str,
                             nota_rimossa: Optional[str] = None) -> Dict:
     """Evento AMMINISTRATIVO (rimozione di una nota dalla bacheca, rotazione del token): il MOTIVO

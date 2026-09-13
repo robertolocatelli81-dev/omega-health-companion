@@ -22,18 +22,24 @@ import barella_prealert as B
 import interazioni_farmaci as F
 import companion_seed as C
 import scores_emergenza as S
+import prealert_criteria as PC
 from datetime import datetime, timezone
 
 
 def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
                     eta_arrivo_min: int, fast_segni: Optional[Dict] = None,
-                    clinica: Optional[Dict] = None, ancora: bool = False) -> Dict:
+                    clinica: Optional[Dict] = None, ancora: bool = False,
+                    condizioni: Optional[Dict] = None, eta_mesi: Optional[int] = None) -> Dict:
     """Il flusso completo dell'ambulanza intelligente → pre-alert integrato.
     fast_segni: {'face','arm','speech'}.
     clinica (tutte opzionali): {'gcs', 'meccanismo_maggiore', 'lesione_penetrante',
     'contesto_trauma', 'assenza_respiro', 'assenza_polso', 'dolore_toracico',
     'ecg_stemi'}. meccanismo_maggiore e lesione_penetrante attivano da soli il
-    contesto traumatico (CDC field triage Step 2-3) — vedi scores_emergenza.trauma."""
+    contesto traumatico (CDC field triage Step 2-3) — vedi scores_emergenza.trauma.
+    condizioni (opzionale, 2026-09-13): flag booleani delle condizioni specifiche di pre-alert della
+    linea guida RCEM/AACE 2025 (chiavi in prealert_criteria.CONDIZIONI_SPECIFICHE); eta_mesi: per i
+    lattanti (<1 anno) abilita il criterio temperatura ≥38 °C sotto i 3 mesi. Entrambi validati a tipi
+    stretti: una chiave ignota o una stringa al posto di un booleano è un rifiuto NOMINATO."""
     cl = clinica or {}
     # ── GATE PEDIATRICO (FIX 2026-09-06, 4-menti): NEWS2/qSOFA/CDC-adulti NON
     # sono validati sotto i 16 anni — un bambino con FC/FR fisiologiche usciva
@@ -72,6 +78,10 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
                     problemi_extra.append(f"fast_segni.{k}: segno non riconosciuto")
                 elif not isinstance(v, bool):
                     problemi_extra.append(f"non booleano: fast_segni.{k}={v!r} (atteso true/false JSON)")
+    problemi_extra += PC._flags(condizioni, PC.CONDIZIONI_SPECIFICHE, "condizioni")
+    if eta_mesi is not None and (isinstance(eta_mesi, bool) or not isinstance(eta_mesi, (int, float))
+                                 or eta_mesi != eta_mesi or not (0 <= eta_mesi <= 24)):
+        problemi_extra.append(f"eta_mesi non valida: {eta_mesi!r} (atteso numero 0-24)")
     if isinstance(eta_arrivo_min, bool) or not isinstance(eta_arrivo_min, (int, float)) \
             or eta_arrivo_min != eta_arrivo_min or not (0 <= eta_arrivo_min <= 600):
         problemi_extra.append(f"eta_arrivo_min non valido: {eta_arrivo_min!r} (atteso numero 0-600 minuti)")
@@ -101,13 +111,23 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
                 "confine": "fail-closed sui dati: uno score da input impossibili è un falso alert",
                 "privacy": "dati effimeri, trasmessi solo all'ospedale di destinazione"}
     if eta < 16:
+        # 2026-09-13: lo score resta RIFIUTATO, ma i CRITERI DI PRE-ALERT per fascia d'età (tabella
+        # PEWS-adattata della linea guida RCEM/AACE 2025) sì: dicono se il PS va allertato e perché.
+        crit_ped = PC.decisione_prealert(eta, vitali, gcs=cl.get("gcs"), condizioni=condizioni, eta_mesi=eta_mesi)
+        percorsi_ped = ["PERCORSO PEDIATRICO: valutazione clinica diretta"]
+        if crit_ped.get("pre_alert_indicato"):
+            percorsi_ped.insert(0, "PRE-ALERT PEDIATRICO INDICATO (criteri RCEM/AACE 2025 per fascia d'età): "
+                                + ", ".join(c["criterio"] for c in crit_ped["criteri_fisiologici"])
+                                + (" + " + ", ".join(c["condizione"] for c in crit_ped["condizioni_specifiche"])
+                                   if crit_ped["condizioni_specifiche"] else ""))
         return {"PRE_ALERT_INTEGRATO": {
                     "priorita": "NON_VALUTABILE_PEDIATRICO",
                     "eta_paziente": eta, "eta_arrivo_stimato_min": eta_arrivo_min,
                     "azione_raccomandata": ("PAZIENTE PEDIATRICO: NEWS2/qSOFA/criteri trauma "
                                             "adulti NON validati — usare PEWS/percorso pediatrico, "
                                             "comunicazione diretta col medico"),
-                    "percorsi_attivare": ["PERCORSO PEDIATRICO: valutazione clinica diretta"]},
+                    "percorsi_attivare": percorsi_ped,
+                    "criteri_prealert_2025": crit_ped},
                 "confine": "score adulti non applicabili in pediatria: rifiuto dichiarato, non un numero sbagliato",
                 "privacy": "dati effimeri, trasmessi solo all'ospedale di destinazione"}
     pa = B.prealert(eta, vitali, eta_arrivo_min)
@@ -166,6 +186,26 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
         # messaggio CONTRADDITTORIO al PS. L'azione segue la priorità elevata.
         azione_racc = ("EMERGENZA: percorso tempo-critico attivo nonostante NEWS2 basso — "
                        "vedi percorsi_attivare")
+    # ── CRITERI DI PRE-ALERT RCEM/AACE 2025 (2026-09-13): soglie fisiologiche trascritte dalla linea
+    # guida + condizioni specifiche. Quelle già DERIVATE dai percorsi (arresto, STEMI, trauma team,
+    # FAST+) si uniscono a quelle DICHIARATE dall'equipaggio (`condizioni`). Il pre-alert è indicato
+    # solo se attiva una risposta specifica: gli «heads up» sono vietati dalla linea guida.
+    derivate = {}
+    if ar["arresto"] or ar.get("arresto_respiratorio"):
+        derivate["arresto_cardiaco_o_respiratorio"] = True
+    if ca["sospetto"] and cl.get("ecg_stemi"):
+        derivate["stemi"] = True
+    if tr["attiva_trauma_team"]:
+        derivate["trauma_maggiore_step_1_2"] = True
+    if fs and fs["sospetto_ictus"]:
+        derivate["ictus_fast_positivo_in_finestra"] = True    # finestra trombolisi: da confermare dall'equipaggio
+    crit25 = PC.decisione_prealert(eta, vitali, gcs=cl.get("gcs"),
+                                   condizioni={**derivate, **(condizioni or {})} or None)
+    if crit25.get("pre_alert_indicato") and priorita == "BASSO":
+        # criterio 2025 attivo con NEWS2 basso (es. FC 132 isolata): la priorità sale, l'azione lo dice
+        priorita = "MEDIO"
+        azione_racc = ("PRE-ALERT INDICATO dai criteri RCEM/AACE 2025 nonostante NEWS2 basso — vedi "
+                       "criteri_prealert_2025")
     prealert_integrato = {
         **pa["PRE_ALERT_OSPEDALE"], "priorita": priorita,
         "azione_raccomandata": azione_racc,
@@ -178,6 +218,7 @@ def valuta_paziente(vitali: Dict, farmaci: List[str], eta: Optional[int],
         "arresto_respiratorio": ar.get("arresto_respiratorio", False),
         "cardio": ca["sospetto"],
         "percorsi_attivare": percorsi,
+        "criteri_prealert_2025": crit25,
     }
     out = {
         "PRE_ALERT_INTEGRATO": prealert_integrato,

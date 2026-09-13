@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-09-13 — from pilot to product: national pre-alert criteria and legal-grade evidence (v0.3.0)
+
+Direction set by the author on 2026-09-13 («evolve it from pilot study to real software, looking at
+the future and at legal guarantee in healthcare»), after an online comparison with the field (Pulsara,
+Twiage, corpuls.mission, NIDA, WebEMS): none of them makes the pre-alert itself *evidence*.
+
+- **`prealert_criteria.py`** — the RCEM/AACE July 2025 UK national pre-alert guideline transcribed as
+  data (PDF SHA-256 pinned): adult physiological thresholds (RR ≤8/≥25, SpO2 on O2 ≤91 % or ≤83 %
+  hypercapnic, SBP ≤90, HR ≤40/≥131, GCS <13), the paediatric table by age band (RR/HR per band,
+  SpO2 <91 % on air, CRT ≥3 s, GCS <13, ≥38 °C under 3 months), the 16 specific conditions and the
+  JRCALC high-risk sepsis markers (valid only with a history of infection). Output says whether a
+  pre-alert is indicated and by which criterion; "heads-up" calls are refused by design. The message
+  follows the prescribed order: headline concern and ETA first, then ATMIST, with a ≤60 s estimate.
+  Declared out of scope: BP trend, "new for patient" GCS. **Children get pre-alert criteria, never an
+  adult score** — the <16 refusal of NEWS2 stands.
+- **Integrated engine**: `criteri_prealert_2025` in every pre-alert (adult and paediatric); conditions
+  derived from the existing pathways (arrest, STEMI, trauma team, FAST+) merge with those declared by
+  the crew (`condizioni`, type-strict, unknown keys refused); an isolated 2025 criterion with a low
+  NEWS2 raises priority to MEDIUM with a coherent action.
+- **`verbale_probatorio.py`** + `POST /ricezione` + `GET /verbale/<id>[?marca=1]` — the ED receipt is
+  signed (closed vocabulary for role and responses; reason for an alternative response mandatory and
+  stored by digest); the per-pre-alert record re-verifies each signature from the canonical record,
+  detects tampering, reports latency; optional RFC 3161 timestamp on the record digest, verified
+  (`Granted` + message imprint), level declared as non-qualified unless a QTSP is used.
+- **Tests**: 30 new (boundaries of every threshold, every paediatric band, hostile types, sepsis needs
+  infection history, receipt vocabulary, tamper detection, end-to-end over HTTP, bench-of-the-bench with
+  a deliberately broken threshold) + 1 opt-in network test with a real TSA. 102 in total, in CI with and
+  without `cryptography`.
+
 ## 2026-09-11 (third pass) — what the second independent verification still found
 
 An independent verifier re-ran everything on the *public* configuration (anonymous clone, no private

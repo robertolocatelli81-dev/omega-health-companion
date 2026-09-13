@@ -42,6 +42,7 @@ from urllib.parse import parse_qs
 
 import ambulanza_intelligente as A
 import audit_bridge as AB
+import verbale_probatorio as VP
 import fhir_export as FX
 import scores_emergenza as S
 
@@ -203,10 +204,11 @@ class H(BaseHTTPRequestHandler):
                 return self._json(200, BOARD)
         if self.path == "/audit":
             return self._json(200, AB.verifica_trail())
-        for prefix, fn in (("/fhir/", self._fhir), ("/atmist/", self._atmist)):
-            if self.path.startswith(prefix):
+        path_noq = self.path.split("?", 1)[0]          # la query (es. ?marca=1) non fa parte dell'id
+        for prefix, fn in (("/fhir/", self._fhir), ("/atmist/", self._atmist), ("/verbale/", self._verbale)):
+            if path_noq.startswith(prefix):
                 try:
-                    rid = int(self.path[len(prefix):])
+                    rid = int(path_noq[len(prefix):])
                 except ValueError:
                     return self._json(400, {"ok": False, "error": "id non numerico"})
                 return fn(rid)
@@ -221,6 +223,25 @@ class H(BaseHTTPRequestHandler):
         b = FX.prealert_to_fhir(r["prealert"], r.get("vitali") or {}, r["ts"],
                                 provenienza_omega=r.get("provenienza"))
         return self._send(200, json.dumps(b, ensure_ascii=False), "application/fhir+json; charset=utf-8")
+
+    def _verbale(self, rid: int):
+        # Verbale probatorio digest-only del pre-alert (2026-09-13): eventi firmati ri-verificati,
+        # cronologia, digest. Marca RFC 3161 SOLO su richiesta esplicita (?marca=1) e solo se
+        # HEALTH_TSA_URL è configurata: nessuna chiamata di rete implicita.
+        r = _find(rid)
+        if not r:
+            return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente"})
+        v = VP.verbale(f"prealert-{rid}")
+        if "marca=1" in (self.path.split("?", 1)[1] if "?" in self.path else ""):
+            tsa = os.environ.get("HEALTH_TSA_URL", "")
+            if not tsa:
+                v["marca_temporale"] = {"anchored": False, "note": "HEALTH_TSA_URL non configurata"}
+            else:
+                m = VP.marca_temporale_rfc3161(v["digest_verbale_sha256"], tsa)
+                if m.get("anchored"):
+                    m["verifica"] = VP.verifica_marca(m["tsr_b64"], v["digest_verbale_sha256"])
+                v["marca_temporale"] = m
+        return self._send(200, json.dumps(v, ensure_ascii=False), "application/json; charset=utf-8")
 
     def _atmist(self, rid: int):
         r = _find(rid)
@@ -329,6 +350,29 @@ class H(BaseHTTPRequestHandler):
             audit = AB.registra_evento_sistema("sistema/token", "rotazione_token", "rotazione token di accesso",
                                                str(body.get("operatore") or "admin")[:60])
             return self._json(200, {"ok": True, "nuovo_token": nuovo, "audit": audit})
+        if self.path == "/ricezione":
+            # Ricezione firmata del pre-alert nel PS (linea guida RCEM/AACE 2025: linea registrata,
+            # clinico senior, risposta richiesta vs attuata con motivo se diversa). Valori chiusi +
+            # digest: mai testo libero in chiaro nel ledger (verbale_probatorio.registra_ricezione).
+            if not isinstance(body, dict):
+                return self._json(400, {"ok": False, "error": "payload non conforme"})
+            try:
+                rid = int(body.get("id"))
+            except (TypeError, ValueError):
+                return self._json(400, {"ok": False, "error": "id non numerico"})
+            r = _find(rid)
+            if not r:
+                return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente"})
+            out = VP.registra_ricezione(f"prealert-{rid}", str(body.get("operatore_ps") or "")[:60],
+                                        body.get("ruolo"), body.get("risposta_richiesta"),
+                                        body.get("risposta_attuata"),
+                                        motivo_alternativa=body.get("motivo_alternativa"),
+                                        ts_emissione=r["ts"])
+            if not out["ok"]:
+                return self._json(400, {"ok": False, "error": "ricezione non registrata", "problemi": out["problemi"]})
+            with _LOCK:
+                r.setdefault("ricezioni", []).append({k: out[k] for k in ("ts", "latenza_s", "risposta_alternativa", "audit")})
+            return self._json(200, out)
         if self.path == "/prealert":
             # FIX 2026-09-11 (round 3): accettava un pre-alert PRE-CALCOLATO dal client con due soli campi
             # controllati → bypass del gate pediatrico e della validazione, PII arbitraria in bacheca
