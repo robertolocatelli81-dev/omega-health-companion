@@ -187,7 +187,11 @@ class TestE2ECoordinamento(unittest.TestCase):
         # NIENTE testo libero né byte nel ledger: solo digest
         with open(AB.FALLBACK_LEDGER, encoding="utf-8") as f:
             led = f.read()
-        for s in ("MARIO ROSSI", "paziente peggiora", "resus pronta", "PNG", "tamponamento", "Ospedale Nord", "45.46", "9.19"):
+        import base64
+        # i BYTE dell'allegato non devono stare nel ledger: si cerca la loro codifica base64 reale, non la
+        # stringa «PNG» (una firma base64 casuale può contenerla: rosso in CI il 13/09)
+        for s in ("MARIO ROSSI", "paziente peggiora", "resus pronta", base64.b64encode(PNG).decode()[:24],
+                  "tamponamento", "Ospedale Nord", "45.46", "9.19"):
             self.assertNotIn(s, led)             # nemmeno la posizione (a ~1 km) va su disco: solo il digest
         self.assertIn("posizione_sha256", led); self.assertIn("triage_start", led)
         self.assertIn("apertura_incidente", led); self.assertIn("stato_ps", led)
