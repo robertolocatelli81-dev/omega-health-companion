@@ -50,6 +50,7 @@ optional for the signature bridge) · **Author:** Roberto Locatelli, 2026
 | `mission_case.py` | **Mission case file**: declarative FSM (ALLERTA→VALUTAZIONE→TRASPORTO→CONSEGNATA→CHIUSA, +ANNULLATA), SHA-256 hash-chained append-only ledger under an exclusive file lock, digests-only (no PHI), monotonic-clock guard, tamper → pack refused. Optional private case-engine adds an independent double replay; degrades honestly to "fascicolo-locale" (verified: same 17 tests pass with and without the engine) |
 | `prealert_criteria.py` | **RCEM/AACE 2025 pre-alert criteria** (adult thresholds adapted from NEWS2, paediatric table by age band adapted from PEWS, 16 specific conditions, JRCALC high-risk sepsis markers) transcribed from the July 2025 UK national guideline (PDF SHA-256 pinned) — says *whether* the guideline indicates a pre-alert and *why*; "headline + ETA first, then ATMIST, ≤60 s" message. Declared scope: no BP trend, no "new for patient" GCS; children get *criteria*, never an adult score |
 | `verbale_probatorio.py` | **Evidentiary record of the pre-alert** ("recorded line" made verifiable): signed ED *receipt* (who answered, role, response requested vs enacted, reason-by-digest if different, latency), per-pre-alert *verbale* that re-verifies every signature against the operator's registered key and the signed hash chain, detects tampering, re-signing and deletions, optional **RFC 3161 timestamp** on the verbale digest with CMS-signature verification and persisted bytes — level declared (`rfc3161-non-qualificata`: a QTSP on the EU Trusted List is needed for an eIDAS *qualified* timestamp) |
+| `coordinamento.py` | **What the field leaders do, done the OMEGA way** (compared online 2026-09-13 with Pulsara, Twiage, corpuls.mission, NIDA): patient type → team to alert (from the computed pathways and the 2025 conditions, closed vocabulary), en-route ETA/position updates, two-way crew↔ED messages, ECG/scene-photo/document attachments (magic-byte checked), "close the loop" clinical outcome, QA/QI metrics (latency, alternative responses, over/under-triage proxies), major incidents with several patients. Every event is signed; free text and bytes live only in memory with the board TTL; the ledger holds digests and closed values |
 | `test_input_types.py` | **31 tests** (22 distinct methods, 4 API cases re-run in three server contexts) — the hostile-input red-team cases of 2026-09-11 in three rounds (string flags in vitals, `clinica` and FAST signs, boolean vitals, missing/invalid age, malformed drug list, client-computed pre-alert, note persistence, board retention); 14 of them red on the code they were written against, the rest positive controls; unit + end-to-end over HTTP |
 | `test_health.py` | **20 tests**: unit benches (positive + null controls, incl. a bench-of-the-bench that must fail) + end-to-end over real HTTP (auth rejected, °F detected, ledger chain verified, CLI against live server) |
 
@@ -61,7 +62,8 @@ python3 test_mission_case.py            # 17 tests — mission case file (both e
 python3 test_input_types.py             # 31 tests — hostile input types (red-team 2026-09-11, three rounds)
 python3 test_news2_certificate.py       #  4 tests — NEWS2 certificate
 python3 test_prealert_2025.py           # 49 tests — RCEM/AACE 2025 criteria at the boundaries, ED receipt, verbale, tamper/re-sign/deletion detection
-# 121 tests in total; the same five files run in CI on every push, with and without `cryptography`, never with the private engine
+python3 test_coordinamento.py           #  4 tests — patient types, incidents, ETA/position, messages, attachments, outcomes, metrics, expiry (end-to-end)
+# 125 tests in total; the same six files run in CI on every push, with and without `cryptography`, never with the private engine
 # HEALTH_TSA_URL=https://freetsa.org/tsr HEALTH_TSA_CAFILE=cacert.pem python3 test_prealert_2025.py   # + 2 opt-in network tests: real RFC 3161 timestamp, trust chain, wrong CA refused
 python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \
@@ -86,6 +88,24 @@ certificate; `verified` is True **only** when the chain to the CA in `HEALTH_TSA
 None without a CA, False with a wrong one; the stamped bytes are persisted under `verbali/`;
 level declared — not an eIDAS *qualified* timestamp unless the TSA is a QTSP). Every field is
 closed-vocabulary or a digest: no free text and no health data on disk.
+
+## Compared with the field (read online on 2026-09-13)
+
+| Capability | Pulsara / Twiage / corpuls / NIDA | OMEGA Health Companion |
+|---|---|---|
+| Pre-arrival notification with vitals, ETA | yes | yes (`/valuta`), plus the **national 2025 criteria** saying *why* |
+| Patient types → team | Pulsara: 12 patient types | `tipo_paziente` / `team_da_allertare`, derived, closed vocabulary |
+| ECG / photo / document sharing | yes | `POST /allegato/<id>` — bytes in memory (TTL), digest in the signed ledger, magic bytes checked |
+| GPS / ETA updates en route | yes | `POST /posizione` — exact position in memory, ~1 km in the ledger |
+| Two-way secure chat | yes | `POST /messaggio` — text in memory, digest signed |
+| Outcome feedback ("close the loop") | Pulsara | `POST /esito` — closed vocabulary, signed |
+| QA/QI performance data | Pulsara, corpuls.web ANALYSE | `GET /metriche` — aggregates, no identifiers |
+| Mass-casualty / multi-patient | Pulsara | `POST /incidente`, `GET /incidente/<id>` |
+| **Evidentiary record of the pre-alert** (who said what, who answered, chain, timestamp) | none documented | `GET /verbale/<id>` — this is the difference |
+| Audio/video calls, live 12-lead telemetry | yes | **not done**: infrastructure, not evidence; integrate with those tools instead |
+| Patient identity lookup / pre-registration | Twiage | **not done by design**: PII-free |
+| NEMSIS export | US products | **not done**: FHIR R4 is the European road |
+| MDR certification | corpuls.mission LIVE | **not yet**: pilot + class IIa file are the roadmap |
 
 ## Privacy by design
 

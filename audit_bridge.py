@@ -281,6 +281,24 @@ def registra_ricezione(prealert_id: str, dettaglio: Dict, operatore_ps: str) -> 
             "firmatario": operatore_ps, "significato": "responsibility"}
 
 
+def registra_evento_clinico(prealert_id: str, azione: str, dettaglio: Dict, operatore: str) -> Dict:
+    """Eventi di coordinamento firmati (13/09/2026, coordinamento.py): aggiornamento ETA/posizione, messaggio
+    (per digest), allegato (per digest), esito clinico «close the loop». `dettaglio` arriva già a valori chiusi
+    o digest: nel trail non entra testo libero né byte. Significato RESPONSIBILITY (chi lo dichiara ne risponde)."""
+    if not MOTORE_DISPONIBILE:
+        if FIRMA_LOCALE_DISPONIBILE:
+            return _fb_registra(f"{prealert_id}/{azione}", azione, dettaglio, operatore)
+        return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
+    t = _get_trail()
+    rec = t.log_change(operatore, AuditAction.CREATE, f"{prealert_id}/{azione}",
+                       reason=f"evento di coordinamento: {azione}", new_value=dettaglio)
+    ident = _identity(operatore)
+    es = t.sign_record(rec, ident, printed_name=operatore, meaning=SignatureMeaning.RESPONSIBILITY)
+    return {"livello": "part11", "record_sha3": rec.canonical_hash(),
+            "firma_verificata": t.verify_signature_for_record(es, rec),
+            "firmatario": operatore, "significato": "responsibility"}
+
+
 def registra_evento_sistema(target_id: str, azione: str, motivo: str, operatore: str,
                             nota_rimossa: Optional[str] = None) -> Dict:
     """Evento AMMINISTRATIVO (rimozione di una nota dalla bacheca, rotazione del token): il MOTIVO

@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-09-13 (second step) — what the field leaders do, done the OMEGA way (v0.4.0)
+
+Order of the author: «check the competitors and add what is missing». Compared online (Pulsara,
+Twiage/TigerConnect EMS, corpuls.mission LIVE, NIDA; pages read the same day) and added, each with the
+house rule — closed values or digests in the signed ledger, free text and bytes only in memory with the
+board TTL, nothing clinical on disk:
+
+- **`coordinamento.py`** — patient type → team to alert (derived from the computed pathways and the 2025
+  conditions, closed vocabulary shared with the ED receipt); en-route ETA/position (`POST /posizione`,
+  exact in memory, ~1 km in the ledger); two-way crew↔ED messages (`POST /messaggio`, `GET /messaggi/<id>`);
+  ECG / scene photo / document attachments (`POST /allegato/<id>` raw bytes with magic-byte and size checks,
+  `GET /allegato/<id>/<n>`, expire with the board); "close the loop" clinical outcome (`POST /esito`);
+  QA/QI metrics (`GET /metriche`: volumes, receipt latency, alternative-response rate, outcome mix,
+  over/under-triage proxies against the 2025 criteria); major incidents with several patients
+  (`POST /incidente`, `GET /incidente/<id>`, `GET /incidenti`, `incidente_id` on `/valuta`).
+- Deliberately **not** added: audio/video calls and live telemetry (infrastructure, not evidence),
+  patient identity lookup (PII-free by design), NEMSIS export (Europe = FHIR).
+- Tests: `test_coordinamento.py` (bench-of-the-bench + one end-to-end flow over HTTP covering every endpoint,
+  negatives first, ledger checked for absence of free text and bytes, expiry). 125 in total.
+
 ## 2026-09-13 — from pilot to product: national pre-alert criteria and legal-grade evidence (v0.3.0)
 
 Direction set by the author on 2026-09-13 («evolve it from pilot study to real software, looking at
