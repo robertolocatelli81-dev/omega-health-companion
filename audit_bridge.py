@@ -125,17 +125,51 @@ def _fb_ultimo_sha256() -> str:
     if not last:
         return "GENESIS"
     try:
-        return json.loads(last).get("record_sha256") or "GENESIS"
-    except ValueError:
-        return "GENESIS"
+        e = json.loads(last)
+    except ValueError as ex:
+        # fail-closed (council 15/09, Haiku): a torn/corrupt last line used to send the next record back to
+        # GENESIS — a silent fork of the chain. The operator must repair the file, not the code hide it.
+        raise ValueError(f"ultima riga del ledger illeggibile ({ex.msg}): append rifiutato, riparare il file") from None
+    if not isinstance(e, dict) or not isinstance(e.get("record_sha256"), str):
+        raise ValueError("ultima riga del ledger senza record_sha256: append rifiutato")
+    return e["record_sha256"]
 
 
 _FB_LOCK = __import__("threading").Lock()
 
 
+def _no_floats(obj, path="dettaglio"):
+    """Signed records carry NO floats (council 15/09, five minds): Python, JS, Go and Rust do not print floats the
+    same way, so a re-serialising verifier could never agree. Integers, strings, bools, null only."""
+    if isinstance(obj, bool) or obj is None or isinstance(obj, (int, str)):
+        return
+    if isinstance(obj, float):
+        raise ValueError(f"{path}: float non ammesso in un record firmato (usa interi: es. latenza_ms) — valore {obj!r}")
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if not isinstance(k, str):
+                raise ValueError(f"{path}: chiave non stringa")
+            _no_floats(v, f"{path}.{k}")
+    elif isinstance(obj, (list, tuple)):
+        for i, v in enumerate(obj):
+            _no_floats(v, f"{path}[{i}]")
+    else:
+        raise ValueError(f"{path}: tipo non serializzabile {type(obj).__name__}")
+
+
 def _fb_registra(target_id: str, azione: str, dettaglio: Dict, operatore: str) -> Dict:
-    with _FB_LOCK:          # prev_sha256 letto e riga scritta atomicamente (server multi-thread)
-        return _fb_registra_locked(target_id, azione, dettaglio, operatore)
+    """prev_sha256 letto e riga scritta sotto UN lock di PROCESSO (fcntl.flock sul file .lock, come mission_case) e
+    di thread: due worker (CLI + server, gunicorn) che leggevano la stessa coda forkavano la catena per sempre
+    (council 15/09, quattro menti)."""
+    import fcntl
+    _no_floats(dettaglio)
+    os.makedirs(os.path.dirname(FALLBACK_LEDGER) or ".", exist_ok=True)
+    with _FB_LOCK, open(FALLBACK_LEDGER + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            return _fb_registra_locked(target_id, azione, dettaglio, operatore)
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
 
 
 def _fb_registra_locked(target_id: str, azione: str, dettaglio: Dict, operatore: str) -> Dict:
@@ -146,8 +180,10 @@ def _fb_registra_locked(target_id: str, azione: str, dettaglio: Dict, operatore:
            "dettaglio": dettaglio, "operatore": operatore,
            "ts": __import__("datetime").datetime.now(
                __import__("datetime").timezone.utc).isoformat(timespec="seconds"),
-           "prev_sha256": _fb_ultimo_sha256()}
-    canon = json.dumps(rec, sort_keys=True, separators=(",", ":")).encode()
+           "prev_sha256": _fb_ultimo_sha256(),
+           "alg": "ed25519"}      # crypto-agility: the signature scheme is a DECLARED, signed field (v0.5.0)
+    # canonical ASCII profile (FORMAT.md): sort_keys, compact, ensure_ascii=True, no NaN — the SIGNED bytes
+    canon = json.dumps(rec, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode()
     digest = hashlib.sha256(canon).digest()
     sk = _fb_key(operatore)
     sig = sk.sign(digest)

@@ -1,0 +1,13 @@
+[package]
+name = "health-verify"
+version = "0.1.0"
+edition = "2021"
+description = "Independent Rust verifier of omega-health-companion evidence: strict JSON keeping number text, two canonical profiles, pure-Rust SHA-256 (from cryptovalid), Ed25519 via ed25519-dalek."
+license = "AGPL-3.0-or-later"
+
+[[bin]]
+name = "health-verify"
+path = "src/main.rs"
+
+[dependencies]
+ed25519-dalek = "2"

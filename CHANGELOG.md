@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.5.0 — 2026-09-15 — verifiable by third parties, reviewed by five models
+
+Council of five models (Claude Fable 5.1, Opus 4.8, Sonnet 5, Haiku 4.5, Gemini 3.1 Pro) on the v0.4.1 code in
+three parts; real findings fixed, each with a test:
+- **Evidence:** signed audit ledger under a process lock (`fcntl`) like the mission ledger; a torn last line now
+  refuses the append instead of silently forking back to GENESIS; the signed key set is exact (an enriched line
+  fails); every line's digest is recomputed in the chain check; `GENESIS` accepted once; the key registry is
+  read-only during verification; `record_digests_bound` defaults to fail-closed; signed records carry `alg` and
+  **no floats** (`latenza_dichiarata_ms` integer); the verbale's latency is **measured** from the crew-signed
+  emission to the ED-signed receipt, the receiver's declaration is reported separately; a naive `ts_emissione`
+  is refused. Mission case file: free text never at rest (fingerprint only), over-length notes refused rather
+  than truncated, FSM state re-read under the lock (compare-and-append). Pre-alert anchors written under a lock.
+- **Board/server:** expiry now clears confirmations, START tags and patient type; confirmations capped and
+  re-checked under the lock before signing; `/rimuovi-nota` bound-check and removal under one lock with the
+  audit before the effect; `/stato_ps` audit and state under one lock; `?marca=1` parsed, not substring-matched;
+  atomic token rotation; bodies read under an absolute deadline; `/prealert` accepts `eta_mesi`; monotonic
+  pre-alert ids and pruning of long-expired records; positions, messages, notes and alternative destinations
+  are **salted commitments** (HMAC with a random salt kept in memory), not bare digests of enumerable values.
+- **Clinical:** `prealert()` validates vitals and refuses age < 16 even when called directly; `bpco_scala2` must be
+  a boolean; absent pulse is an arrest; adult JRCALC sepsis markers are not applied to children; no GCS but not
+  alert → conservative criterion; `messaggio_prealert` and the sepsis function validate their inputs; metrics
+  take an injectable clock and their over/under-triage proxies are stated as not a clinical error measure.
+- **Third-party verification:** `health_verify.py` (reference) and independent verifiers in JavaScript, Go and Rust
+  (`verifiers/`), all keeping number lexemes and honouring the two canonical profiles (`FORMAT.md`); differential
+  oracle on 16 sandboxed fixtures (intact, tampered, re-signed, deleted, re-ordered, NaN, duplicate keys, edited
+  verbale, claims without registry): 0 divergences; required in CI.
+- **Texts:** "tamper-evident" instead of "incorruptible"; the declared band modification named as such; MDR Rule 11
+  exposure and what the signatures do and do not prove stated in the honest scope.
+
+
 ## 2026-09-13 — v0.4.1, packaging fix
 
 The 0.4.0 wheel published minutes earlier did not contain `prealert_criteria`, `verbale_probatorio`,

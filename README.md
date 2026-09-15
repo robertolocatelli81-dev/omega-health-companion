@@ -1,4 +1,4 @@
-# OMEGA Health Companion — open pre-hospital alerting with incorruptible evidence
+# OMEGA Health Companion — open pre-hospital alerting with tamper-evident evidence
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22539173.svg)](https://doi.org/10.5281/zenodo.22539173)
 
@@ -17,15 +17,29 @@ optional for the signature bridge) · **Author:** Roberto Locatelli, 2026
 ## Honest scope (read this first)
 
 - **Not a medical device.** Not certified, not clinically validated. It computes
-  *recognised standard scores* (arithmetic from published tables — no invented
-  algorithms, no AI diagnosis) and communicates them. **The physician decides.**
+  *recognised standard scores* (arithmetic from published tables, plus ONE declared
+  modification of the escalation bands, below — no AI diagnosis) and communicates them. **The physician decides.**
   One **declared deviation** from the RCP NEWS2 escalation bands: a single parameter scoring 3
   is escalated to MEDIUM here (RCP: low-medium), stated in every output as
   `deviazione_dichiarata`; the 587-vector certificate covers the arithmetic, not the bands.
 - Real clinical use requires a supervised pilot and the applicable regulatory path
   (EU MDR). This codebase is the *engine* for such a pilot.
 - Adult patients only: for age < 16 the system **refuses to score** (fail-closed;
-  adult scores are not validated in children) instead of producing a wrong number.
+  adult scores are not validated in children) instead of producing a wrong number — enforced in the
+  API and, since v0.5.0, in `barella_prealert.prealert()` itself.
+- **Regulatory exposure, stated:** a server that computes a priority and the team to alert for a
+  patient may fall under EU MDR Rule 11 (class IIa) once placed on the market with a medical purpose;
+  nothing here is CE-marked and no IEC 62304 life-cycle file exists yet. Until a pilot with a sponsor
+  produces that file, the intended use is *evidence of the pre-alert as communicated*, not decision support.
+- **What the signatures prove, stated:** operator keys are generated on the server on first use
+  (trust-on-first-use) and registered there; a receipt therefore proves *that the server's ledger was not
+  altered after the fact* and *which registered key signed*, not the legal identity of the person behind
+  the key. Non-repudiation opposable to third parties needs hospital SSO / eID-bound keys or a QTSP
+  (roadmap), and the seal of the persisted verbale is what covers a truncated ledger tail.
+- **Verifiable by third parties without this code:** `health_verify.py` and its independent
+  re-implementations in JavaScript, Go and Rust (`verifiers/`) re-check the signed audit ledger, the
+  hash-chained ledgers and a verbale; the byte-exact profile is in `FORMAT.md`. Signed records carry an
+  `alg` field so a post-quantum scheme can be introduced without changing the format.
 - Implausible vitals (broken sensor, °F/fraction unit confusion) are **rejected with
   the offending fields named** — never turned into a plausible-looking score. Since 2026-09-11 this
   is also **type-strict**: a clinical flag must be a JSON boolean (a string `"no"` used to be read as

@@ -193,7 +193,8 @@ class TestE2ECoordinamento(unittest.TestCase):
         for s in ("MARIO ROSSI", "paziente peggiora", "resus pronta", base64.b64encode(PNG).decode()[:24],
                   "tamponamento", "Ospedale Nord", "45.46", "9.19"):
             self.assertNotIn(s, led)             # nemmeno la posizione (a ~1 km) va su disco: solo il digest
-        self.assertIn("posizione_sha256", led); self.assertIn("triage_start", led)
+        self.assertIn("posizione_hmac_sha256", led); self.assertNotIn("posizione_sha256", led); self.assertIn("triage_start", led)
+        self.assertNotIn("45.4", led)                     # no coordinate, no bare digest of it, on disk
         self.assertIn("apertura_incidente", led); self.assertIn("stato_ps", led)
         self.assertIn("aggiornamento_eta", led); self.assertIn("esito_clinico", led); self.assertIn("allegato", led)
         # il verbale elenca gli eventi di coordinamento firmati

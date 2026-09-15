@@ -5,7 +5,8 @@
 Durante il trasporto raccoglie i parametri vitali, calcola il NEWS2 (National
 Early Warning Score 2, standard VALIDATO del Royal College of Physicians UK) e
 genera un PRE-ALERT strutturato per l'ospedale, così il pronto soccorso è pronto
-all'arrivo. Riduce il tempo door-to-treatment — dimostrato salvare vite in
+all'arrivo. La letteratura sul pre-alert come PRATICA lo associa a tempi door-to-treatment più brevi
+(questo software non è validato clinicamente: honest-scope nel README) — in
 ictus/infarto/sepsi/trauma.
 
 CONFINE: NON diagnostica e NON decide la terapia. Calcola uno SCORE clinico
@@ -141,6 +142,8 @@ def news2(rr: float, spo2: float, su_ossigeno: bool, sbp: float,
     effimero, trasmesso solo all'ospedale di destinazione (flusso di cura).
     bpco_scala2: SpO2 in scala 2 (RCP) per insufficienza respiratoria
     ipercapnica nota — la scelta della scala è CLINICA, non del software."""
+    if not isinstance(bpco_scala2, bool):
+        raise ValueError(f"bpco_scala2 non booleano: {bpco_scala2!r} (una stringa 'false' attivava la scala 2)")
     comp = {
         "freq_respiratoria": _p_resp(rr),
         "spo2": (_p_spo2_scala2(spo2, su_ossigeno) if bpco_scala2 else _p_spo2(spo2)),
@@ -172,7 +175,20 @@ def news2(rr: float, spo2: float, su_ossigeno: bool, sbp: float,
 
 
 def prealert(paziente_eta: Optional[int], vitali: Dict, eta_arrivo_min: int) -> Dict:
-    """Genera il pacchetto di pre-alert per l'ospedale."""
+    """Genera il pacchetto di pre-alert per l'ospedale. Fail-closed anche se chiamato DIRETTAMENTE (council
+    15/09, quattro menti: il gate <16 anni e la validazione vivevano solo nell'API): vitali validati, età < 16
+    rifiutata, ETA intera 0-600."""
+    if paziente_eta is not None and (isinstance(paziente_eta, bool) or not isinstance(paziente_eta, (int, float)) or paziente_eta != paziente_eta):
+        raise ValueError(f"paziente_eta non valida: {paziente_eta!r}")
+    if paziente_eta is not None and paziente_eta < 16:
+        raise ValueError("età < 16: il NEWS2 adulto non è validato nei bambini — pre-alert rifiutato (usare prealert_criteria pediatrici)")
+    if isinstance(eta_arrivo_min, bool) or not isinstance(eta_arrivo_min, (int, float)) or not (0 <= eta_arrivo_min <= 600):
+        raise ValueError(f"eta_arrivo_min non valido: {eta_arrivo_min!r} (atteso 0-600)")
+    if not isinstance(vitali, dict):
+        raise ValueError("vitali: oggetto richiesto")
+    problemi = valida_vitali(vitali)
+    if problemi:
+        raise ValueError("vitali rifiutati: " + "; ".join(problemi))
     s = news2(**vitali)
     return {
         "PRE_ALERT_OSPEDALE": {

@@ -34,6 +34,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -82,19 +83,30 @@ def registra_ricezione(prealert_id: str, operatore_ps: str, ruolo: str, risposta
     if problemi:
         return {"ok": False, "problemi": problemi}
     ts = _utc()
-    latenza = None
+    latenza_ms = None
     if ts_emissione:
+        # the DECLARED latency: what the caller says the emission instant was. A naive instant is refused (a local
+        # time read as UTC moved the legal clock); a negative latency is refused. The MEASURED latency is computed
+        # by verbale() from the crew-signed emission event and this ED-signed receipt (council 15/09, Fable).
         try:
-            t0 = datetime.fromisoformat(ts_emissione.replace("Z", "+00:00"))
-            latenza = round((datetime.fromisoformat(ts) - t0).total_seconds(), 1)
-        except ValueError:
-            latenza = None
+            t0 = datetime.fromisoformat(str(ts_emissione).replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            return {"ok": False, "problemi": ["ts_emissione: ISO-8601 non valido"]}
+        if t0.tzinfo is None:
+            return {"ok": False, "problemi": ["ts_emissione: fuso orario obbligatorio (Z o ±hh:mm)"]}
+        # both instants at second granularity (the receipt ts has no fraction): an emission at hh:mm:ss.7 and a
+        # receipt in the same second is 0, not a negative latency
+        delta = (datetime.fromisoformat(ts) - t0.replace(microsecond=0)).total_seconds()
+        if delta < 0:
+            return {"ok": False, "problemi": ["ts_emissione: nel futuro rispetto alla ricezione"]}
+        latenza_ms = int(round(delta * 1000))
     dettaglio: Dict = {"ruolo": ruolo, "risposta_richiesta": risposta_richiesta,
                        "risposta_attuata": risposta_attuata,
                        "risposta_alternativa": risposta_attuata != risposta_richiesta,
                        "motivo_alternativa": _impronta(motivo_alternativa) if motivo_alternativa else None,
-                       "ts_emissione": ts_emissione, "latenza_s": latenza}
+                       "ts_emissione": ts_emissione, "latenza_dichiarata_ms": latenza_ms}
     audit = AB.registra_ricezione(prealert_id, dettaglio, operatore_ps)
+    latenza = (latenza_ms / 1000.0) if latenza_ms is not None else None
     return {"ok": True, "prealert_id": prealert_id, "ts": ts, "latenza_s": latenza,
             "risposta_alternativa": dettaglio["risposta_alternativa"], "audit": audit,
             "nota": "ricezione firmata: chi, quando, risposta richiesta vs attuata; motivo per digest"}
@@ -106,9 +118,17 @@ def _verifica_entry_locale(e: Dict, registro: Dict[str, str]) -> Dict:
     (`registro`: operatore → pubkey base64). La chiave scritta nella riga NON fa fede (council 13/09:
     chi riscrive il ledger ri-firma con una chiave propria). Ritorna {ok, motivo}."""
     try:
-        chiavi = ("kind", "target", "azione", "dettaglio", "operatore", "ts") + (("prev_sha256",) if "prev_sha256" in e else ())
+        chiavi = ("kind", "target", "azione", "dettaglio", "operatore", "ts") + (("prev_sha256",) if "prev_sha256" in e else ()) \
+                 + (("alg",) if "alg" in e else ())
+        # the key set is EXACT (council 15/09, Sonnet): a line enriched with an extra field (e.g. clear text) used to
+        # verify as if untouched, because only the known keys were re-hashed
+        attese = set(chiavi) | {"record_sha256", "firma_ed25519_b64", "pubkey_b64"}
+        if set(e) != attese:
+            return {"ok": False, "motivo": f"insieme di chiavi inatteso: {sorted(set(e) ^ attese)}"}
+        if e.get("alg", "ed25519") != "ed25519":
+            return {"ok": False, "motivo": f"algoritmo non supportato: {e.get('alg')!r}"}
         rec = {k: e[k] for k in chiavi}
-        canon = json.dumps(rec, sort_keys=True, separators=(",", ":")).encode()
+        canon = json.dumps(rec, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode()
         digest = hashlib.sha256(canon).digest()
         if digest.hex() != e.get("record_sha256"):
             return {"ok": False, "motivo": "digest non corrisponde al record canonico"}
@@ -130,14 +150,25 @@ def registro_chiavi() -> Dict[str, str]:
     così un terzo verifica offline contro un registro che custodisce lui."""
     reg: Dict[str, str] = {}
     if os.path.isdir(AB.KEYS_DIR):
+        # READ-ONLY (council 15/09, Opus): verification must never enrol keys; a .pub is written only when a
+        # record is SIGNED (audit_bridge._fb_registra_locked). Only well-formed names are read.
         for n in sorted(os.listdir(AB.KEYS_DIR)):
-            if n.startswith("fb-") and n.endswith(".key") and not os.path.exists(os.path.join(AB.KEYS_DIR, n[:-4] + ".pub")):
-                AB.fb_pubkey_registrata(n[3:-4])       # chiave nata prima del registro (13/09): deriva la .pub
-        for n in sorted(os.listdir(AB.KEYS_DIR)):
-            if n.startswith("fb-") and n.endswith(".pub"):
+            if n.startswith("fb-") and n.endswith(".pub") and "/" not in n and "\\" not in n and 4 <= len(n) <= 48:
                 with open(os.path.join(AB.KEYS_DIR, n)) as f:
                     reg[n[3:-4]] = f.read().strip()
     return reg
+
+
+def _rottura_digest(e: Dict, n: int, rotture: List[Dict]) -> None:
+    """Every line's digest is recomputed (council 15/09, Fable): before, a line outside this pre-alert could be
+    edited (keeping its record_sha256) and the chain still read «integra»."""
+    try:
+        chiavi = ("kind", "target", "azione", "dettaglio", "operatore", "ts") + (("prev_sha256",) if "prev_sha256" in e else ()) + (("alg",) if "alg" in e else ())
+        canon = json.dumps({k: e[k] for k in chiavi}, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode()
+        if hashlib.sha256(canon).hexdigest() != e.get("record_sha256"):
+            rotture.append({"riga": n, "motivo": "record_sha256 non corrisponde al record canonico (riga modificata?)"})
+    except (KeyError, TypeError, ValueError):
+        rotture.append({"riga": n, "motivo": "riga non canonicalizzabile"})
 
 
 def _catena_locale() -> Dict:
@@ -157,6 +188,9 @@ def _catena_locale() -> Dict:
             except ValueError:
                 rotture.append({"riga": n, "motivo": "illeggibile"})
                 continue
+            if not isinstance(e, dict):
+                rotture.append({"riga": n, "motivo": "non è un oggetto"})
+                continue
             if "prev_sha256" not in e:
                 # Righe legacy (pre-13/09) ammesse SOLO in testa al ledger. Dopo la prima riga incatenata,
                 # una riga senza prev_sha256 è una ROTTURA (council round 3: sostituire una riga con una
@@ -166,11 +200,15 @@ def _catena_locale() -> Dict:
                     continue
                 fuori += 1
                 prev = e.get("record_sha256") or prev
+                _rottura_digest(e, n, rotture)
                 continue
+            if e["prev_sha256"] == "GENESIS" and incatenato:
+                rotture.append({"riga": n, "motivo": "prev_sha256 GENESIS dopo l'inizio della catena (inserimento in testa?)"})
             incatenato = True
             if e["prev_sha256"] != prev:
                 rotture.append({"riga": n, "motivo": "prev_sha256 non corrisponde alla riga precedente (cancellazione/riordino?)"})
             prev = e.get("record_sha256") or prev
+            _rottura_digest(e, n, rotture)
     return {"catena_ok": not rotture and righe > 0, "righe": righe, "righe_fuori_catena": fuori, "rotture": rotture,
             "limite": ("rileva cancellazioni/riordini IN MEZZO al ledger; il troncamento della CODA con nuove righe "
                        "appese resta coerente: lo copre il verbale persistito con marca temporale")}
@@ -244,7 +282,7 @@ def verbale(prealert_id: str) -> Dict:
         eventi = _eventi_part11(prealert_id)
         eventi_motore = {"verifica_trail": {k: v for k, v in ver.items() if k != "records"}}
         # il motore verifica catena e firme dell'INTERO trail: ogni evento eredita quel verdetto
-        ok_trail = bool(ver.get("chain_ok")) and bool(ver.get("record_digests_bound", True))
+        ok_trail = bool(ver.get("chain_ok")) and bool(ver.get("record_digests_bound", False))   # fail-closed default
         for e in eventi:
             e["firma_ok"] = ok_trail
             e["verifica"] = "trail Part 11 verificato dal motore" if ok_trail else "trail Part 11 NON verificato"
@@ -254,15 +292,29 @@ def verbale(prealert_id: str) -> Dict:
         catena = _catena_locale()
     emissione = next((e for e in eventi if e.get("azione") in ("emissione", "create")), None)
     ricezioni = [e for e in eventi if e.get("azione") == "ricezione_pre_alert" or str(e.get("target", "")).endswith("/ricezione")]
-    latenze = [e["dettaglio"].get("latenza_s") for e in ricezioni
-               if isinstance(e.get("dettaglio"), dict) and e["dettaglio"].get("latenza_s") is not None]
+    # MEASURED latency: crew-signed emission ts → ED-signed receipt ts (never the receiver's own declaration)
+    latenze = []
+    if emissione and emissione.get("ts"):
+        try:
+            t_em = datetime.fromisoformat(str(emissione["ts"]).replace("Z", "+00:00"))
+            for e in ricezioni:
+                if e.get("firma_ok") and e.get("ts"):
+                    d = (datetime.fromisoformat(str(e["ts"]).replace("Z", "+00:00")) - t_em).total_seconds()
+                    if d >= 0:
+                        latenze.append(int(round(d * 1000)))
+        except (ValueError, TypeError):
+            latenze = []
+    dichiarate = [e["dettaglio"].get("latenza_dichiarata_ms", e["dettaglio"].get("latenza_s")) for e in ricezioni
+                  if isinstance(e.get("dettaglio"), dict)]
     tutte_ok = bool(eventi) and all(e.get("firma_ok") for e in eventi) and bool(catena.get("catena_ok"))
     corpo = {"kind": "verbale_probatorio_prealert", "prealert_id": prealert_id, "generato_il": _utc(),
              "livello": livello, "eventi": eventi, "n_eventi": len(eventi),
              "firme_tutte_verificate": tutte_ok, "catena": catena,
              "registro_chiavi": registro_chiavi() if livello == "firma-locale" else None,
              "emissione_ts": emissione.get("ts") if emissione else None,
-             "ricezioni": len(ricezioni), "latenza_emissione_ricezione_s": (min(latenze) if latenze else None),
+             "ricezioni": len(ricezioni), "latenza_emissione_ricezione_ms": (min(latenze) if latenze else None),
+             "latenza_misurata_da": "ts firmato dell'emissione (equipaggio) → ts firmato della ricezione (PS)",
+             "latenze_dichiarate_dal_ricevente": [x for x in dichiarate if x is not None],
              "risposte_alternative": sum(1 for e in ricezioni if isinstance(e.get("dettaglio"), dict)
                                          and e["dettaglio"].get("risposta_alternativa")),
              "motore_part11": eventi_motore,
@@ -272,7 +324,7 @@ def verbale(prealert_id: str) -> Dict:
                          "LIMITE: il registro chiavi vive sullo stesso host del ledger — un terzo deve riceverlo "
                          "fuori banda (o fidarsi del verbale marcato nel tempo); il troncamento della coda del "
                          "ledger è coperto solo dal verbale persistito con marca")}
-    canon = json.dumps(corpo, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    canon = json.dumps(corpo, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()   # UTF-8 profile (FORMAT.md)
     corpo["digest_verbale_sha256"] = hashlib.sha256(canon).hexdigest()
     return corpo
 

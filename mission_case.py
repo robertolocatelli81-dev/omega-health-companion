@@ -79,6 +79,15 @@ def _utc() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def _impronta_testo(testo: str, campo: str) -> Dict[str, Any]:
+    """Only the fingerprint of a free text goes to disk (README: digests only, no PHI at rest)."""
+    if not isinstance(testo, str):
+        raise ValueError(f"{campo}: stringa richiesta")
+    if len(testo) > 200:
+        raise ValueError(f"{campo} troppo lungo: {len(testo)}/200 caratteri (rifiutato, non troncato)")
+    return {"sha256": hashlib.sha256(testo.encode("utf-8")).hexdigest(), "lunghezza": len(testo)}
+
+
 def _digest_valido(d: str) -> bool:
     return (isinstance(d, str) and len(d) == 64
             and all(c in "0123456789abcdef" for c in d.lower()))
@@ -104,16 +113,21 @@ class FascicoloMissione:
         return [json.loads(l) for l in open(self.ledger_path, encoding="utf-8")
                 if l.strip()]
 
-    def _append(self, body: Dict[str, Any]) -> dict:
+    def _append(self, body: Dict[str, Any], precheck=None) -> dict:
         """Append sotto LOCK ESCLUSIVO (colpo Gemini Pro: due processi che
         leggono lo stesso prev_hash creerebbero un fork che rompe la catena
-        per sempre). Il lock copre lettura del prev_hash E scrittura."""
+        per sempre). Il lock copre lettura del prev_hash E scrittura.
+        `precheck(righe)` gira SOTTO il lock (compare-and-append, council 15/09 Sonnet): la validazione
+        FSM ripete la lettura dello stato dentro la sezione critica, così due transizioni concorrenti
+        incompatibili non passano entrambe."""
         import fcntl
         lock_path = self.ledger_path + ".lock"
         with open(lock_path, "w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             try:
                 righe = self._righe()
+                if precheck is not None:
+                    precheck(righe)
                 body = dict(body)
                 body["ts"] = _utc()
                 if righe and body["ts"] < righe[-1]["ts"]:
@@ -126,7 +140,7 @@ class FascicoloMissione:
                         f"prima di proseguire")
                 body["prev_hash"] = righe[-1]["self_hash"] if righe else GENESIS
                 canon = json.dumps(body, sort_keys=True, separators=(",", ":"),
-                                   ensure_ascii=False).encode()
+                                   ensure_ascii=False, allow_nan=False).encode()   # UTF-8 profile (FORMAT.md)
                 body["self_hash"] = hashlib.sha256(canon).hexdigest()
                 with open(self.ledger_path, "a", encoding="utf-8") as f:
                     f.write(json.dumps(body, ensure_ascii=False) + "\n")
@@ -150,8 +164,11 @@ class FascicoloMissione:
 
     # ── stato per replay ─────────────────────────────────────────────────
     def _stato(self, missione_id: str) -> Optional[Dict[str, Any]]:
+        return self._stato_da(self._righe(), missione_id)
+
+    def _stato_da(self, righe: List[dict], missione_id: str) -> Optional[Dict[str, Any]]:
         st: Optional[Dict[str, Any]] = None
-        for r in self._righe():
+        for r in righe:
             if r.get("missione") != missione_id:
                 continue
             ev = r.get("evento")
@@ -179,7 +196,7 @@ class FascicoloMissione:
                                        description=motivo, actor=operatore)
             self._case_ids[missione_id] = case.case_id
         r = self._append({"evento": "apertura", "missione": missione_id,
-                          "operatore": operatore, "motivo": motivo[:200]})
+                          "operatore": operatore, "motivo": _impronta_testo(motivo, "motivo")})
         return {"livello": self.livello(), "stato": "ALLERTA",
                 "self_hash": r["self_hash"]}
 
@@ -211,9 +228,12 @@ class FascicoloMissione:
         if a not in TRANSIZIONI[st["stato"]]:
             raise ValueError(f"transizione {st['stato']} -> {a} non ammessa; "
                              f"ammesse: {sorted(TRANSIZIONI[st['stato']])}")
-        # colpo Gemini Pro (truncation exploit): si valida la nota GIA' TAGLIATA
-        # — 200 spazi + testo passerebbero il controllo ma salverebbero il vuoto
-        nota = nota[:200]
+        # council 15/09 (Gemini/Opus): NIENTE troncamento silenzioso di testo clinico e NIENTE testo in chiaro
+        # su disco — la nota è validata intera, rifiutata se troppo lunga, e va nel ledger SOLO per impronta
+        if not isinstance(nota, str):
+            raise ValueError("nota: stringa richiesta")
+        if len(nota) > 200:
+            raise ValueError(f"nota troppo lunga: {len(nota)}/200 caratteri (rifiutata, non troncata)")
         if a == "CONSEGNATA" and not nota.strip():
             raise ValueError("la consegna richiede la nota col destinatario "
                              "(a chi e' stato consegnato il paziente)")
@@ -234,13 +254,19 @@ class FascicoloMissione:
                     if r.get("missione") == missione_id and r.get("evento") == "transizione":
                         self._mgr.transition(case.case_id, _StatoM(r["a"]),
                                              actor=r.get("operatore", "replay"),
-                                             reason=r.get("nota", "")[:200])
+                                             reason=str((r.get("nota") or {}).get("sha256", "") if isinstance(r.get("nota"), dict) else r.get("nota", ""))[:200])
             self._mgr.transition(self._case_ids[missione_id], _StatoM(a),
                                  actor=operatore, reason=nota[:200])
+        def _ricontrolla(righe):
+            # compare-and-append: lo stato viene RILETTO sotto il lock; se un altro processo ha già transitato,
+            # questa transizione è validata contro lo stato reale, non contro quello letto prima
+            st2 = self._stato_da(righe, missione_id)
+            if st2 is None or st2["stato"] != st["stato"]:
+                raise ValueError(f"stato cambiato sotto i piedi: {st['stato']} → {st2['stato'] if st2 else None}; ripetere")
         try:
             r = self._append({"evento": "transizione", "missione": missione_id,
                               "da": st["stato"], "a": a, "operatore": operatore,
-                              "nota": nota[:200]})
+                              "nota": _impronta_testo(nota, "nota")}, precheck=_ricontrolla)
         except Exception:
             # il ledger e' la fonte di verita': se l'append fallisce, lo stato
             # gia' avanzato nel validatore in-memory va INVALIDATO (al prossimo

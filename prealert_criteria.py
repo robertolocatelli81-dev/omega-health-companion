@@ -146,6 +146,10 @@ def criteri_adulto(vitali: Dict, gcs: Optional[int] = None, gcs_abituale: Option
     if hr <= S["hr_bassa"] or hr >= S["hr_alta"]:
         crit.append({"criterio": "frequenza cardiaca", "valore": hr,
                      "soglia": f"≤{S['hr_bassa']} o ≥{S['hr_alta']}"})
+    if gcs is None and vitali.get("alert_coscienza") is False:
+        # no GCS but NOT alert (V/P/U): a conservative GCS-class criterion (council 15/09, Fable — before, an
+        # unresponsive adult with normal numbers and no GCS came out «no pre-alert»)
+        crit.append({"criterio": "GCS", "valore": "non alert (AVPU: V/P/U), GCS non fornito", "soglia": f"<{S['gcs']} (attivato in modo conservativo)"})
     if gcs is not None and gcs < S["gcs"]:
         # «GCS <13 (new for patient)»: se è noto il GCS abituale e quello attuale non è peggiore, NON è
         # nuovo (paziente con danno neurologico cronico: falso positivo sistematico, council 13/09).
@@ -245,6 +249,23 @@ def sepsi_alto_rischio_jrcalc(vitali: Dict, segni: Optional[Dict], storia_infezi
     """Marcatori di 'high risk sepsis' (Appendix 1). Valgono solo con storia di infezione: senza,
     i marcatori vengono elencati ma NON classificati come sepsi ad alto rischio (dichiarato)."""
     problemi = _flags(segni, SEGNI_SEPSI, "segni_sepsi")
+    if not isinstance(vitali, dict):
+        problemi.append("vitali non è un oggetto")
+    else:
+        # council 15/09 (Opus): raw vitals were read here (a string 'no' was truthy). Only what this function USES is
+        # validated (sbp/hr/rr/spo2 numeric and plausible, flags boolean); an absent consciousness flag is DECLARED below
+        import barella_prealert as _B
+        for k in ("sbp", "hr", "rr", "spo2"):
+            v = vitali.get(k)
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:
+                problemi.append(f"non numerico: {k}={v!r} (atteso numero JSON)")
+            else:
+                lo, hi = _B._RANGE_PLAUSIBILE.get(k, (float("-inf"), float("inf")))
+                if not (lo <= v <= hi):
+                    problemi.append(f"{k} non plausibile: {v!r} (atteso {lo}-{hi})")
+        for k in ("su_ossigeno", "alert_coscienza", "bpco_scala2"):
+            if k in vitali and not isinstance(vitali[k], bool):
+                problemi.append(f"non booleano: {k}={vitali[k]!r} (atteso true/false JSON)")
     if not isinstance(storia_infezione, bool):
         problemi.append(f"non booleano: storia_infezione={storia_infezione!r}")
     if map_mmhg is not None and not _num(map_mmhg):
@@ -304,6 +325,8 @@ def decisione_prealert(eta: float, vitali: Dict, gcs: Optional[int] = None,
         problemi.append(f"crt_sec non valido: {crt_sec!r} (atteso numero 0-30 secondi)")
     if not _num(eta) or not (0 <= eta <= 130):
         problemi.append(f"eta non valida: {eta!r}")
+    if not isinstance(vitali, dict):
+        problemi.append(f"vitali non è un oggetto (ricevuto {type(vitali).__name__})")
     if problemi:
         return {"pre_alert_indicato": None, "problemi_dati": problemi, "fonte": FONTE}
     pediatrico = eta < 16
@@ -327,14 +350,20 @@ def decisione_prealert(eta: float, vitali: Dict, gcs: Optional[int] = None,
     cond = [{"condizione": k, "linea_guida": CONDIZIONI_SPECIFICHE[k],
              **({"derivazione": note_derivazione[k]} if note_derivazione and k in note_derivazione else {})}
             for k, v in (condizioni or {}).items() if v]
+    note_sepsi = None
     if sepsi and sepsi.get("alto_rischio") and not any(c["condizione"].startswith("sepsi") for c in cond):
-        cond.append({"condizione": "sepsi_alto_rischio_adulto", "linea_guida": CONDIZIONI_SPECIFICHE["sepsi_alto_rischio_adulto"],
-                     "marcatori": sepsi.get("marcatori")})
+        if pediatrico:
+            # the JRCALC markers are ADULT thresholds (HR ≥130, RR ≥25): never applied to a child as a condition
+            note_sepsi = "marcatori sepsi JRCALC adulti ricevuti per un paziente pediatrico: NON applicati (soglie adulte); valutare con criteri pediatrici"
+        else:
+            cond.append({"condizione": "sepsi_alto_rischio_adulto", "linea_guida": CONDIZIONI_SPECIFICHE["sepsi_alto_rischio_adulto"],
+                         "marcatori": sepsi.get("marcatori")})
     indicato = bool(fis["criteri"]) or bool(cond)
     return {
         "pre_alert_indicato": indicato,
         "pediatrico": pediatrico, "fascia": fis.get("fascia"),
         "criteri_fisiologici": fis["criteri"], "condizioni_specifiche": cond,
+        **({"nota_sepsi": note_sepsi} if note_sepsi else {}),
         "non_valutato": fis.get("non_valutato", []),
         "regola": ("«Calls for information only ('heads up' calls) must be avoided» — il pre-alert va fatto "
                    "solo se attiva una risposta specifica; la risposta effettiva la decide il senior clinico "
@@ -350,6 +379,8 @@ def messaggio_prealert(decisione: Dict, eta_arrivo_min: float, richiesta_rispost
     (euristica dichiarata, non misura): la linea guida chiede ≤60 s."""
     if not _num(eta_arrivo_min) or not (0 <= eta_arrivo_min <= 600):
         raise ValueError("eta_arrivo_min non valido")
+    if not isinstance(decisione, dict) or not isinstance(atmist, dict) or not isinstance(richiesta_risposta, str):
+        raise ValueError("messaggio_prealert: decisione e atmist devono essere oggetti, richiesta_risposta una stringa")
     motivi = [c["criterio"] for c in decisione.get("criteri_fisiologici", [])] + \
              [c["condizione"].replace("_", " ") for c in decisione.get("condizioni_specifiche", [])]
     headline = (f"{richiesta_risposta.strip()[:60] or 'pre-alert'} — motivo: {', '.join(motivi) or 'preoccupazione clinica'}"

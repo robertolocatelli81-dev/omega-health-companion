@@ -15,9 +15,11 @@ in Europa la strada è FHIR, già presente).
 """
 from __future__ import annotations
 import hashlib
+import secrets
+import hmac
 import statistics
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 # ── 1. Tipo di paziente → team da allertare (come i «patient types» di Pulsara, ma derivati dai
 #       percorsi già calcolati e dalle condizioni 2025, nel vocabolario chiuso delle risposte) ──────
@@ -97,13 +99,32 @@ def valida_posizione(lat, lon, eta_arrivo_min) -> List[str]:
     return p
 
 
-def evento_posizione(lat, lon, eta_arrivo_min) -> Dict:
-    """Ciò che va nel ledger: ETA e DIGEST della posizione (council 13/09: nemmeno ~1 km su disco — la
-    prima posizione è la scena). La posizione esatta resta in memoria per il PS; chi ha la posizione può
-    provare che è quella, chi ha il disco non legge dove."""
-    return {"eta_arrivo_min": eta_arrivo_min,
-            "posizione_sha256": (hashlib.sha256(f"{lat:.5f},{lon:.5f}".encode()).hexdigest() if lat is not None else None),
-            "ts": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+def impegno(testo: str, sale_hex: Optional[str] = None) -> Tuple[Dict, str]:
+    """Salted commitment of a low-entropy value (council 15/09, three minds: a bare sha256 of a coordinate, a
+    hospital name or a short message is enumerable in seconds). Ledger gets HMAC-SHA256(sale, utf8) + length;
+    the 16-byte random sale stays in RAM with the board record (ephemeral) — whoever holds value + sale can prove,
+    whoever holds the disk reads nothing. Returns (ledger_dict, sale_hex)."""
+    sale = sale_hex or secrets.token_hex(16)
+    mac = hmac.new(bytes.fromhex(sale), testo.encode("utf-8"), hashlib.sha256).hexdigest()
+    return {"hmac_sha256": mac, "lunghezza": len(testo), "impegno": "HMAC-SHA256(sale in RAM, utf8)"}, sale
+
+
+def posizione_testo(lat, lon) -> str:
+    """The committed text of a position: integer micro-degrees (no float formatting to replicate across languages)."""
+    return f"{int(round(lat * 1e6))},{int(round(lon * 1e6))}"
+
+
+def evento_posizione(lat, lon, eta_arrivo_min, sale_hex: Optional[str] = None) -> Tuple[Dict, Optional[str]]:
+    """Ciò che va nel ledger: ETA (intero, minuti) e IMPEGNO salato della posizione (council 13/09: nemmeno ~1 km su
+    disco; council 15/09: un digest nudo di coordinate è enumerabile). La posizione esatta e il sale restano in
+    memoria per il PS; chi li ha può provare che è quella, chi ha il disco non legge dove. Returns (evento, sale)."""
+    ev: Dict = {"eta_arrivo_min": int(round(eta_arrivo_min)), "ts": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    sale = None
+    if lat is not None:
+        imp, sale = impegno(posizione_testo(lat, lon), sale_hex)
+        ev["posizione_hmac_sha256"] = imp["hmac_sha256"]
+        ev["posizione_impegno"] = "HMAC-SHA256(sale in RAM, 'lat_e6,lon_e6')"
+    return ev, sale
 
 
 # ── 3. Messaggi bidirezionali ─────────────────────────────────────────────────────────────
@@ -123,6 +144,8 @@ def valida_messaggio(da: str, operatore: str, testo: str) -> List[str]:
 
 
 def impronta_testo(testo: str) -> Dict:
+    """Unsalted fingerprint — only for texts with enough entropy to be non-enumerable (kept for compatibility);
+    for messages, destinations and notes use impegno()."""
     return {"sha256": hashlib.sha256(testo.encode("utf-8")).hexdigest(), "lunghezza": len(testo)}
 
 
@@ -176,7 +199,7 @@ def valida_esito(operatore_ps: str, esito: str, diagnosi_confermata, tempo_porta
 
 
 # ── 6. Metriche QA/QI (aggregate, senza PII) ─────────────────────────────────────────────
-def metriche(board: List[Dict]) -> Dict:
+def metriche(board: List[Dict], now: Optional[datetime] = None) -> Dict:
     """Aggregati sulla bacheca in memoria: volumi, latenze, risposte alternative, esiti, over/under-triage
     come PROXY (pre-alert indicato dai criteri 2025 vs esito). Nessun identificativo."""
     n = len(board)
@@ -214,7 +237,7 @@ def metriche(board: List[Dict]) -> Dict:
                 conf += 1
     # escalation su mancata ricezione (Pulsara: ri-allerta se nessuno prende la chiamata): pre-alert vivi
     # senza alcuna ricezione oltre ESCALATION_S dall'emissione
-    now = datetime.now(timezone.utc)
+    now = now or datetime.now(timezone.utc)      # injectable: no wall clock inside tests
     da_escalare = []
     for r in board:
         if r.get("prealert") is None or r.get("ricezioni"):
@@ -233,8 +256,9 @@ def metriche(board: List[Dict]) -> Dict:
         "esiti": esiti, "esiti_registrati": esiti_n,
         "tempo_porta_intervento_min": ({"mediana": statistics.median(tempi), "n": len(tempi)} if tempi else None),
         "over_triage_proxy": over, "under_triage_proxy": under, "percorsi_confermati": conf,
-        "nota": ("proxy: over = pre-alert indicato dai criteri 2025 ma percorso non necessario; under = non indicato ma "
-                 "percorso confermato; sono conteggi sulla bacheca in memoria, non un audit clinico"),
+        "nota": ("proxy: over = pre-alert indicato dai criteri 2025 ma percorso poi non necessario; under = non indicato ma "
+                 "percorso confermato. NON misurano un errore dell'equipaggio: il pre-alert nasce da un sospetto e un "
+                 "esito diverso è fisiologico; sono conteggi sulla bacheca in memoria, non un audit clinico"),
     }
 
 

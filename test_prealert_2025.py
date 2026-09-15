@@ -258,7 +258,7 @@ class TestVerbale(unittest.TestCase):
         v = VP.verbale("prealert-9")
         self.assertEqual(v["n_eventi"], 2)
         self.assertTrue(v["firme_tutte_verificate"])
-        self.assertIsNotNone(v["latenza_emissione_ricezione_s"])
+        self.assertIsNotNone(v["latenza_emissione_ricezione_ms"])
         self.assertNotIn("vitali", json.dumps(v))
         # un altro pre-alert non entra nel verbale di questo
         AB.registra_prealert("prealert-99", "ef" * 32, "equipaggio-4")
@@ -560,6 +560,11 @@ class TestRound2Verbale(unittest.TestCase):
         with open(AB.FALLBACK_LEDGER, encoding="utf-8") as f:
             e = json.loads(f.readline())
         legacy = {k: v for k, v in e.items() if k != "prev_sha256"}
+        # a GENUINE legacy line has a digest over its own (prev-less) record — v0.5.0 recomputes every digest
+        import hashlib as _h
+        canon = json.dumps({k: legacy[k] for k in ("kind", "target", "azione", "dettaglio", "operatore", "ts", "alg")},
+                           sort_keys=True, separators=(",", ":")).encode()
+        legacy["record_sha256"] = _h.sha256(canon).hexdigest()
         with open(AB.FALLBACK_LEDGER, "w", encoding="utf-8") as f:
             f.write(json.dumps(legacy) + "\n")
         AB.registra_conferma("prealert-4", "ok", "op")

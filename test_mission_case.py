@@ -133,6 +133,8 @@ class TestColpiPro(unittest.TestCase):
         fm.transita("M-20", "VALUTAZIONE", "op", "x")
         fm.transita("M-20", "TRASPORTO", "op", "x")
         with self.assertRaisesRegex(ValueError, "destinatario"):
+            fm.transita("M-20", "CONSEGNATA", "op", " " * 200)          # 200 blanks: empty after strip
+        with self.assertRaisesRegex(ValueError, "troppo lunga"):        # v0.5.0: too long is REFUSED, never truncated
             fm.transita("M-20", "CONSEGNATA", "op", " " * 200 + "dr-ps")
 
     def test_orologio_indietro_rifiutato(self):

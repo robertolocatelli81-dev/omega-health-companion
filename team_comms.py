@@ -33,6 +33,7 @@ from __future__ import annotations
 import html
 import json
 import os
+import socket
 from typing import Optional
 import secrets
 import threading
@@ -57,7 +58,8 @@ ALLEGATI: dict = {}          # (id, n) -> bytes, SOLO in memoria, scadono con la
 STATO_PS: dict = {"stato": "accetta", "ts": None, "operatore_ps": None}   # divert/capacità, a vocabolario chiuso
 INCIDENTI: list = []         # incidenti maggiori (più pazienti)
 _INCIDENTE_SEQ = [0]         # contatore MONOTONO (council 13/09: len()+1 dopo la scadenza collideva)
-CAP = {"allegati": 10, "messaggi": 200, "posizioni": 100000, "esiti": 20, "ricezioni": 20, "incidenti": 500, "triage": 20}   # posizioni: taglio a 200 dopo append   # tetti per record (RAM)
+CAP = {"allegati": 10, "messaggi": 200, "posizioni": 100000, "esiti": 20, "ricezioni": 20, "incidenti": 500, "triage": 20, "conferme": 50}
+_BOARD_SEQ = [0]             # id MONOTONO dei pre-alert (i record oltre 2×TTL vengono rimossi: len()+1 collideva)   # posizioni: taglio a 200 dopo append   # tetti per record (RAM)
 
 
 def _token() -> str:
@@ -80,6 +82,7 @@ def _scadenza_bacheca(now: Optional[datetime] = None) -> int:
         if r.get("vitali") is None and r.get("prealert") is None:
             # già scaduto: tenerlo VUOTO (ciò che fosse entrato dopo la scadenza non deve restare in RAM)
             r["messaggi"], r["posizioni"], r["allegati"], r["esiti"], r["ricezioni"] = [], [], [], [], []
+            r["conferme"], r["triage"], r["triage_start"], r["tipo_paziente"] = [], [], None, None   # council 15/09: erano dimenticati
             for k in [k for k in ALLEGATI if k[0] == r["id"]]:
                 ALLEGATI.pop(k, None)
             continue
@@ -95,10 +98,19 @@ def _scadenza_bacheca(now: Optional[datetime] = None) -> int:
             r["posizioni"] = []
             r["esiti"] = []            # esito clinico + operatore: fuori dalla RAM alla scadenza (il ledger firmato resta, a digest)
             r["ricezioni"] = []
+            r["conferme"], r["triage"], r["triage_start"], r["tipo_paziente"] = [], [], None, None   # nota clinica e categoria: fuori dalla RAM
             for k in [k for k in ALLEGATI if k[0] == r["id"]]:
                 ALLEGATI.pop(k, None)
             r["allegati"] = []
             n += 1
+    # crescita illimitata (council 15/09): i record scaduti da oltre max(2×TTL, 24 h) escono del tutto dalla
+    # bacheca (un record svuotato resta consultabile — 410, vuoto — per almeno un giorno)
+    for r in [r for r in BOARD if r.get("scaduto")]:
+        try:
+            if (now - datetime.fromisoformat(r["ts"])).total_seconds() / 3600 > max(2 * BOARD_TTL_H, 24):
+                BOARD.remove(r)
+        except (KeyError, ValueError):
+            pass
     # incidenti: la lista non cresceva mai (council 13/09) → oltre 2×TTL dall'apertura spariscono
     for i in [i for i in INCIDENTI if (now - datetime.fromisoformat(i["ts"])).total_seconds() / 3600 > 2 * BOARD_TTL_H]:
         INCIDENTI.remove(i)
@@ -110,7 +122,8 @@ def _pubblica(prealert: dict, vitali: dict | None,
     ts = datetime.now(timezone.utc).isoformat()
     prov = S.ancora_prealert(prealert, ts)          # digest-only di default
     with _LOCK:
-        rid = len(BOARD) + 1
+        _BOARD_SEQ[0] += 1
+        rid = _BOARD_SEQ[0]
         # audit Part 11 (ponte opzionale): CREATE firmato authorship; degrado
         # onesto a "base" se il motore privato non è presente sul sistema
         audit = AB.registra_prealert(f"prealert-{rid}",
@@ -210,6 +223,23 @@ def _find(rid: int):
 class H(BaseHTTPRequestHandler):
     timeout = 30            # Slowloris: un body dichiarato ma mai inviato libera il thread dopo 30 s (socket.timeout)
     server_version = "omega-team/1.0"
+
+    def _read_body(self, n: int, deadline_s: float = 15.0):
+        """Reads n bytes in chunks under an ABSOLUTE deadline (council 15/09, Gemini: the per-read socket timeout
+        did not stop a body trickled at one byte per second for hours). None = not received in time."""
+        import time
+        t0, buf = time.monotonic(), bytearray()
+        while len(buf) < n:
+            if time.monotonic() - t0 > deadline_s:
+                return None
+            try:
+                chunk = self.rfile.read(min(65536, n - len(buf)))
+            except (socket.timeout, OSError):
+                return None
+            if not chunk:
+                return None
+            buf += chunk
+        return bytes(buf)
 
     def _send(self, code, body, ctype="text/html; charset=utf-8", extra=None):
         if isinstance(body, str):
@@ -312,7 +342,7 @@ class H(BaseHTTPRequestHandler):
         if not r:
             return self._json(404, {"ok": False, "error": f"pre-alert {rid} inesistente"})
         v = VP.verbale(f"prealert-{rid}")
-        if "marca=1" in (self.path.split("?", 1)[1] if "?" in self.path else ""):
+        if parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "").get("marca") == ["1"]:   # parsed, not substring
             tsa = os.environ.get("HEALTH_TSA_URL", "")
             if not tsa:
                 v["marca_temporale"] = {"anchored": False, "note": "HEALTH_TSA_URL non configurata"}
@@ -360,7 +390,10 @@ class H(BaseHTTPRequestHandler):
             return self.do_POST_allegato(n)          # binario: mai decodificato come testo
         if n > MAX_BODY:
             return self._json(413, {"ok": False, "error": "payload troppo grande"})
-        raw = self.rfile.read(n).decode(errors="replace")
+        raw = self._read_body(n)
+        if raw is None:
+            return self._json(408, {"ok": False, "error": "body non ricevuto entro la scadenza"})
+        raw = raw.decode(errors="replace")
         if self.path == "/conferma":       # form della bacheca: token nel body
             q = parse_qs(raw)
             if not self._authed(q.get("token", [None])[0]):
@@ -371,12 +404,15 @@ class H(BaseHTTPRequestHandler):
                 return self._send(400, "id non numerico")
             nota = q.get("nota", [""])[0][:100]
             operatore = q.get("operatore", ["team-ps"])[0][:60] or "team-ps"
-            r = _find(rid)
-            if r and nota:
-                audit = AB.registra_conferma(f"prealert-{rid}", nota, operatore)
+            if nota:
+                # ricontrollo di scadenza e tetto SOTTO il lock, firma DOPO il ricontrollo (council 15/09: la conferma
+                # era l'unica lista senza tetto, sopravviveva alla scadenza ed era firmata prima del ricontrollo)
                 with _LOCK:
-                    r["conferme"].append({"nota": nota, "operatore": operatore,
-                                          "audit": audit})
+                    _scadenza_bacheca()
+                    r = next((x for x in BOARD if x["id"] == rid), None)
+                    if r and r.get("prealert") is not None and len(r.setdefault("conferme", [])) < CAP["conferme"]:
+                        audit = AB.registra_conferma(f"prealert-{rid}", nota, operatore)
+                        r["conferme"].append({"nota": nota, "operatore": operatore, "audit": audit})
             return self._send(303, "", extra={"Location": "/"})
         if not self._authed():
             return self._json(401, {"ok": False, "error": "X-Omega-Token mancante o errato"})
@@ -444,7 +480,9 @@ class H(BaseHTTPRequestHandler):
             rid = int(self.path[len("/allegato/"):].split("?")[0])
         except ValueError:
             return self._json(400, {"ok": False, "error": "id non numerico"})
-        raw = self.rfile.read(n)
+        raw = self._read_body(n)
+        if raw is None:
+            return self._json(408, {"ok": False, "error": "allegato non ricevuto entro la scadenza"})
         tipo = (self.headers.get("X-Omega-Tipo") or "").strip().lower()
         ct = self.headers.get("Content-Type") or ""
         operatore = (self.headers.get("X-Omega-Operatore") or "equipaggio-ambulanza")[:60]
@@ -505,11 +543,12 @@ class H(BaseHTTPRequestHandler):
             problemi = CO.valida_stato_ps(stato, op, dest)
             if problemi:
                 return self._json(400, {"ok": False, "error": "stato rifiutato", "problemi": problemi})
-            det = {"stato": stato, "destinazione_alternativa": (CO.impronta_testo(dest) if dest else None)}
-            audit = AB.registra_evento_clinico("ps", "stato_ps", det, op)
-            with _LOCK:
+            imp, sale = (CO.impegno(dest) if dest else (None, None))
+            det = {"stato": stato, "destinazione_alternativa": imp}
+            with _LOCK:      # audit e stato sotto lo stesso lock: l'ordine nel ledger = l'ordine in memoria
+                audit = AB.registra_evento_clinico("ps", "stato_ps", det, op)
                 STATO_PS.update({"stato": stato, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                                 "operatore_ps": op, "destinazione_alternativa": dest})
+                                 "operatore_ps": op, "destinazione_alternativa": dest, "sale": sale})
             return self._json(200, {"ok": True, "stato_ps": dict(STATO_PS), "audit": audit})
         if self.path in ("/posizione", "/messaggio", "/esito"):
             try:
@@ -522,10 +561,10 @@ class H(BaseHTTPRequestHandler):
                 problemi = CO.valida_posizione(lat, lon, eta)
                 if problemi:
                     return self._json(400, {"ok": False, "error": "posizione rifiutata", "problemi": problemi})
-                ev = CO.evento_posizione(lat, lon, eta)          # nel ledger: ETA + DIGEST della posizione, mai coordinate
+                ev, sale = CO.evento_posizione(lat, lon, eta)    # nel ledger: ETA + IMPEGNO salato della posizione, mai coordinate
                 code, out = _evento_su_record(rid, "posizioni", "aggiornamento_eta", ev,
                                               str(body.get("operatore") or "equipaggio-ambulanza")[:60],
-                                              {"lat": lat, "lon": lon, "eta_arrivo_min": eta, "ts": ev["ts"]})
+                                              {"lat": lat, "lon": lon, "eta_arrivo_min": eta, "ts": ev["ts"], "sale": sale})
                 if code == 200:
                     with _LOCK:
                         out["record"]["posizioni"] = out["record"]["posizioni"][-200:]
@@ -537,9 +576,9 @@ class H(BaseHTTPRequestHandler):
                 problemi = CO.valida_messaggio(da, op, testo)
                 if problemi:
                     return self._json(400, {"ok": False, "error": "messaggio rifiutato", "problemi": problemi})
-                imp = CO.impronta_testo(testo)
+                imp, sale = CO.impegno(testo)
                 code, out = _evento_su_record(rid, "messaggi", "messaggio", {"da": da, **imp}, op,
-                                              {"da": da, "operatore": op, "testo": testo, "ts": ts_now, "sha256": imp["sha256"]})
+                                              {"da": da, "operatore": op, "testo": testo, "ts": ts_now, "hmac_sha256": imp["hmac_sha256"], "sale": sale})
                 return self._json(code, {k: v for k, v in out.items() if k != "record"})
             # /esito — close the loop
             op = str(body.get("operatore_ps") or "")[:60]
@@ -548,9 +587,11 @@ class H(BaseHTTPRequestHandler):
             if problemi:
                 return self._json(400, {"ok": False, "error": "esito rifiutato", "problemi": problemi})
             nota = body.get("nota")
-            det = {"esito": esito, "diagnosi_confermata": diag, "tempo_porta_intervento_min": tempo,
-                   "nota": (CO.impronta_testo(str(nota)[:500]) if nota else None)}
-            code, out = _evento_su_record(rid, "esiti", "esito_clinico", det, op, {**det, "operatore_ps": op, "ts": ts_now})
+            imp, sale = (CO.impegno(str(nota)[:500]) if nota else (None, None))
+            det = {"esito": esito, "diagnosi_confermata": diag,
+                   "tempo_porta_intervento_min": (int(round(tempo)) if tempo is not None else None),   # interi nei record firmati
+                   "nota": imp}
+            code, out = _evento_su_record(rid, "esiti", "esito_clinico", det, op, {**det, "operatore_ps": op, "ts": ts_now, "sale": sale})
             if code == 200:
                 out = {"ok": True, "id": rid, "esito": esito, "audit": out["audit"]}
             return self._json(code, out)
@@ -566,13 +607,14 @@ class H(BaseHTTPRequestHandler):
                     raise ValueError("motivo obbligatorio")
             except (KeyError, TypeError, ValueError) as e:
                 return self._json(400, {"ok": False, "error": f"servono id, indice_nota, motivo: {e}"})
-            r = _find(rid)
-            if not r or not (0 <= idx < len(r["conferme"])):
-                return self._json(404, {"ok": False, "error": "nota inesistente"})
-            with _LOCK:
+            with _LOCK:      # council 15/09: bound-check e pop sotto LO STESSO lock; audit PRIMA dell'effetto
+                _scadenza_bacheca()
+                r = next((x for x in BOARD if x["id"] == rid), None)
+                if not r or not (0 <= idx < len(r.get("conferme") or [])):
+                    return self._json(404, {"ok": False, "error": "nota inesistente"})
+                audit = AB.registra_evento_sistema(f"prealert-{rid}/conferme/{idx}", "rimozione_nota",
+                                                   motivo, operatore, nota_rimossa=r["conferme"][idx].get("nota", ""))
                 rimossa = r["conferme"].pop(idx)
-            audit = AB.registra_evento_sistema(f"prealert-{rid}/conferme/{idx}", "rimozione_nota",
-                                               motivo, operatore, nota_rimossa=rimossa.get("nota", ""))
             return self._json(200, {"ok": True, "rimossa": rimossa.get("nota"),
                                     "audit": audit})
         if self.path == "/ruota-token":
@@ -583,9 +625,11 @@ class H(BaseHTTPRequestHandler):
             # dall'amministratore sul server (team_token.txt) — dichiarato qui.
             import secrets as _sec
             nuovo = _sec.token_urlsafe(32)
-            fd = os.open(TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            tmp = TOKEN_FILE + ".tmp"          # atomic: a reader never sees an empty token file (council 15/09, Gemini)
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w") as f:
                 f.write(nuovo)
+            os.replace(tmp, TOKEN_FILE)
             audit = AB.registra_evento_sistema("sistema/token", "rotazione_token", "rotazione token di accesso",
                                                str(body.get("operatore") or "admin")[:60])
             return self._json(200, {"ok": True, "nuovo_token": nuovo, "audit": audit})
@@ -621,7 +665,7 @@ class H(BaseHTTPRequestHandler):
             # (misurato: eta_paziente 3 + nome → 200). Il server è l'UNICA fonte di verità: questo
             # endpoint resta per retro-compatibilità ma RICALCOLA da vitali/eta/farmaci come /valuta e
             # ignora ogni campo calcolato o non previsto inviato dal client.
-            if not isinstance(body, dict) or "vitali" not in body or "eta" not in body:
+            if not isinstance(body, dict) or "vitali" not in body or ("eta" not in body and "eta_mesi" not in body):
                 return self._json(400, {"ok": False, "error": ("pre-alert non accettato: il pre-alert si calcola "
                                         "sul server — inviare vitali, eta, eta_arrivo_min (come /valuta)")})
             self.path = "/valuta"

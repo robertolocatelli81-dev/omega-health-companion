@@ -94,7 +94,9 @@ def acr(assenza_respiro: bool, assenza_polso: bool,
     arresto, iniziare RCP. E il respiro assente CON polso percepito (arresto
     respiratorio) non è «nessun arresto»: è peri-arresto, vie aeree subito.
     Prima questo caso usciva instradato al percorso SEPSI (misurato). ERRORE."""
-    arresto = assenza_respiro and (assenza_polso or coscienza_assente)
+    # council 15/09 (Fable): an ABSENT pulse is an arrest even if some breathing (gasping) is seen — the pulse check
+    # is unreliable for a false PRESENT, not for a detected absence; unresponsive + no normal breathing = arrest
+    arresto = assenza_polso or (assenza_respiro and coscienza_assente)
     arresto_respiratorio = assenza_respiro and not arresto
     if arresto:
         azione = ("ARRESTO (ERC: non-responsivo + respiro assente = RCP, il polso "
@@ -129,7 +131,8 @@ def cardio(dolore_toracico_ischemico: bool, ecg_stemi: bool = False) -> Dict:
 
 # ── appoggio OMEGA: incatena il pre-alert (provenienza non-ripudiabile) ───────
 def _hash(rec: Dict) -> str:
-    blob = json.dumps(rec, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    # UTF-8 canonical profile (FORMAT.md): sort_keys, compact, ensure_ascii=False, no NaN/Infinity
+    blob = json.dumps(rec, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()
     return hashlib.sha256(blob).hexdigest()
 
 def ancora_prealert(prealert: Dict, ts: str, payload: str = "digest") -> Dict:
@@ -144,6 +147,10 @@ def ancora_prealert(prealert: Dict, ts: str, payload: str = "digest") -> Dict:
     payload="full" resta possibile ma è una SCELTA esplicita di ritenzione dati,
     da fare solo con base giuridica e cifratura a valle."""
     try:
+        import fcntl
+        os.makedirs(os.path.dirname(LEDGER) or ".", exist_ok=True)
+        lock = open(LEDGER + ".lock", "w")
+        fcntl.flock(lock, fcntl.LOCK_EX)    # council 15/09 (three minds): read-tail + append under ONE process lock
         prev = GENESIS
         if os.path.exists(LEDGER):
             with open(LEDGER, encoding="utf-8") as f:
@@ -159,6 +166,7 @@ def ancora_prealert(prealert: Dict, ts: str, payload: str = "digest") -> Dict:
         rec["self_hash"] = _hash(rec)
         with open(LEDGER, "a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        fcntl.flock(lock, fcntl.LOCK_UN); lock.close()
         return {"ancorato": True, "payload": corpo["payload"],
                 "self_hash": rec["self_hash"], "prev_hash": prev}
     except Exception as e:
