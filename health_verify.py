@@ -148,7 +148,7 @@ def verify_audit(path: str, registry: Dict[str, str], registry_source: str) -> T
         return _layer("audit-ledger", "FAIL", f"unreadable: {type(e).__name__}: {str(e)[:100]}"), records
     prev, n_sig_ok, n_sig_untrusted, failures = "GENESIS", 0, 0, []
     started = False
-    registry_source_note = [source]
+    registry_source_note = [registry_source]
     for n, e in lines:
         if not isinstance(e, dict) or e.get("kind") != "audit_locale":
             failures.append(f"line {n}: not an audit_locale object"); break

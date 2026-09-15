@@ -11,7 +11,7 @@ from cra_evidence.signing import sign_pack  # noqa: E402
 
 PRODUCT = "omega-health-companion"
 REPO = "robertolocatelli81-dev/omega-health-companion"
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def main() -> int:
