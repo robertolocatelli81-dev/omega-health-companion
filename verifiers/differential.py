@@ -110,6 +110,34 @@ def cases(base):
     def empty_audit(f):
         open(f["audit"], "w").close()
     case("audit_empty", empty_audit, keys=True)
+    def amputated(f):      # council r2 (Gemini/Fable): a line without `dettaglio`, re-signed with a foreign key, must FAIL
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives import serialization as ser
+        import hashlib
+        def fn(ls):
+            e = json.loads(ls[0]); e.pop("dettaglio")
+            keys = ("kind", "target", "azione", "operatore", "ts", "prev_sha256", "alg")
+            canon = json.dumps({k: e[k] for k in keys if k in e}, sort_keys=True, separators=(",", ":")).encode()
+            dg = hashlib.sha256(canon).digest(); sk = Ed25519PrivateKey.generate()
+            e["record_sha256"] = dg.hex(); e["firma_ed25519_b64"] = base64.b64encode(sk.sign(dg)).decode()
+            e["pubkey_b64"] = base64.b64encode(sk.public_key().public_bytes(ser.Encoding.Raw, ser.PublicFormat.Raw)).decode()
+            e2 = json.loads(ls[1]); e2["prev_sha256"] = dg.hex()
+            return [json.dumps(e, ensure_ascii=False), json.dumps(e2, ensure_ascii=False)] + ls[2:]
+        rewrite(f["audit"], fn)
+    case("audit_line_amputated", amputated)
+    def honest_verbale_no_registry(f):   # a verbale that does NOT claim verified signatures, checked without a registry → NOT-TRUSTED
+        v = json.load(open(f["verbale"])); v["firme_tutte_verificate"] = False
+        import hashlib
+        body = {k: x for k, x in v.items() if k != "digest_verbale_sha256"}
+        v["digest_verbale_sha256"] = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+        json.dump(v, open(f["verbale"], "w"), ensure_ascii=False, indent=1)
+    case("honest_verbale_no_registry", honest_verbale_no_registry)
+    def neg_zero(f):        # integer lexeme kept: `-0` must round-trip (FORMAT.md)
+        def fn(ls):
+            e = json.loads(ls[0]); s = json.dumps(e, ensure_ascii=False)
+            return [s] + ls[1:]
+        rewrite(f["audit"], fn)
+    case("intact_rewritten_lines", neg_zero, keys=True)
     return out
 
 

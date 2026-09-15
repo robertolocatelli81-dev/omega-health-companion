@@ -180,6 +180,8 @@ def prealert(paziente_eta: Optional[int], vitali: Dict, eta_arrivo_min: int) -> 
     rifiutata, ETA intera 0-600."""
     if paziente_eta is not None and (isinstance(paziente_eta, bool) or not isinstance(paziente_eta, (int, float)) or paziente_eta != paziente_eta):
         raise ValueError(f"paziente_eta non valida: {paziente_eta!r}")
+    if paziente_eta is not None and not (0 <= paziente_eta <= 130):
+        raise ValueError(f"paziente_eta fuori range: {paziente_eta!r} (atteso 0-130)")
     if paziente_eta is not None and paziente_eta < 16:
         raise ValueError("età < 16: il NEWS2 adulto non è validato nei bambini — pre-alert rifiutato (usare prealert_criteria pediatrici)")
     if isinstance(eta_arrivo_min, bool) or not isinstance(eta_arrivo_min, (int, float)) or not (0 <= eta_arrivo_min <= 600):

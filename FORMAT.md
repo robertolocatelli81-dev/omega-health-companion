@@ -14,7 +14,7 @@ duplicate keys forbidden, nesting ≤ 512.
 | **ASCII** (Python `ensure_ascii=True`) | signed audit records (`audit_locale_ledger.jsonl`) | `\uXXXX`, lowercase hex, surrogate pairs above U+FFFF | `\n \r \t \b \f`, else `\u00XX` |
 | **UTF-8** (Python `ensure_ascii=False`) | `self_hash` ledgers (`prealert_ledger.jsonl`, `fascicoli_ledger.jsonl`), the verbale | raw UTF-8, never escaped (U+2028/2029, `<>&` included) | same |
 
-**Numbers are re-emitted exactly as written in the file.** The file was written by Python from the same
+**Numbers — integers included — are re-emitted exactly as written in the file** (`-0` stays `-0`). The file was written by Python from the same
 objects that were hashed, so the number text in the file *is* the canonical text (Python's shortest
 `repr`: `12.0`, `1e-05`, `1e+16`). A verifier must therefore keep the lexeme of every number instead of
 parsing it to a double and printing it again — that is what the four verifiers do. Since v0.5.0 signed
@@ -39,8 +39,12 @@ signature     = Ed25519( sk_operator, raw 32-byte digest )            # base64, 
 The signature is over the **raw digest bytes**, not over the hex string and not over the record. It is
 verified against the **registered** key of the operator (`.audit_keys/fb-<slug>.pub`, base64 raw 32 bytes,
 `slug` = lowercase, non-alphanumerics → `-`, max 40 chars), never against `pubkey_b64` in the line. With no
-registry the verdict is *NOT-TRUSTED*, never PASS. The registry embedded in a verbale (`registro_chiavi`)
-may be accepted only on explicit request and is declared as not out-of-band.
+registry (or no Ed25519 implementation) the verdict is *NOT-TRUSTED*, never PASS and never FAIL: FAIL is reserved
+for verified falsity (a digest that does not match, a registered key that does not sign, a line whose key set is
+not the signed one — mandatory keys missing or extra keys present). The registry embedded in a verbale
+(`registro_chiavi`) may be accepted only on explicit request and is declared as not out-of-band. Operators from
+installations older than 13/09/2026 that have a `.key` but no `.pub` are enrolled only by an explicit command
+(`python3 audit_bridge.py --enrol-legacy`), never during verification.
 
 Chain: `prev_sha256` of the first chained line is the literal string `GENESIS`; afterwards it is the
 `record_sha256` of the previous line. `GENESIS` after the chain started, a line without `prev_sha256` after
@@ -71,10 +75,14 @@ receiver declared and are not a measurement.
 
 ## Commitments of low-entropy values
 
-Coordinates, hospital names, messages and notes are enumerable: since v0.5.0 the ledger carries
-`HMAC-SHA256(sale, utf8)` with a random 16-byte `sale` that lives only in the board's memory
-(`impegno()`); positions are committed as integer micro-degrees `lat_e6,lon_e6`. Whoever holds value and
-sale can prove; whoever holds the disk reads nothing. Older records carry bare `sha256` fingerprints.
+Coordinates, hospital names, board messages and notes are enumerable: since v0.5.0 the **board** ledger records
+carry `HMAC-SHA256(sale, utf8)` with a random 16-byte `sale` that lives only in the board's memory (`impegno()`);
+positions are committed as integer micro-degrees `lat_e6,lon_e6` rounded **half away from zero**
+(`floor(|x|·1e6 + 0.5)` with the sign restored — Python's `round` is half-to-even, JS `Math.round` half-up: the
+rule is fixed here). Whoever holds value and sale can prove; whoever holds the disk reads nothing; after the
+board record expires nobody can open the commitment (by design). The **mission case file** has no in-memory
+board to keep a salt: its `motivo`/`nota` are **unsalted** `sha256` fingerprints (declared, enumerable for
+low-entropy texts). Older records carry bare `sha256` fingerprints everywhere.
 
 ## Crypto-agility
 

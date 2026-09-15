@@ -122,6 +122,8 @@ def _pubblica(prealert: dict, vitali: dict | None,
     ts = datetime.now(timezone.utc).isoformat()
     prov = S.ancora_prealert(prealert, ts)          # digest-only di default
     with _LOCK:
+        if _BOARD_SEQ[0] == 0:            # after a restart continue from the signed ledger (council r2: ids were reused)
+            _BOARD_SEQ[0] = AB.ultimo_id_prealert()
         _BOARD_SEQ[0] += 1
         rid = _BOARD_SEQ[0]
         # audit Part 11 (ponte opzionale): CREATE firmato authorship; degrado
@@ -224,15 +226,19 @@ class H(BaseHTTPRequestHandler):
     timeout = 30            # Slowloris: un body dichiarato ma mai inviato libera il thread dopo 30 s (socket.timeout)
     server_version = "omega-team/1.0"
 
-    def _read_body(self, n: int, deadline_s: float = 15.0):
-        """Reads n bytes in chunks under an ABSOLUTE deadline (council 15/09, Gemini: the per-read socket timeout
-        did not stop a body trickled at one byte per second for hours). None = not received in time."""
+    def _read_body(self, n: int, deadline_s: Optional[float] = None):
+        """Reads n bytes in chunks under a deadline proportional to the size (≥ 15 s, +1 s per 32 KiB: a 2 MiB ECG
+        on a 256 kbps ambulance uplink is legitimate — council r2) and bounded per read by the remaining time
+        (council 15/09, Gemini: the per-read socket timeout did not stop a body trickled for hours). None = late."""
         import time
+        deadline_s = deadline_s if deadline_s is not None else max(15.0, n / 32768.0)
         t0, buf = time.monotonic(), bytearray()
         while len(buf) < n:
-            if time.monotonic() - t0 > deadline_s:
+            remaining = deadline_s - (time.monotonic() - t0)
+            if remaining <= 0:
                 return None
             try:
+                self.connection.settimeout(min(remaining, 30.0))
                 chunk = self.rfile.read(min(65536, n - len(buf)))
             except (socket.timeout, OSError):
                 return None
@@ -406,13 +412,17 @@ class H(BaseHTTPRequestHandler):
             operatore = q.get("operatore", ["team-ps"])[0][:60] or "team-ps"
             if nota:
                 # ricontrollo di scadenza e tetto SOTTO il lock, firma DOPO il ricontrollo (council 15/09: la conferma
-                # era l'unica lista senza tetto, sopravviveva alla scadenza ed era firmata prima del ricontrollo)
+                # era l'unica lista senza tetto, sopravviveva alla scadenza ed era firmata prima del ricontrollo);
+                # una nota scartata è un ERRORE esplicito, mai un redirect muto (council r2)
                 with _LOCK:
                     _scadenza_bacheca()
                     r = next((x for x in BOARD if x["id"] == rid), None)
-                    if r and r.get("prealert") is not None and len(r.setdefault("conferme", [])) < CAP["conferme"]:
-                        audit = AB.registra_conferma(f"prealert-{rid}", nota, operatore)
-                        r["conferme"].append({"nota": nota, "operatore": operatore, "audit": audit})
+                    if not r or r.get("prealert") is None:
+                        return self._send(410, "pre-alert inesistente o scaduto: nota NON registrata")
+                    if len(r.setdefault("conferme", [])) >= CAP["conferme"]:
+                        return self._send(429, f"tetto conferme raggiunto ({CAP['conferme']}): nota NON registrata")
+                    audit = AB.registra_conferma(f"prealert-{rid}", nota, operatore)
+                    r["conferme"].append({"nota": nota, "operatore": operatore, "audit": audit})
             return self._send(303, "", extra={"Location": "/"})
         if not self._authed():
             return self._json(401, {"ok": False, "error": "X-Omega-Token mancante o errato"})
@@ -543,13 +553,16 @@ class H(BaseHTTPRequestHandler):
             problemi = CO.valida_stato_ps(stato, op, dest)
             if problemi:
                 return self._json(400, {"ok": False, "error": "stato rifiutato", "problemi": problemi})
+            dest = dest.strip() if isinstance(dest, str) else dest
+            if not dest:
+                dest = None                     # blanks are not a destination (council r2)
             imp, sale = (CO.impegno(dest) if dest else (None, None))
             det = {"stato": stato, "destinazione_alternativa": imp}
             with _LOCK:      # audit e stato sotto lo stesso lock: l'ordine nel ledger = l'ordine in memoria
                 audit = AB.registra_evento_clinico("ps", "stato_ps", det, op)
                 STATO_PS.update({"stato": stato, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                                  "operatore_ps": op, "destinazione_alternativa": dest, "sale": sale})
-            return self._json(200, {"ok": True, "stato_ps": dict(STATO_PS), "audit": audit})
+            return self._json(200, {"ok": True, "stato_ps": {k: v for k, v in STATO_PS.items() if k != "sale"}, "audit": audit})
         if self.path in ("/posizione", "/messaggio", "/esito"):
             try:
                 rid = int(body.get("id"))

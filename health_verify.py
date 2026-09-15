@@ -36,6 +36,7 @@ from typing import Any, Dict, List, Optional, Tuple
 GENESIS64 = "0" * 64
 AUDIT_KEYS = ("kind", "target", "azione", "dettaglio", "operatore", "ts", "prev_sha256", "alg")
 AUDIT_UNSIGNED = ("record_sha256", "firma_ed25519_b64", "pubkey_b64")
+AUDIT_MANDATORY = ("kind", "target", "azione", "dettaglio", "operatore", "ts", "record_sha256", "firma_ed25519_b64", "pubkey_b64")
 
 
 class RawNumber(float):
@@ -44,8 +45,10 @@ class RawNumber(float):
         o = float.__new__(cls, float(text)); o.text = text; return o
 
 
-def _parse_number(text: str):
-    return int(text) if re.fullmatch(r"-?\d+", text) else RawNumber(text)
+class RawInt(int):
+    """An integer that remembers its exact text (`-0`, `007` never occur in files we wrote, but the lexeme rules)."""
+    def __new__(cls, text: str):
+        o = int.__new__(cls, int(text)); o.text = text; return o
 
 
 def _no_dup(pairs):
@@ -61,7 +64,7 @@ def loads(text: str):
     """Strict: duplicate keys refused, NaN/Infinity refused, numbers keep their text."""
     def bad(name):
         raise ValueError(f"non-JSON constant {name}")
-    return json.loads(text, object_pairs_hook=_no_dup, parse_float=RawNumber, parse_int=int, parse_constant=bad)
+    return json.loads(text, object_pairs_hook=_no_dup, parse_float=RawNumber, parse_int=RawInt, parse_constant=bad)
 
 
 def _canon_value(v: Any, ascii_only: bool) -> str:
@@ -71,7 +74,7 @@ def _canon_value(v: Any, ascii_only: bool) -> str:
         return "true"
     if v is False:
         return "false"
-    if isinstance(v, RawNumber):
+    if isinstance(v, (RawNumber, RawInt)):
         return v.text
     if isinstance(v, int):
         return str(v)
@@ -165,6 +168,9 @@ def verify_audit(path: str, registry: Dict[str, str], registry_source: str) -> T
         extra = set(e) - set(AUDIT_KEYS) - set(AUDIT_UNSIGNED)
         if extra:
             failures.append(f"line {n}: unexpected keys {sorted(extra)}")
+        missing_keys = [k for k in AUDIT_MANDATORY if k not in e]
+        if missing_keys:   # an amputated record re-signed by an attacker's key is not "a record with fewer fields"
+            failures.append(f"line {n}: mandatory keys missing {missing_keys}")
         if e.get("alg", "ed25519") != "ed25519":
             failures.append(f"line {n}: unsupported alg {e.get('alg')!r}")
         rec = {k: e[k] for k in AUDIT_KEYS if k in e}
@@ -188,7 +194,8 @@ def verify_audit(path: str, registry: Dict[str, str], registry_source: str) -> T
                 failures.append(f"line {n}: signature invalid for the REGISTERED key of {e.get('operatore')}")
         else:
             n_sig_untrusted += 1
-        records[str(e.get("record_sha256"))] = {"ok": ok_digest and bool(sig_ok), "operatore": e.get("operatore"), "registered": bool(pub)}
+        records[str(e.get("record_sha256"))] = {"ok": ok_digest and bool(sig_ok), "digest_ok": ok_digest, "sig_ok": sig_ok,
+                                                 "operatore": e.get("operatore"), "registered": bool(pub) and sig_ok is not None}
     if not lines:
         failures.append("empty ledger")
     if failures:
@@ -243,18 +250,23 @@ def verify_verbale(path: str, audit_records: Optional[Dict[str, Dict]], registry
         layers.append(_layer("verbale-events", "SKIP", f"{len(events)} events listed; give --audit to check them against the signed ledger"))
     else:
         missing = [e.get("record_sha256") for e in events if isinstance(e, dict) and e.get("record_sha256") not in audit_records]
-        bad = [e.get("record_sha256") for e in events if isinstance(e, dict) and e.get("record_sha256") in audit_records and not audit_records[e["record_sha256"]]["ok"]]
+        present = [audit_records[e["record_sha256"]] for e in events if isinstance(e, dict) and e.get("record_sha256") in audit_records]
+        # FAIL only on VERIFIED falsity (digest wrong, or a registered key that does not sign); an unverifiable
+        # signature (no registry / no library) is NOT-TRUSTED, never FAIL (council r2: a false alarm is not a verification)
+        bad = [r for r in present if not r["digest_ok"] or (r["registered"] and r["sig_ok"] is False)]
+        unverified = [r for r in present if r["digest_ok"] and not r["registered"]]
         claimed = v.get("firme_tutte_verificate") is True
         if missing:
             layers.append(_layer("verbale-events", "FAIL", f"{len(missing)} event(s) of the verbale are NOT in the audit ledger"))
         elif bad:
             layers.append(_layer("verbale-events", "FAIL", f"{len(bad)} event(s) do not verify in the ledger against the registered keys"))
-        elif claimed and not registry_present:
-            layers.append(_layer("verbale-events", "FAIL", "the verbale claims firme_tutte_verificate but no registry was given to re-verify them (a claim is not a verification)"))
         elif not events:
             layers.append(_layer("verbale-events", "FAIL", "no events"))
+        elif unverified:
+            layers.append(_layer("verbale-events", "SKIP", f"{len(events)} events present in the ledger, {len(unverified)} with signatures NOT verified (no registered key)"
+                                 + ("; the verbale CLAIMS firme_tutte_verificate: that claim is not verified here" if claimed else "")))
         else:
-            layers.append(_layer("verbale-events", "PASS", f"{len(events)} events present in the ledger and verified there" if registry_present else f"{len(events)} events present in the ledger (signatures not trusted: no registry)"))
+            layers.append(_layer("verbale-events", "PASS", f"{len(events)} events present in the ledger and verified there"))
     return layers
 
 

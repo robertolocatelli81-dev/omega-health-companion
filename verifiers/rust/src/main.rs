@@ -11,6 +11,7 @@ use std::path::Path;
 const GENESIS64: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 const AUDIT_KEYS: [&str; 8] = ["kind", "target", "azione", "dettaglio", "operatore", "ts", "prev_sha256", "alg"];
 const AUDIT_UNSIGNED: [&str; 3] = ["record_sha256", "firma_ed25519_b64", "pubkey_b64"];
+const AUDIT_MANDATORY: [&str; 9] = ["kind", "target", "azione", "dettaglio", "operatore", "ts", "record_sha256", "firma_ed25519_b64", "pubkey_b64"];
 
 #[derive(Clone, Debug)]
 enum J { Null, Bool(bool), Num(String), Str(String), Arr(Vec<J>), Obj(BTreeMap<String, J>) }
@@ -123,7 +124,7 @@ fn load_registry(dir: Option<&str>) -> BTreeMap<String, String> {
     reg
 }
 fn join3(f: &[String]) -> String { f.iter().take(3).cloned().collect::<Vec<_>>().join("; ") }
-struct Rec { ok: bool }
+struct Rec { ok: bool, digest_ok: bool, registered: bool, sig_ok: bool }
 
 fn verify_audit(path: &str, registry: &BTreeMap<String, String>, source: &str) -> (Layer, BTreeMap<String, Rec>) {
     let mut records = BTreeMap::new();
@@ -141,16 +142,18 @@ fn verify_audit(path: &str, registry: &BTreeMap<String, String>, source: &str) -
         let extra: Vec<&String> = e.keys().filter(|k| !AUDIT_KEYS.contains(&k.as_str()) && !AUDIT_UNSIGNED.contains(&k.as_str())).collect();
         if !extra.is_empty() { failures.push(format!("line {n}: unexpected keys {extra:?}")); }
         if let Some(a) = gs(e, "alg") { if a != "ed25519" { failures.push(format!("line {n}: unsupported alg {a:?}")); } }
+        let missing_keys: Vec<&str> = AUDIT_MANDATORY.iter().copied().filter(|k| !e.contains_key(*k)).collect();
+        if !missing_keys.is_empty() { failures.push(format!("line {n}: mandatory keys missing {missing_keys:?}")); }
         let mut r = BTreeMap::new(); for k in AUDIT_KEYS { if let Some(v) = e.get(k) { r.insert(k.to_string(), v.clone()); } }
         let digest_hex = sha_hex(&canon_bytes(&J::Obj(r), true)); let ok_digest = digest_hex == rs;
         if !ok_digest { failures.push(format!("line {n}: record_sha256 does not match the canonical record")); }
         let op = gs(e, "operatore").unwrap_or(""); let mut sl = slug(op); if sl.is_empty() { sl = "anonimo".into(); }
-        let mut s_ok = false;
+        let mut s_ok = false; let mut registered = false;
         match registry.get(&sl) {
-            Some(pubk) if !pubk.is_empty() => { s_ok = ed_ok(pubk, gs(e, "firma_ed25519_b64").unwrap_or(""), &unhex(&digest_hex).unwrap_or_default()); if s_ok { sig_ok += 1; } else { failures.push(format!("line {n}: signature invalid for the REGISTERED key of {op}")); } }
+            Some(pubk) if !pubk.is_empty() => { registered = true; s_ok = ed_ok(pubk, gs(e, "firma_ed25519_b64").unwrap_or(""), &unhex(&digest_hex).unwrap_or_default()); if s_ok { sig_ok += 1; } else { failures.push(format!("line {n}: signature invalid for the REGISTERED key of {op}")); } }
             _ => { untrusted += 1; }
         }
-        records.insert(rs, Rec { ok: ok_digest && s_ok });
+        records.insert(rs, Rec { ok: ok_digest && s_ok, digest_ok: ok_digest, registered, sig_ok: s_ok });
     }
     if lines.is_empty() { failures.push("empty ledger".into()); }
     if !failures.is_empty() { return (layer("audit-ledger", "FAIL", join3(&failures)), records); }
@@ -184,15 +187,19 @@ fn verify_verbale(path: &str, audit: Option<&BTreeMap<String, Rec>>, registry_pr
     match audit {
         None => layers.push(layer("verbale-events", "SKIP", format!("{} events listed; give --audit to check them against the signed ledger", events.len()))),
         Some(recs) => {
-            let (mut missing, mut bad) = (0, 0);
-            for e in &events { if let J::Obj(eo) = e { match recs.get(gs(eo, "record_sha256").unwrap_or("")) { None => missing += 1, Some(r) if !r.ok => bad += 1, _ => {} } } }
+            let (mut missing, mut bad, mut unverified) = (0, 0, 0);
+            for e in &events { if let J::Obj(eo) = e { match recs.get(gs(eo, "record_sha256").unwrap_or("")) {
+                None => missing += 1,
+                Some(r) if !r.digest_ok || (r.registered && !r.sig_ok) => bad += 1,
+                Some(r) if !r.registered => unverified += 1,
+                _ => {} } } }
             let claimed = matches!(v.get("firme_tutte_verificate"), Some(J::Bool(true)));
+            let _ = registry_present;
             if missing > 0 { layers.push(layer("verbale-events", "FAIL", format!("{missing} event(s) of the verbale are NOT in the audit ledger"))); }
             else if bad > 0 { layers.push(layer("verbale-events", "FAIL", format!("{bad} event(s) do not verify in the ledger against the registered keys"))); }
-            else if claimed && !registry_present { layers.push(layer("verbale-events", "FAIL", "the verbale claims firme_tutte_verificate but no registry was given to re-verify them (a claim is not a verification)".into())); }
             else if events.is_empty() { layers.push(layer("verbale-events", "FAIL", "no events".into())); }
-            else if registry_present { layers.push(layer("verbale-events", "PASS", format!("{} events present in the ledger and verified there", events.len()))); }
-            else { layers.push(layer("verbale-events", "PASS", format!("{} events present in the ledger (signatures not trusted: no registry)", events.len()))); }
+            else if unverified > 0 { layers.push(layer("verbale-events", "SKIP", format!("{} events present in the ledger, {unverified} with signatures NOT verified (no registered key){}", events.len(), if claimed { "; the verbale CLAIMS firme_tutte_verificate: that claim is not verified here" } else { "" }))); }
+            else { layers.push(layer("verbale-events", "PASS", format!("{} events present in the ledger and verified there", events.len()))); }
         }
     }
     layers

@@ -13,6 +13,7 @@ import { basename, join } from "node:path";
 const GENESIS64 = "0".repeat(64), SPKI = Buffer.from("302a300506032b6570032100", "hex");
 const AUDIT_KEYS = ["kind", "target", "azione", "dettaglio", "operatore", "ts", "prev_sha256", "alg"];
 const AUDIT_UNSIGNED = ["record_sha256", "firma_ed25519_b64", "pubkey_b64"];
+const AUDIT_MANDATORY = ["kind", "target", "azione", "dettaglio", "operatore", "ts", "record_sha256", "firma_ed25519_b64", "pubkey_b64"];
 class Num { constructor(t) { this.text = t; } }
 
 // ---- strict JSON parser keeping number text ----
@@ -81,12 +82,14 @@ function verifyAudit(path, registry, source) {
     const extra = Object.keys(e).filter((k) => !AUDIT_KEYS.includes(k) && !AUDIT_UNSIGNED.includes(k));
     if (extra.length) failures.push(`line ${n}: unexpected keys ${JSON.stringify(extra.sort())}`);
     if ((e.alg ?? "ed25519") !== "ed25519") failures.push(`line ${n}: unsupported alg ${JSON.stringify(e.alg)}`);
+    const missingKeys = AUDIT_MANDATORY.filter((k) => !(k in e));
+    if (missingKeys.length) failures.push(`line ${n}: mandatory keys missing ${JSON.stringify(missingKeys)}`);
     const rec = {}; for (const k of AUDIT_KEYS) if (k in e) rec[k] = e[k];
     let digest; try { digest = sha256(Buffer.from(canon(rec, true), "utf-8")); } catch (ex) { failures.push(`line ${n}: not canonicalisable`); continue; }
     const okDigest = digest.toString("hex") === e.record_sha256; if (!okDigest) failures.push(`line ${n}: record_sha256 does not match the canonical record`);
     const pub = registry[slug(e.operatore ?? "") || "anonimo"]; let s = null;
     if (pub) { s = edOk(pub, String(e.firma_ed25519_b64 ?? ""), digest); if (s) sigOk++; else failures.push(`line ${n}: signature invalid for the REGISTERED key of ${e.operatore}`); } else untrusted++;
-    records[String(e.record_sha256)] = { ok: okDigest && Boolean(s), registered: Boolean(pub) };
+    records[String(e.record_sha256)] = { ok: okDigest && Boolean(s), digestOk: okDigest, sigOk: s, registered: Boolean(pub) };
   }
   if (!lines.length) failures.push("empty ledger");
   if (failures.length) return [L("audit-ledger", "FAIL", failures.slice(0, 3).join("; ")), records];
@@ -120,13 +123,15 @@ function verifyVerbale(path, auditRecords, registryPresent) {
   else {
     const isObj = (e) => e !== null && typeof e === "object" && !Array.isArray(e);
     const missing = events.filter((e) => isObj(e) && !(e.record_sha256 in auditRecords)).length;
-    const bad = events.filter((e) => isObj(e) && e.record_sha256 in auditRecords && !auditRecords[e.record_sha256].ok).length;
+    const present = events.filter((e) => isObj(e) && e.record_sha256 in auditRecords).map((e) => auditRecords[e.record_sha256]);
+    const bad = present.filter((r) => !r.digestOk || (r.registered && r.sigOk === false)).length;
+    const unverified = present.filter((r) => r.digestOk && !r.registered).length;
     const claimed = v.firme_tutte_verificate === true;
     if (missing) layers.push(L("verbale-events", "FAIL", `${missing} event(s) of the verbale are NOT in the audit ledger`));
     else if (bad) layers.push(L("verbale-events", "FAIL", `${bad} event(s) do not verify in the ledger against the registered keys`));
-    else if (claimed && !registryPresent) layers.push(L("verbale-events", "FAIL", "the verbale claims firme_tutte_verificate but no registry was given to re-verify them (a claim is not a verification)"));
     else if (!events.length) layers.push(L("verbale-events", "FAIL", "no events"));
-    else layers.push(L("verbale-events", "PASS", registryPresent ? `${events.length} events present in the ledger and verified there` : `${events.length} events present in the ledger (signatures not trusted: no registry)`));
+    else if (unverified) layers.push(L("verbale-events", "SKIP", `${events.length} events present in the ledger, ${unverified} with signatures NOT verified (no registered key)` + (claimed ? "; the verbale CLAIMS firme_tutte_verificate: that claim is not verified here" : "")));
+    else layers.push(L("verbale-events", "PASS", `${events.length} events present in the ledger and verified there`));
   }
   return layers;
 }

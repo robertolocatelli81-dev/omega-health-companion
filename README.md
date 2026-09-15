@@ -110,8 +110,8 @@ closed-vocabulary or a digest: no free text and no health data on disk.
 | Pre-arrival notification with vitals, ETA | yes | yes (`/valuta`), plus the **national 2025 criteria** saying *why* |
 | Patient types → team | Pulsara: 12 patient types | `tipo_paziente` / `team_da_allertare`, derived, closed vocabulary |
 | ECG / photo / document sharing | yes | `POST /allegato/<id>` — bytes in memory (TTL), digest in the signed ledger, magic bytes checked |
-| GPS / ETA updates en route | yes | `POST /posizione` — exact position in memory, only ETA + a digest of the position in the ledger |
-| Two-way secure chat | yes | `POST /messaggio` — text in memory, digest signed |
+| GPS / ETA updates en route | yes | `POST /posizione` — exact position in memory, only ETA + a **salted commitment** (HMAC-SHA256, salt in memory) of the position in the ledger: a bare digest of coordinates was enumerable |
+| Two-way secure chat | yes | `POST /messaggio` — text in memory, salted commitment signed; provable only while the board record (and its salt) lives |
 | Outcome feedback ("close the loop") | Pulsara | `POST /esito` — closed vocabulary, signed |
 | QA/QI performance data | Pulsara, corpuls.web ANALYSE | `GET /metriche` — aggregates, no identifiers |
 | Mass-casualty / multi-patient | Pulsara | `POST /incidente`, `GET /incidente/<id>`, START tags per patient (`POST /triage`, signed, re-triage allowed) |

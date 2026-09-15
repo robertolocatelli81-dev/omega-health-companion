@@ -190,13 +190,14 @@ class FascicoloMissione:
             raise ValueError("missione_id e operatore obbligatori")
         if self._stato(missione_id) is not None:
             raise ValueError(f"missione {missione_id!r} gia' aperta")
+        impronta = _impronta_testo(motivo, "motivo")      # validated BEFORE the in-memory engine opens a case (council r2)
         if self._mgr is not None:
             case = self._mgr.open_case(customer_ref=None,
                                        title=f"missione {missione_id}",
                                        description=motivo, actor=operatore)
             self._case_ids[missione_id] = case.case_id
         r = self._append({"evento": "apertura", "missione": missione_id,
-                          "operatore": operatore, "motivo": _impronta_testo(motivo, "motivo")})
+                          "operatore": operatore, "motivo": impronta})
         return {"livello": self.livello(), "stato": "ALLERTA",
                 "self_hash": r["self_hash"]}
 
@@ -254,7 +255,7 @@ class FascicoloMissione:
                     if r.get("missione") == missione_id and r.get("evento") == "transizione":
                         self._mgr.transition(case.case_id, _StatoM(r["a"]),
                                              actor=r.get("operatore", "replay"),
-                                             reason=str((r.get("nota") or {}).get("sha256", "") if isinstance(r.get("nota"), dict) else r.get("nota", ""))[:200])
+                                             reason=str((r.get("nota") or {}).get("sha256", "") if isinstance(r.get("nota"), dict) else (r.get("nota") or ""))[:200])
             self._mgr.transition(self._case_ids[missione_id], _StatoM(a),
                                  actor=operatore, reason=nota[:200])
         def _ricontrolla(righe):

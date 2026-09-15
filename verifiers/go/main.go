@@ -28,6 +28,7 @@ const genesis64 = "0000000000000000000000000000000000000000000000000000000000000
 
 var auditKeys = []string{"kind", "target", "azione", "dettaglio", "operatore", "ts", "prev_sha256", "alg"}
 var auditUnsigned = map[string]bool{"record_sha256": true, "firma_ed25519_b64": true, "pubkey_b64": true}
+var auditMandatory = []string{"kind", "target", "azione", "dettaglio", "operatore", "ts", "record_sha256", "firma_ed25519_b64", "pubkey_b64"}
 
 type Object struct {
 	Keys []string
@@ -221,7 +222,7 @@ type result struct {
 	Layers   []layer `json:"layers"`
 }
 
-type rec struct{ Ok, Registered bool }
+type rec struct{ Ok, DigestOk, Registered, SigOk bool }
 
 func getS(o *Object, k string) (string, bool) { v, ok := o.Vals[k].(string); return v, ok }
 
@@ -342,6 +343,15 @@ func verifyAudit(path string, registry map[string]string, source string) (layer,
 		if alg, has := getS(e, "alg"); has && alg != "ed25519" {
 			failures = append(failures, fmt.Sprintf("line %d: unsupported alg %q", n, alg))
 		}
+		var missingKeys []string
+		for _, k := range auditMandatory {
+			if _, has := e.Vals[k]; !has {
+				missingKeys = append(missingKeys, k)
+			}
+		}
+		if len(missingKeys) > 0 {
+			failures = append(failures, fmt.Sprintf("line %d: mandatory keys missing %v", n, missingKeys))
+		}
 		r := &Object{Vals: map[string]any{}}
 		for _, k := range auditKeys {
 			if v, has := e.Vals[k]; has {
@@ -378,7 +388,7 @@ func verifyAudit(path string, registry map[string]string, source string) (layer,
 			registered = false
 			untrusted++
 		}
-		records[rs] = rec{Ok: okDigest && sOk, Registered: registered}
+		records[rs] = rec{Ok: okDigest && sOk, DigestOk: okDigest, Registered: registered, SigOk: sOk}
 	}
 	if len(lines) == 0 {
 		failures = append(failures, "empty ledger")
@@ -440,7 +450,7 @@ func verifyChain(path string) layer {
 	return layer{"chain-ledger", "PASS", fmt.Sprintf("%s: %d entries, chain from genesis, every self_hash recomputed", name, len(lines))}
 }
 
-func verifyVerbale(path string, audit map[string]rec, haveAudit, registryPresent bool) []layer {
+func verifyVerbale(path string, audit map[string]rec, haveAudit, _registryPresent bool) []layer {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return []layer{{"verbale-json", "FAIL", err.Error()}}
@@ -478,7 +488,7 @@ func verifyVerbale(path string, audit map[string]rec, haveAudit, registryPresent
 		layers = append(layers, layer{"verbale-events", "SKIP", fmt.Sprintf("%d events listed; give --audit to check them against the signed ledger", len(events))})
 		return layers
 	}
-	missing, bad := 0, 0
+	missing, bad, unverified := 0, 0, 0
 	for _, ev := range events {
 		eo, ok := ev.(*Object)
 		if !ok {
@@ -488,8 +498,10 @@ func verifyVerbale(path string, audit map[string]rec, haveAudit, registryPresent
 		r, found := audit[rs]
 		if !found {
 			missing++
-		} else if !r.Ok {
+		} else if !r.DigestOk || (r.Registered && !r.SigOk) {
 			bad++
+		} else if !r.Registered {
+			unverified++
 		}
 	}
 	claimed, _ := v.Vals["firme_tutte_verificate"].(bool)
@@ -498,14 +510,16 @@ func verifyVerbale(path string, audit map[string]rec, haveAudit, registryPresent
 		layers = append(layers, layer{"verbale-events", "FAIL", fmt.Sprintf("%d event(s) of the verbale are NOT in the audit ledger", missing)})
 	case bad > 0:
 		layers = append(layers, layer{"verbale-events", "FAIL", fmt.Sprintf("%d event(s) do not verify in the ledger against the registered keys", bad)})
-	case claimed && !registryPresent:
-		layers = append(layers, layer{"verbale-events", "FAIL", "the verbale claims firme_tutte_verificate but no registry was given to re-verify them (a claim is not a verification)"})
 	case len(events) == 0:
 		layers = append(layers, layer{"verbale-events", "FAIL", "no events"})
-	case registryPresent:
-		layers = append(layers, layer{"verbale-events", "PASS", fmt.Sprintf("%d events present in the ledger and verified there", len(events))})
+	case unverified > 0:
+		note := ""
+		if claimed {
+			note = "; the verbale CLAIMS firme_tutte_verificate: that claim is not verified here"
+		}
+		layers = append(layers, layer{"verbale-events", "SKIP", fmt.Sprintf("%d events present in the ledger, %d with signatures NOT verified (no registered key)%s", len(events), unverified, note)})
 	default:
-		layers = append(layers, layer{"verbale-events", "PASS", fmt.Sprintf("%d events present in the ledger (signatures not trusted: no registry)", len(events))})
+		layers = append(layers, layer{"verbale-events", "PASS", fmt.Sprintf("%d events present in the ledger and verified there", len(events))})
 	}
 	return layers
 }

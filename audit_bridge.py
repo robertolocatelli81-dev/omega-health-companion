@@ -113,6 +113,33 @@ def fb_pubkey_registrata(operatore: str) -> Optional[str]:
         return f.read().strip()
 
 
+def ultimo_id_prealert() -> int:
+    """Highest N of a `prealert-N` target in the signed ledger (0 if none): the board's id counter must
+    continue from here after a restart, or a new patient would reuse an old id in the signed history."""
+    if not os.path.exists(FALLBACK_LEDGER):
+        return 0
+    best = 0
+    with open(FALLBACK_LEDGER, encoding="utf-8") as f:
+        for line in f:
+            m = __import__("re").search(r'"target":\s*"prealert-(\d+)', line)
+            if m:
+                best = max(best, int(m.group(1)))
+    return best
+
+
+def enrol_legacy_keys() -> Dict[str, int]:
+    """EXPLICIT enrolment (never during verification): derive `fb-<slug>.pub` for every `fb-<slug>.key` that
+    has no registered public key (installations older than 13/09/2026)."""
+    n = 0
+    if os.path.isdir(KEYS_DIR) and FIRMA_LOCALE_DISPONIBILE:
+        for name in sorted(os.listdir(KEYS_DIR)):
+            if name.startswith("fb-") and name.endswith(".key") and not os.path.exists(os.path.join(KEYS_DIR, name[:-4] + ".pub")):
+                with open(os.path.join(KEYS_DIR, name)) as f:
+                    _fb_registra_pubkey(name[3:-4], _EdSk.from_private_bytes(base64.b64decode(f.read().strip())))
+                n += 1
+    return {"registrate": n}
+
+
 def _fb_ultimo_sha256() -> str:
     """Ultimo record_sha256 del ledger locale (o GENESIS): l'anello per la catena prev_sha256."""
     if not os.path.exists(FALLBACK_LEDGER):
@@ -414,5 +441,7 @@ def banco_controllo() -> Dict:
         _identita.update(orig_ids)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and "--enrol-legacy" in __import__("sys").argv:
+    print(json.dumps(enrol_legacy_keys()))
+elif __name__ == "__main__":
     print(json.dumps(banco_controllo(), ensure_ascii=False, indent=1))

@@ -45,14 +45,20 @@ class TestHealthVerify(unittest.TestCase):
 
     @unittest.skipUnless(HAVE_CRYPTO, "cryptography assente: le fixture firmate non si producono (livello base)")
     def test_every_oracle_case_has_the_expected_verdict(self):
-        expected_pass = {"intact_with_registry", "intact_registry_from_verbale"}
+        expected_pass = {"intact_with_registry", "intact_registry_from_verbale", "intact_rewritten_lines"}
+        not_trusted = {"intact_no_registry", "honest_verbale_no_registry", "verbale_claim_no_registry"}   # unverifiable ≠ false (council r2)
         for name, f, opts in D.cases(self.base):
             r = HV.run(f["audit"], f["chains"], f["verbale"], f["keys"] if opts.get("keys") else None, bool(opts.get("trust_vr")))
             self.assertEqual(r["ok"], name in expected_pass, (name, r["layers"]))
-            if name == "intact_no_registry":
-                self.assertEqual(r["verdict"], "FAIL")       # the verbale CLAIMS verified signatures: a claim is not a verification
-            if name in expected_pass:
+            if name in not_trusted:
+                self.assertEqual(r["verdict"], "NOT-TRUSTED", (name, r["layers"]))
+            elif name in expected_pass:
                 self.assertEqual(r["verdict"], "PASS")
+            else:
+                self.assertEqual(r["verdict"], "FAIL", (name, r["layers"]))
+
+    def test_integer_lexeme_kept(self):
+        self.assertEqual(HV.canonical(HV.loads('{"n": -0, "m": 7}'), True).decode(), '{"m":7,"n":-0}')
 
 
 if __name__ == "__main__":

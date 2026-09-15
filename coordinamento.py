@@ -109,9 +109,16 @@ def impegno(testo: str, sale_hex: Optional[str] = None) -> Tuple[Dict, str]:
     return {"hmac_sha256": mac, "lunghezza": len(testo), "impegno": "HMAC-SHA256(sale in RAM, utf8)"}, sale
 
 
+def _e6(x: float) -> int:
+    """Micro-degrees with an explicit rounding rule (half away from zero), the same in every language: Python's
+    round() is half-to-even, JS Math.round is half-up, Go/Rust are half-away — declared in FORMAT.md."""
+    import math
+    return int(math.copysign(math.floor(abs(x) * 1e6 + 0.5), x)) if x != 0 else 0
+
+
 def posizione_testo(lat, lon) -> str:
     """The committed text of a position: integer micro-degrees (no float formatting to replicate across languages)."""
-    return f"{int(round(lat * 1e6))},{int(round(lon * 1e6))}"
+    return f"{_e6(lat)},{_e6(lon)}"
 
 
 def evento_posizione(lat, lon, eta_arrivo_min, sale_hex: Optional[str] = None) -> Tuple[Dict, Optional[str]]:

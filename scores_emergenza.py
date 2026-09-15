@@ -96,8 +96,14 @@ def acr(assenza_respiro: bool, assenza_polso: bool,
     Prima questo caso usciva instradato al percorso SEPSI (misurato). ERRORE."""
     # council 15/09 (Fable): an ABSENT pulse is an arrest even if some breathing (gasping) is seen — the pulse check
     # is unreliable for a false PRESENT, not for a detected absence; unresponsive + no normal breathing = arrest
-    arresto = assenza_polso or (assenza_respiro and coscienza_assente)
+    # council r2 (Opus): "absent pulse" alone on a CONSCIOUS patient is a contradictory input, not an arrest —
+    # ERC: unresponsive + (no normal breathing or no pulse) = arrest; gasping with no pulse in an unresponsive
+    # patient stays an arrest (round 1); the contradictory case is DECLARED, never silently scored either way
+    # no breathing AND no pulse is an arrest whatever the consciousness flag says (a patient with neither cannot be
+    # conscious; the flag defaults to "not reported"); with only ONE of the two, unresponsiveness decides
+    arresto = (assenza_respiro and assenza_polso) or (coscienza_assente and (assenza_polso or assenza_respiro))
     arresto_respiratorio = assenza_respiro and not arresto
+    dati_contraddittori = assenza_polso and not assenza_respiro and not coscienza_assente
     if arresto:
         azione = ("ARRESTO (ERC: non-responsivo + respiro assente = RCP, il polso "
                   "non è affidabile): RCP, pre-alert ACR, defibrillatore/ALS, "
@@ -105,10 +111,14 @@ def acr(assenza_respiro: bool, assenza_polso: bool,
     elif arresto_respiratorio:
         azione = ("ARRESTO RESPIRATORIO (respiro assente, polso presente): vie aeree "
                   "+ ventilazione IMMEDIATE, pre-alert, pronto a RCP — peri-arresto")
+    elif dati_contraddittori:
+        azione = ("DATI CONTRADDITTORI: polso assente in paziente cosciente — ricontrollare polso e coscienza "
+                  "subito; se non risponde, trattare come arresto")
     else:
         azione = "nessun arresto"
     return {"score": "ACR", "arresto": arresto,
             "arresto_respiratorio": arresto_respiratorio,
+            "dati_contraddittori": dati_contraddittori,
             "azione": azione,
             "fonte": "ERC/ILCOR (linee guida rianimazione)"}
 
@@ -151,26 +161,32 @@ def ancora_prealert(prealert: Dict, ts: str, payload: str = "digest") -> Dict:
         os.makedirs(os.path.dirname(LEDGER) or ".", exist_ok=True)
         lock = open(LEDGER + ".lock", "w")
         fcntl.flock(lock, fcntl.LOCK_EX)    # council 15/09 (three minds): read-tail + append under ONE process lock
-        prev = GENESIS
-        if os.path.exists(LEDGER):
-            with open(LEDGER, encoding="utf-8") as f:
-                righe = [r for r in f if r.strip()]
-                if righe:
-                    prev = json.loads(righe[-1])["self_hash"]
-        if payload == "full":
-            corpo = {"prealert": prealert, "payload": "full"}
-        else:
-            corpo = {"prealert_sha256": _hash(prealert), "payload": "digest",
-                     "privacy": "solo digest: nessun dato sanitario nel ledger"}
-        rec = {"ts": ts, **corpo, "prev_hash": prev}
-        rec["self_hash"] = _hash(rec)
-        with open(LEDGER, "a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        fcntl.flock(lock, fcntl.LOCK_UN); lock.close()
-        return {"ancorato": True, "payload": corpo["payload"],
-                "self_hash": rec["self_hash"], "prev_hash": prev}
-    except Exception as e:
-        return {"ancorato": False, "error": f"{type(e).__name__}: {e}"}
+        try:
+            return _ancora_locked(prealert, ts, payload)
+        finally:                            # council r2 (five minds): the lock must be released on ANY exception
+            fcntl.flock(lock, fcntl.LOCK_UN); lock.close()
+    except Exception as e:                  # noqa: BLE001 — declared outcome, never an unhandled exception
+        return {"ancorato": False, "errore": f"{type(e).__name__}: {str(e)[:120]}"}
+
+
+def _ancora_locked(prealert: Dict, ts: str, payload: str) -> Dict:
+    prev = GENESIS
+    if os.path.exists(LEDGER):
+        with open(LEDGER, encoding="utf-8") as f:
+            righe = [r for r in f if r.strip()]
+            if righe:
+                prev = json.loads(righe[-1])["self_hash"]
+    if payload == "full":
+        corpo = {"prealert": prealert, "payload": "full"}
+    else:
+        corpo = {"prealert_sha256": _hash(prealert), "payload": "digest",
+                 "privacy": "solo digest: nessun dato sanitario nel ledger"}
+    rec = {"ts": ts, **corpo, "prev_hash": prev}
+    rec["self_hash"] = _hash(rec)
+    with open(LEDGER, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    return {"ancorato": True, "payload": corpo["payload"],
+            "self_hash": rec["self_hash"], "prev_hash": prev}
 
 
 # ── banco che SA FALLIRE ──────────────────────────────────────────────────────

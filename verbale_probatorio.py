@@ -293,7 +293,7 @@ def verbale(prealert_id: str) -> Dict:
     emissione = next((e for e in eventi if e.get("azione") in ("emissione", "create")), None)
     ricezioni = [e for e in eventi if e.get("azione") == "ricezione_pre_alert" or str(e.get("target", "")).endswith("/ricezione")]
     # MEASURED latency: crew-signed emission ts → ED-signed receipt ts (never the receiver's own declaration)
-    latenze = []
+    latenze, anomalie_temporali = [], []
     if emissione and emissione.get("ts"):
         try:
             t_em = datetime.fromisoformat(str(emissione["ts"]).replace("Z", "+00:00"))
@@ -302,6 +302,9 @@ def verbale(prealert_id: str) -> Dict:
                     d = (datetime.fromisoformat(str(e["ts"]).replace("Z", "+00:00")) - t_em).total_seconds()
                     if d >= 0:
                         latenze.append(int(round(d * 1000)))
+                    else:   # a signed receipt dated BEFORE the signed emission is an anomaly to show, not to drop (council r2)
+                        anomalie_temporali.append({"riga": e.get("riga"), "ricezione_ts": e.get("ts"), "emissione_ts": emissione["ts"],
+                                                   "delta_s": round(d, 3), "nota": "ricezione firmata anteriore all'emissione firmata: orologi da verificare"})
         except (ValueError, TypeError):
             latenze = []
     dichiarate = [e["dettaglio"].get("latenza_dichiarata_ms", e["dettaglio"].get("latenza_s")) for e in ricezioni
@@ -314,6 +317,7 @@ def verbale(prealert_id: str) -> Dict:
              "emissione_ts": emissione.get("ts") if emissione else None,
              "ricezioni": len(ricezioni), "latenza_emissione_ricezione_ms": (min(latenze) if latenze else None),
              "latenza_misurata_da": "ts firmato dell'emissione (equipaggio) → ts firmato della ricezione (PS)",
+             "anomalie_temporali": anomalie_temporali,
              "latenze_dichiarate_dal_ricevente": [x for x in dichiarate if x is not None],
              "risposte_alternative": sum(1 for e in ricezioni if isinstance(e.get("dettaglio"), dict)
                                          and e["dettaglio"].get("risposta_alternativa")),
