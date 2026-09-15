@@ -112,9 +112,14 @@ def load_registry(keys_dir: Optional[str]) -> Dict[str, str]:
     return reg
 
 
-def _ed_verify(pub_b64: str, sig_b64: str, msg: bytes) -> bool:
+def _ed_verify(pub_b64: str, sig_b64: str, msg: bytes) -> Optional[bool]:
+    """True / False, or None when no Ed25519 implementation is available (then the signature is NOT verified —
+    never reported as invalid, never as valid)."""
     try:
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    except ImportError:
+        return None
+    try:
         Ed25519PublicKey.from_public_bytes(base64.b64decode(pub_b64)).verify(base64.b64decode(sig_b64), msg)
         return True
     except Exception:  # noqa: BLE001 — any failure is one verdict
@@ -143,6 +148,7 @@ def verify_audit(path: str, registry: Dict[str, str], registry_source: str) -> T
         return _layer("audit-ledger", "FAIL", f"unreadable: {type(e).__name__}: {str(e)[:100]}"), records
     prev, n_sig_ok, n_sig_untrusted, failures = "GENESIS", 0, 0, []
     started = False
+    registry_source_note = [source]
     for n, e in lines:
         if not isinstance(e, dict) or e.get("kind") != "audit_locale":
             failures.append(f"line {n}: not an audit_locale object"); break
@@ -173,7 +179,10 @@ def verify_audit(path: str, registry: Dict[str, str], registry_source: str) -> T
         sig_ok = None
         if pub:
             sig_ok = _ed_verify(pub, str(e.get("firma_ed25519_b64", "")), digest)
-            if sig_ok:
+            if sig_ok is None:
+                n_sig_untrusted += 1
+                registry_source_note[0] = "cryptography not installed: signatures NOT verified"
+            elif sig_ok:
                 n_sig_ok += 1
             else:
                 failures.append(f"line {n}: signature invalid for the REGISTERED key of {e.get('operatore')}")
@@ -185,7 +194,7 @@ def verify_audit(path: str, registry: Dict[str, str], registry_source: str) -> T
     if failures:
         return _layer("audit-ledger", "FAIL", "; ".join(failures[:3])), records
     if n_sig_untrusted and not n_sig_ok:
-        return _layer("audit-ledger", "SKIP", f"{len(lines)} records, digests and chain PASS, signatures present but NOT trusted (no registered key; registry: {registry_source})"), records
+        return _layer("audit-ledger", "SKIP", f"{len(lines)} records, digests and chain PASS, signatures present but NOT trusted ({registry_source_note[0]})"), records
     return _layer("audit-ledger", "PASS", f"{len(lines)} records, chain from GENESIS, {n_sig_ok} signatures verified against registered keys ({registry_source}), {n_sig_untrusted} operators without registered key"), records
 
 

@@ -130,6 +130,8 @@ def run_cli(cmd, f, opts):
 
 
 def main():
+    if not AB.FIRMA_LOCALE_DISPONIBILE:
+        print("cryptography is required to build signed fixtures (pip install cryptography)"); return 2
     require = set((sys.argv[sys.argv.index("--require") + 1] if "--require" in sys.argv else "").split(",")) - {""}
     vs = {}
     if shutil.which("node"):

@@ -13,6 +13,13 @@ import health_verify as HV
 import differential as D
 
 
+try:
+    import cryptography  # noqa: F401
+    HAVE_CRYPTO = True
+except ImportError:
+    HAVE_CRYPTO = False
+
+
 class TestHealthVerify(unittest.TestCase):
     def setUp(self):
         self.saved = (AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR, S.LEDGER)
@@ -36,6 +43,7 @@ class TestHealthVerify(unittest.TestCase):
             HV.loads('{"a": NaN}')
         self.assertEqual(HV.loads('{"x": 39.0}')["x"].text, "39.0")
 
+    @unittest.skipUnless(HAVE_CRYPTO, "cryptography assente: le fixture firmate non si producono (livello base)")
     def test_every_oracle_case_has_the_expected_verdict(self):
         expected_pass = {"intact_with_registry", "intact_registry_from_verbale"}
         for name, f, opts in D.cases(self.base):
