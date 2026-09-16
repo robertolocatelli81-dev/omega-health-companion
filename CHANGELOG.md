@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.6.0 — 2026-09-16 — CH EMS document (Switzerland)
+
+- `fhir_chems.py`: the pre-alert as a **CH EMS document** (`ch.fhir.ig.ch-ems` 2.0.0-ballot): `document` Bundle,
+  CHEmsComposition `preliminary`, mission section with CHEmsEncounter (mission number, IVR mission-time
+  observations, urgency), findings (heart rate, blood pressure, AVPU), handover (START colour as SNOMED patient
+  status priority, destination organisation), annotation section with the NEWS2 RiskAssessment, flags and the
+  OMEGA Provenance; the multi-patient event id as an additional Encounter identifier (CH EMS issue #56).
+- `chems_validate.py` + CI job: conformance measured with the official HL7 validator 6.10.4 (0 errors, 8 explained
+  warnings) with a positive control (a document without Composition must fail). `test_fhir_chems.py` (8 tests,
+  null controls: no GLN, wrong check digit, unknown mission time, bad instant, bad colour → refused).
+- Nothing invented: no NACA/GCS/diagnosis; organisations need a real GLN (format checked only); anonymous patient.
+- Council of five (16/09/2026) on the module, findings fixed: the ledger anchor is a Provenance *entity*, never a
+  `Signature` (a digest had been labelled "Author's Signature"); `Composition.attester` + `Provenance.signature`
+  only with a real record-bound signature (fields validated strictly); the alarm time is required (`period.start`
+  was defaulted to the export time); mission type is an input, not "primary" by default; `period.end` from the
+  handover time; RR/SpO2/temperature are findings entries, not annotation entries; narrative texts follow
+  `Composition.language`; the document identifier includes the status; the event id is shape-guarded.
+  Second measured document: the earliest minimal pre-alert (found 2 real errors in the language-dependent LOINC
+  display; fixed). Refuted by the synthesis on the IG package: findings/handover are 0..1, sub-section titles are
+  fixedString English.
+- `chems_ingest.py` + `test_chems_ingest.py`: reader, scoring and evidence anchoring for CH EMS documents from
+  any producer (strict document rules, UCUM checked, honest scoring, signed audit record verified offline).
+- Real data: the four documents published by the IG (Einsatzprotokoll 1/1b/2/2b) are read end to end; they use RESTful
+  `fullUrl`s with relative references — the first reader refused them, so FHIR bundle resolution was implemented (a
+  relative reference from a `urn:` fullUrl stays unresolvable, per spec). A protocol without NEWS2 vitals is reported
+  as not scorable with the missing inputs named.
+- Council round 2 on the reader (five minds), fixed: a Quantity without UCUM `system` or with a comparator is refused
+  (it used to pass); observations are bound to the Composition's subject (others ignored and reported); duplicates are
+  ordered by aware instant, not by string, and reported; the GCS unit check was tautological (any unit passed) — now
+  `{score}`/`1` or `valueInteger`; consciousness is never assumed (no AVPU/GCS → not scorable) and the NEWS2 without an
+  oxygen observation is flagged as a lower bound; partial birthDates handled and declared; the CLI reads the file once
+  (no time-of-check gap between scoring, validation and anchor). Exporter: the verifying public key travels in
+  Provenance, a signature without an anchored entry is refused, `period.end` must not precede the alarm.
+- Council round 3: a newer but malformed observation now empties the slot instead of leaving the stale value; a date-only
+  `effectiveDateTime` is not an ordering instant; every blocking reason for non-scorability is reported (none
+  overwritten); a Composition subject that is not a Patient attributes nothing; the OMEGA record signature is carried
+  as Provenance entities, not as a FHIR `Signature` (which would claim to cover the document's bytes).
+- Council round 4: two same-code observations that cannot be ordered against each other yield NO value (Bundle order
+  would be arbitrary) and say so; `effectiveInstant` is read; duplicate messages name what was kept and what was dropped.
+- Council round 5: duplicate resolution rewritten as a two-pass selection on the whole set — the single most recent dated
+  observation wins, a tie on the instant or undated-only duplicates give no value — proven order-independent over every
+  permutation of the Bundle (test), which the incremental rule was not (two undated + one dated depended on the order).
+- Council round 6: order independence confirmed by all five; residues measured and closed — a coding not in the value set
+  placed before the valid one no longer loses the priority colour / AVPU / NACA; observation status `corrected` (R4)
+  is read; the problem list is sorted and deduplicated so it is identical under any Bundle order.
+- Council round 7: no positional fallback left — with no `Composition.encounter` the Encounter is used only if unique;
+  a panel with two systolic components gives no value; a non-boolean cardiac-arrest value and a mission time without
+  `valueDateTime` are reported instead of silently dropped.
+- Council round 8: mission attribution is non-positional too — `Composition.encounter` must resolve to an Encounter (no
+  fallback), conflicting MN or EVENT identifiers on the Encounter give no number and say so.
+- Council round 9: the Encounter must belong to the Composition's subject (like every Observation); MN/EVENT identifiers
+  without `value` are ignored and reported; EVENT conflicts are detected by (system, value) like MN.
+
 ## 0.5.0 — 2026-09-15 — verifiable by third parties, reviewed by five models
 
 Council of five models (Claude Fable 5.1, Opus 4.8, Sonnet 5, Haiku 4.5, Gemini 3.1 Pro) on the v0.4.1 code in

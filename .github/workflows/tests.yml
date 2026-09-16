@@ -58,3 +58,35 @@ jobs:
           OMEGA_PACKAGE_DIR: /nonexistent
           HEALTH_VERIFY_GO: /tmp/health-verify-go
         run: python3 verifiers/differential.py --require js,go,rust
+  chems-conformance:
+    # CH EMS (Switzerland, ch.fhir.ig.ch-ems 2.0.0-ballot): the pre-alert document is validated with the OFFICIAL
+    # HL7 validator against CHEmsDocument. Errors fail the job; a deliberately broken document must fail too
+    # (the measurement has to be able to fail before its green means anything).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/setup-java@v4
+        with: {distribution: "temurin", java-version: "17"}
+      - name: Cache the FHIR validator and IG packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.fhir
+          key: fhir-validator-6.10.4-ch-ems-2.0.0-ballot
+      - name: "Structural tests of the CH EMS exporter and reader (null controls included)"
+        run: |
+          pip install cryptography
+          python3 test_fhir_chems.py
+          python3 test_chems_ingest.py
+      - name: "Official validator - the full and the minimal pre-alert documents must have 0 errors"
+        run: python3 chems_validate.py --strict
+      - name: "Official validator - a document without Composition must FAIL (positive control)"
+        run: |
+          python3 - <<'EOF'
+          import json
+          from chems_validate import build_sample
+          b = build_sample(); b["entry"] = b["entry"][1:]
+          json.dump(b, open("broken.json", "w"))
+          EOF
+          if python3 chems_validate.py --strict --doc broken.json; then echo "validator accepted a broken document"; exit 1; fi

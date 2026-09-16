@@ -57,6 +57,7 @@ optional for the signature bridge) · **Author:** Roberto Locatelli, 2026
 | `interazioni_farmaci.py` | Known severe drug interactions (multi-class aware, e.g. tramadol as opioid *and* serotonergic) |
 | `ambulanza_intelligente.py` | The integrated pre-alert: priority elevation on any time-critical pathway, route-level warnings (⛔ no nitrates with PDE5 inhibitors; ⚠️ anticoagulated trauma → trauma centre), paediatric gate |
 | `team_comms.py` | Real self-hosted team app: server-side scoring (`POST /valuta`), token auth, ED board, confirmations, `GET /fhir/<id>`, `GET /atmist/<id>`, `GET /audit` |
+| `fhir_chems.py` · `chems_ingest.py` | Pre-alert → **CH EMS document** (Swiss mission protocol, 0 validator errors on two documents, see below); reader + scoring + evidence for CH EMS documents from any ePCR |
 | `fhir_export.py` | Pre-alert → **FHIR R4 Bundle** (LOINC-coded vitals conformant to the R4 vital-signs profiles — BP as the 85354-9 panel with diastolic `dataAbsentReason` when not measured, SpO2 as 2708-6 + 59408-5; 0 structural errors on both HAPI `$validate` and the HL7 `validator.fhir.org`, re-checked 2026-09-11 — RiskAssessment, Provenance carrying the ledger hash) — validated with **0 errors** against the public HAPI FHIR validator; ATMIST handover; ECG attachment by SHA-256 (never auto-interpreted) |
 | `ambulanza_cli.py` | Field CLI: raw vitals in, computed pre-alert back; honest fallback message if the server is unreachable |
 | `audit_bridge.py` | **Optional** bridge to a 21 CFR Part 11-grade audit engine (signed audit trail, signatures bound to records with meaning). Degrades honestly to "base" level when the engine is absent — the engine is not part of this repository |
@@ -122,6 +123,53 @@ closed-vocabulary or a digest: no free text and no health data on disk.
 | Patient identity lookup / pre-registration | Twiage | **not done by design**: PII-free |
 | NEMSIS export | US products | **not done**: FHIR R4 is the European road |
 | MDR certification | corpuls.mission LIVE | **not yet**: pilot + class IIa file are the roadmap |
+
+## CH EMS (Switzerland) — measured, not declared (2026-09-16)
+
+`fhir_chems.py` renders the pre-alert as a **CH EMS document** (`ch.fhir.ig.ch-ems` 2.0.0-ballot, the IVR / HL7
+Switzerland mission-protocol format, eCH-0207; STU ballot open until 2026-09-30): a `document` Bundle with a
+CHEmsComposition in `status: preliminary` (the pre-alert precedes the handover), the mandatory *mission* section
+(CHEmsEncounter with the mission number, the alarm time as `period.start` — required, never defaulted — IVR
+mission-time observations, urgency and mission type only when given), *findings* (heart rate and blood pressure
+in the fixed "Circulation" sub-section, AVPU in "Disability" only when the patient is alert — V/P/U are not
+distinguishable from OMEGA's input, so no code is invented; respiratory rate, SpO2 and temperature as entries of
+the findings section itself, because CH EMS has no profile for them), *handover* (patient status priority = START
+colour as SNOMED, destination organisation) and an *annotation* section carrying the NEWS2 risk assessment, the
+interaction flags and the OMEGA Provenance. **Not in the IG, exported on purpose and disclosed here:** the
+multi-patient event id as an additional Encounter identifier typed by an OMEGA code system (CH EMS issue #56,
+open — our proposal, not an IG element).
+
+Evidence semantics: the ledger anchor is a Provenance *entity* (a digest is never labelled a signature); a real
+record-bound Ed25519 signature (the OMEGA audit record, FORMAT.md) travels as entities too — record digest,
+signature, verifying key — never as a FHIR `Signature`, which by definition covers the Provenance targets and would
+falsely claim to cover this JSON; it adds `Composition.attester` — the step the eCH-0207 use cases describe as the crew "signing the document".
+
+Measured with the official HL7 validator 6.10.4 against `CHEmsDocument` (`python3 chems_validate.py --strict`,
+also a CI job with a positive control that must fail) on **two** documents — the full pre-alert and the earliest
+minimal one (alarm time only, one vital, patient not alert, no colour, no destination): **0 errors** each (8 and
+6 warnings); the same two documents on ahdis's public Matchbox server (`test.ahdis.ch/matchboxv3`, ch-ems
+2.0.0-ballot loaded, 16/09/2026): **0 errors** each (7 and 4 warnings). Every warning is explained: the anonymous
+patient does not meet the *EPR* restrictions (by design: identity is joined in the hospital), the OMEGA code
+system is not resolvable by the terminology server, and the IVR identifier type `MN` is not in the HL7
+identifier-type value set (a property of the IG). What is **not** exported because OMEGA does not compute it:
+NACA, GCS, diagnosis, procedures. Organisations need a real 13-digit GLN (format checked, registration not).
+
+**Reading CH EMS documents from anyone** — `chems_ingest.py` (`python3 chems_ingest.py doc.json [--validate]
+[--eta 67] [--anchor OPERATOR]`): strict load (duplicate keys refused), document rules (Composition first, every
+reference resolvable — FHIR bundle resolution, relative references against RESTful `fullUrl`s as in the IG's own
+published examples, which are read end to end — every entry reachable), vitals by CH EMS codes with UCUM units checked (never converted),
+AVPU/GCS/NACA/cardiac arrest/priority/mission times, only for observations whose `subject` is the Composition's
+subject (others are ignored and reported), the latest aware instant winning among duplicates (reported), then the
+OMEGA scoring engine on the document's own vitals: without an age or without AVPU/GCS the document is **not**
+scored (nothing is assumed in the unsafe direction; pass `--eta` from the radio call), and because CH EMS carries no
+supplemental-oxygen observation the NEWS2 is reported as a **lower bound**. Duplicate keys are refused when the
+input is a file or bytes; a caller passing an already-parsed dict has collapsed them itself (said in `avvisi`). `--anchor` records the document's SHA-256
+in the signed, hash-chained audit ledger that the four independent verifiers check offline: the evidence layer
+CH EMS does not have, on top of the format it does (the audit line holds the digest, the mission number — an
+operational quasi-identifier towards the ePCR, no patient data — the IG version and the validator counts). Drug
+interactions are not screened from CH EMS medication lists yet. Real data: the four documents published by the IG
+are read end to end (they hold GCS, NACA, blood pressure and mission times but not the NEWS2 vital set, so they are
+reported as not scorable with the missing inputs named).
 
 ## Privacy by design
 
