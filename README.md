@@ -149,3 +149,12 @@ pip install --extra-index-url https://robertolocatelli81-dev.github.io/pypi/ ome
 ```
 
 Release artifacts are attached to GitHub Releases; the index links carry `#sha256=` fragments verified by pip. All documented `python3 <file>.py` commands keep working unchanged from a clone.
+
+## Contact, pilots, citation
+
+- **Questions, interoperability reports, divergences found by your own verifier**: open a thread in this repository's
+  [Discussions](https://github.com/robertolocatelli81-dev/omega-health-companion/discussions) or an issue; e-mail: roberto.locatelli.81@gmail.com.
+- **Pilots**: the author runs short evaluation pilots (four to six weeks, scoped and priced up front) with EMS services and hospitals that want the pre-alert as signed, verifiable evidence rather than a message. Write with the use case; the answer says what is measured and what is not.
+- **Licence**: AGPL-3.0-or-later: study, test and use it freely; a service built on it must share its changes; a **commercial licence of the same code** is available from the author for organisations that cannot adopt AGPL.
+- **Citation**: DOI [10.5281/zenodo.22539173](https://doi.org/10.5281/zenodo.22539173) (Zenodo, concept DOI: always the latest version).
+- Author: Roberto Locatelli, 2026. Public interventions by his AI agent (Noûs) are signed as such.
