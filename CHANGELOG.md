@@ -52,6 +52,9 @@
   fallback), conflicting MN or EVENT identifiers on the Encounter give no number and say so.
 - Council round 9: the Encounter must belong to the Composition's subject (like every Observation); MN/EVENT identifiers
   without `value` are ignored and reported; EVENT conflicts are detected by (system, value) like MN.
+- `examples/chems_conformance/`: public evidence — validator_cli 6.10.4 and Matchbox OperationOutcome files for our two
+  documents and for the IG's four published examples (2 errors each on validator_cli: SNOMED display for de-CH), the
+  5× real-online-data bench log, EVIDENCE.md with commands and versions; the IG-examples reader test now runs in CI.
 
 ## 0.5.0 — 2026-09-15 — verifiable by third parties, reviewed by five models
 

@@ -1,0 +1,2099 @@
+{
+ "resourceType": "OperationOutcome",
+ "id": "cfa78d5c-88a4-4749-8eb0-0974e3a7d446",
+ "meta": {
+  "source": "matchbox-validation"
+ },
+ "issue": [
+  {
+   "extension": [
+    {
+     "url": "http://matchbox.health/validation",
+     "extension": [
+      {
+       "url": "profile",
+       "valueUri": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document"
+      },
+      {
+       "url": "profileVersion",
+       "valueUri": "2.0.0-ballot"
+      },
+      {
+       "url": "profileDate",
+       "valueDateTime": "2026-06-15T08:00:21+00:00"
+      },
+      {
+       "url": "total",
+       "valueDuration": {
+        "value": 125,
+        "unit": "ms"
+       }
+      },
+      {
+       "url": "validatorVersion",
+       "valueString": "powered by matchbox 4.1.16, hapi-fhir 8.12.0 and org.hl7.fhir.core 6.10.4"
+      },
+      {
+       "url": "ig",
+       "valueString": "ch.fhir.ig.ch-ems#2.0.0-ballot"
+      },
+      {
+       "url": "hintAboutNonMustSupport",
+       "valueBoolean": false
+      },
+      {
+       "url": "recursive",
+       "valueBoolean": false
+      },
+      {
+       "url": "showMessagesFromReferences",
+       "valueBoolean": true
+      },
+      {
+       "url": "doDebug",
+       "valueBoolean": false
+      },
+      {
+       "url": "assumeValidRestReferences",
+       "valueBoolean": false
+      },
+      {
+       "url": "canDoNative",
+       "valueBoolean": false
+      },
+      {
+       "url": "noExtensibleBindingMessages",
+       "valueBoolean": false
+      },
+      {
+       "url": "noUnicodeBiDiControlChars",
+       "valueBoolean": false
+      },
+      {
+       "url": "noInvariants",
+       "valueBoolean": false
+      },
+      {
+       "url": "displayIssuesAreWarnings",
+       "valueBoolean": true
+      },
+      {
+       "url": "wantInvariantsInMessages",
+       "valueBoolean": false
+      },
+      {
+       "url": "doImplicitFHIRPathStringConversion",
+       "valueBoolean": false
+      },
+      {
+       "url": "securityChecks",
+       "valueBoolean": false
+      },
+      {
+       "url": "crumbTrails",
+       "valueBoolean": false
+      },
+      {
+       "url": "forPublication",
+       "valueBoolean": false
+      },
+      {
+       "url": "showMessageIds",
+       "valueBoolean": false
+      },
+      {
+       "url": "showTerminologyRouting",
+       "valueBoolean": false
+      },
+      {
+       "url": "clearTxCache",
+       "valueBoolean": false
+      },
+      {
+       "url": "allowExampleUrls",
+       "valueBoolean": true
+      },
+      {
+       "url": "txServer",
+       "valueUri": "http://localhost:8080/matchboxv3/tx"
+      },
+      {
+       "url": "txServerCache",
+       "valueBoolean": true
+      },
+      {
+       "url": "txUseEcosystem",
+       "valueBoolean": true
+      },
+      {
+       "url": "fhirVersion",
+       "valueString": "4.0.1"
+      },
+      {
+       "url": "ig",
+       "valueString": "ch.fhir.ig.ch-ems#2.0.0-ballot"
+      },
+      {
+       "url": "locale",
+       "valueString": "en"
+      },
+      {
+       "url": "jurisdiction",
+       "valueString": "urn:iso:std:iso:3166#US"
+      },
+      {
+       "url": "check-references",
+       "valueBoolean": false
+      },
+      {
+       "url": "r5-bundle-relative-reference-policy",
+       "valueString": "default"
+      },
+      {
+       "url": "disableDefaultResourceFetcher",
+       "valueBoolean": true
+      },
+      {
+       "url": "check-ips-codes",
+       "valueBoolean": false
+      },
+      {
+       "url": "onlyOneEngine",
+       "valueBoolean": false
+      },
+      {
+       "url": "httpReadOnly",
+       "valueBoolean": false
+      },
+      {
+       "url": "ssrfProtectionEnabled",
+       "valueBoolean": false
+      },
+      {
+       "url": "sessionId",
+       "valueString": "854058021"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.fhir.r4.core#4.0.1"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.fhir.xver-extensions#0.1.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.terminology.r4#7.3.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.fhir.uv.extensions.r4#5.3.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.fhir.uv.xver-r5.r4#0.1.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.fhir.uv.extensions.r4#5.2.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.terminology.r4#6.3.0"
+      },
+      {
+       "url": "package",
+       "valueString": "ihe.formatcode.fhir#1.4.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.terminology.r4#7.0.1"
+      },
+      {
+       "url": "package",
+       "valueString": "ch.fhir.ig.ch-term#3.4.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.terminology.r4#7.1.0"
+      },
+      {
+       "url": "package",
+       "valueString": "ch.fhir.ig.ch-core#7.0.0-ballot"
+      },
+      {
+       "url": "package",
+       "valueString": "ch.fhir.ig.ch-term#3.4.0"
+      },
+      {
+       "url": "package",
+       "valueString": "ch.fhir.ig.ch-ems#2.0.0-ballot"
+      },
+      {
+       "url": "suppressedWarning",
+       "valueString": "Entry '(.+)' isn't reachable by traversing forwards from the Composition"
+      },
+      {
+       "url": "suppressedWarning",
+       "valueString": "\\QConstraint failed: dom-6:\\E"
+      },
+      {
+       "url": "suppressedError",
+       "valueString": "Extension_EXTP_Context_Wrong@^RelatedPerson"
+      }
+     ]
+    }
+   ],
+   "severity": "information",
+   "code": "informational",
+   "diagnostics": "Validation for profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot (2026-06-15T08:00:21+00:00). Loaded packages: hl7.fhir.r4.core#4.0.1, hl7.fhir.xver-extensions#0.1.0, hl7.terminology.r4#7.3.0, hl7.fhir.uv.extensions.r4#5.3.0, hl7.fhir.uv.xver-r5.r4#0.1.0, hl7.fhir.uv.extensions.r4#5.2.0, hl7.terminology.r4#6.3.0, ihe.formatcode.fhir#1.4.0, hl7.terminology.r4#7.0.1, ch.fhir.ig.ch-term#3.4.0, hl7.terminology.r4#7.1.0, ch.fhir.ig.ch-core#7.0.0-ballot, ch.fhir.ig.ch-term#3.4.0, ch.fhir.ig.ch-ems#2.0.0-ballot. Duration: 0.125s. powered by matchbox 4.1.16, hapi-fhir 8.12.0 and org.hl7.fhir.core 6.10.4. Validation parameters: CliContext{doNative=false, extensions=null, hintAboutNonMustSupport=false, recursive=false, showMessagesFromReferences=true, doDebug=false, assumeValidRestReferences=false, canDoNative=false, noExtensibleBindingMessages=false, noUnicodeBiDiControlChars=false, noInvariants=false, displayIssuesAreWarnings=true, wantInvariantsInMessages=false, doImplicitFHIRPathStringConversion=false, htmlInMarkdownCheck=WARNING, txServer='http://localhost:8080/matchboxv3/tx', txServerCache='true', txLog='null', txUseEcosystem=true, lang='null', snomedCT='null', fhirVersion='4.0.1', ig='ch.fhir.ig.ch-ems#2.0.0-ballot', questionnaireMode=CHECK, level=HINTS, mode=VALIDATION, securityChecks=false, crumbTrails=false, forPublication=false, showMessageIds=false, showTerminologyRouting=false, clearTxCache=false, allowExampleUrls=true, locale='en', locations={}, jurisdiction='urn:iso:std:iso:3166#US', checkReferences=false, resolutionContext=null, r5-bundle-relative-reference-policy='default', disableDefaultResourceFetcher=true, checkIpsCodes='false', bundle='null', suppressErrors=null, suppressWarnInfos=null, igs=null}"
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 383
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient#ch-ems-epr-patient"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-patient-epr|7.0.0-ballot"
+    }
+   ],
+   "severity": "warning",
+   "code": "invariant",
+   "diagnostics": "Constraint failed: ch-ems-epr-patient: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient)",
+   "expression": [
+    "Bundle.entry[2].resource/*Patient/2-PatientUnbekannt*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 310
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "Details_for__matching_against_Profile_"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-encounter|7.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "informational",
+   "diagnostics": "This element does not match any known slice defined in the profile http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-encounter|7.0.0-ballot (this may not be a problem, but you should check that it's not intended to match a slice) Slice info: 1.) Bundle.entry[1].resource/*Encounter/2-Einsatz*/.identifier[0]: discriminator = true and $this.where(type.coding.where((system = 'http://terminology.hl7.org/CodeSystem/v2-0203') and (code = 'VN')).exists()).exists()",
+   "expression": [
+    "Bundle.entry[1].resource/*Encounter/2-Einsatz*/.identifier[0]"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 311
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-encounter|7.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[1].resource/*Encounter/2-Einsatz*/.identifier[0].type"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 311
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "Terminology_TX_NoValid_2_CC"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-encounter|7.0.0-ballot"
+    }
+   ],
+   "severity": "warning",
+   "code": "code-invalid",
+   "diagnostics": "None of the codings provided are in the value set 'IdentifierType' (http://hl7.org/fhir/ValueSet/identifier-type|4.0.1), and a coding should come from this value set unless it has no suitable code (note that the validator cannot judge what is suitable) (codes = http://fhir.ch/ig/ch-ems/CodeSystem/IVR#MN)",
+   "expression": [
+    "Bundle.entry[1].resource/*Encounter/2-Einsatz*/.identifier[0].type"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 624
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 34
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "Terminology_TX_NoValid_18"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-location|7.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "code-invalid",
+   "diagnostics": "The value provided ('Switzerland') was not found in the value set 'BFS Verzeichnis der Staaten und Gebiete' (http://fhir.ch/ig/ch-term/ValueSet/bfs-country-codes|3.4.0), and a code is recommended to come from this value set (error message = The System URI could not be determined for the code 'Switzerland' in the ValueSet 'http://fhir.ch/ig/ch-term/ValueSet/bfs-country-codes|3.4.0'; The provided code '#Switzerland' was not found in the value set 'http://fhir.ch/ig/ch-term/ValueSet/bfs-country-codes|3.4.0')",
+   "expression": [
+    "Bundle.entry[13].resource/*Location/1-Zielort*/.address.country"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 77
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[0].resource.section[0].code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 122
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-missiontimestatus|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[0].resource.section[1].code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 137
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-missiontimestatus|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[0].resource.section[2].code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 152
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-missiontimestatus|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[0].resource.section[3].code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 167
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-missiontimestatus|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[0].resource.section[4].code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 893
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "TYPE_SPECIFIC_CHECKS_DT_QTY_UCUM_ANNOTATIONS_NO_UNIT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "warning",
+   "code": "business-rule",
+   "diagnostics": "UCUM Codes that contain human readable annotations like {score} can be misleading (e.g. they are ignored when comparing units). Best Practice is not to depend on annotations in the UCUM code, so this usage should be checked, and the Quantity.unit SHOULD contain the annotation",
+   "expression": [
+    "Bundle.entry[24].resource.value.ofType(Quantity)"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 906
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[24].resource.component[0].value.ofType(CodeableConcept)"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 927
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[24].resource.component[1].value.ofType(CodeableConcept)"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 948
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[24].resource.component[2].value.ofType(CodeableConcept)"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 197
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-avpu|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[0].resource.section[5].code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 215
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitioner|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[0].resource.section[6].code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 230
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitioner|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[0].resource.section[7].code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 245
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitioner|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[0].resource.section[8].code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 260
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-organization-epr|7.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[0].resource.section[9].code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 1104
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "TYPE_SPECIFIC_CHECKS_DT_QTY_UCUM_ANNOTATIONS_NO_UNIT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "warning",
+   "code": "business-rule",
+   "diagnostics": "UCUM Codes that contain human readable annotations like {score} can be misleading (e.g. they are ignored when comparing units). Best Practice is not to depend on annotations in the UCUM code, so this usage should be checked, and the Quantity.unit SHOULD contain the annotation",
+   "expression": [
+    "Bundle.entry[29].resource.value.ofType(Quantity)"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 1117
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[29].resource.component[0].value.ofType(CodeableConcept)"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 1138
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[29].resource.component[1].value.ofType(CodeableConcept)"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 1159
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[29].resource.component[2].value.ofType(CodeableConcept)"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 15
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition#ch-ems-epr-composition"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-organization-epr|7.0.0-ballot"
+    }
+   ],
+   "severity": "warning",
+   "code": "invariant",
+   "diagnostics": "Constraint failed: ch-ems-epr-composition: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition)",
+   "expression": [
+    "Bundle.entry[0].resource"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 638
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[14].resource/*Observation/2-Alarm*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 638
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have an effective[x] ()",
+   "expression": [
+    "Bundle.entry[14].resource/*Observation/2-Alarm*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 642
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[14].resource.code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 661
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[15].resource/*Observation/2-Disposition*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 661
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have an effective[x] ()",
+   "expression": [
+    "Bundle.entry[15].resource/*Observation/2-Disposition*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 665
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[15].resource.code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 684
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[16].resource/*Observation/2-Rollout*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 684
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have an effective[x] ()",
+   "expression": [
+    "Bundle.entry[16].resource/*Observation/2-Rollout*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 688
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[16].resource.code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 707
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[17].resource/*Observation/2-ArrivalOnScene*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 707
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have an effective[x] ()",
+   "expression": [
+    "Bundle.entry[17].resource/*Observation/2-ArrivalOnScene*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 711
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[17].resource.code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 730
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[18].resource/*Observation/2-ArrivalPatient*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 730
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have an effective[x] ()",
+   "expression": [
+    "Bundle.entry[18].resource/*Observation/2-ArrivalPatient*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 734
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[18].resource.code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 753
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[19].resource/*Observation/2-DepartureFromScene*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 753
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have an effective[x] ()",
+   "expression": [
+    "Bundle.entry[19].resource/*Observation/2-DepartureFromScene*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 757
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[19].resource.code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 776
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[20].resource/*Observation/2-ArrivalAtTarget*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 776
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have an effective[x] ()",
+   "expression": [
+    "Bundle.entry[20].resource/*Observation/2-ArrivalAtTarget*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 780
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[20].resource.code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 799
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[21].resource/*Observation/2b-DepartureFromTarget*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 799
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have an effective[x] ()",
+   "expression": [
+    "Bundle.entry[21].resource/*Observation/2b-DepartureFromTarget*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 803
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[21].resource.code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 822
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[22].resource/*Observation/2b-OperationalReadiness*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 822
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have an effective[x] ()",
+   "expression": [
+    "Bundle.entry[22].resource/*Observation/2b-OperationalReadiness*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 826
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[22].resource.code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 845
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[23].resource/*Observation/2-AirwaysBefund*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 875
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[24].resource/*Observation/2-GCSBefund*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 965
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[25].resource/*Observation/2-AVPUBefund*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 983
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[25].resource.value.ofType(CodeableConcept)"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 1028
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[27].resource/*Observation/2-ZustandUebergabe*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 1028
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have an effective[x] ()",
+   "expression": [
+    "Bundle.entry[27].resource/*Observation/2-ZustandUebergabe*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 1057
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[28].resource/*Observation/2-NACAUebergabe*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 1057
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have an effective[x] ()",
+   "expression": [
+    "Bundle.entry[28].resource/*Observation/2-NACAUebergabe*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 1074
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[28].resource.value.ofType(CodeableConcept)"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 1086
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "All_observations_should_have_a_performer"
+    }
+   ],
+   "severity": "warning",
+   "code": "invalid",
+   "diagnostics": "Best Practice Recommendation: In general, all observations should have a performer",
+   "expression": [
+    "Bundle.entry[29].resource/*Observation/2-GCSUebergabe*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 1
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 2
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document#ch-ems-epr-document"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-composition-epr|7.0.0-ballot"
+    }
+   ],
+   "severity": "warning",
+   "code": "invariant",
+   "diagnostics": "Constraint failed: ch-ems-epr-document: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document)",
+   "expression": [
+    "Bundle"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 15
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "VALIDATION_VAL_PROFILE_SIGNPOST_BUNDLE_PARAM"
+    }
+   ],
+   "severity": "information",
+   "code": "informational",
+   "diagnostics": "Validate resource against profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition - provided as bundle param",
+   "expression": [
+    "Bundle"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 311
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[1].resource.identifier[0].type"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 311
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 10
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "Terminology_TX_NoValid_2_CC"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "warning",
+   "code": "code-invalid",
+   "diagnostics": "None of the codings provided are in the value set 'IdentifierType' (http://hl7.org/fhir/ValueSet/identifier-type|4.0.1), and a coding should come from this value set unless it has no suitable code (note that the validator cannot judge what is suitable) (codes = http://fhir.ch/ig/ch-ems/CodeSystem/IVR#MN)",
+   "expression": [
+    "Bundle.entry[1].resource.identifier[0].type"
+   ]
+  },
+  {
+   "severity": "information",
+   "code": "informational",
+   "diagnostics": "No fatal or error issues detected, the validation has passed"
+  }
+ ]
+}

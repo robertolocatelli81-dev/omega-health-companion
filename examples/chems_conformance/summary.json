@@ -1,0 +1,90 @@
+{
+ "omega-full": {
+  "sha256": "912e7d252cb4e474b7ae954d39c6eff57142ceb194b1f2d4613c0132e1ff65e4",
+  "validator_cli": {
+   "information": 27,
+   "warning": 8
+  },
+  "validator_errors": [],
+  "matchbox": {
+   "information": 32,
+   "warning": 7
+  }
+ },
+ "omega-minimal": {
+  "sha256": "830ba6eaeb6d123eed684e69b2a6f510021c084124c02687f743127c4a8872bb",
+  "validator_cli": {
+   "information": 10,
+   "warning": 6
+  },
+  "validator_errors": [],
+  "matchbox": {
+   "information": 14,
+   "warning": 4
+  }
+ },
+ "ig-Bundle-1": {
+  "sha256": "c5f310137e75d3bc9262503392b2c82f2f28d3e7540fdafccef7ba2715d06804",
+  "validator_cli": {
+   "information": 41,
+   "error": 2,
+   "warning": 74
+  },
+  "validator_errors": [
+   "Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). ",
+   "Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')"
+  ],
+  "matchbox": {
+   "information": 45,
+   "warning": 31
+  }
+ },
+ "ig-Bundle-1b": {
+  "sha256": "6294ca3471eaac0a2abdbd08fe981ad37f1d67302b8dbbe9e7490b2cc37f8daf",
+  "validator_cli": {
+   "information": 43,
+   "error": 2,
+   "warning": 80
+  },
+  "validator_errors": [
+   "Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). ",
+   "Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')"
+  ],
+  "matchbox": {
+   "information": 47,
+   "warning": 35
+  }
+ },
+ "ig-Bundle-2": {
+  "sha256": "26588be51d3c1cba875c2c3b1e45a105ac18912baf3d02d972e45688e71bceaa",
+  "validator_cli": {
+   "information": 31,
+   "error": 2,
+   "warning": 57
+  },
+  "validator_errors": [
+   "Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). ",
+   "Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')"
+  ],
+  "matchbox": {
+   "information": 32,
+   "warning": 29
+  }
+ },
+ "ig-Bundle-2b": {
+  "sha256": "2b2c560a46c192e8baa4ba2020f421c82148ea6067565678519d3376f7a38821",
+  "validator_cli": {
+   "information": 33,
+   "error": 2,
+   "warning": 63
+  },
+  "validator_errors": [
+   "Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). ",
+   "Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')"
+  ],
+  "matchbox": {
+   "information": 34,
+   "warning": 33
+  }
+ }
+}

@@ -1,0 +1,76 @@
+run 1: PC1 refused=True PC2 matchbox_errors=13 | anchors ledger PASS | matchbox {"ig-1": 0, "ig-1b": 0, "ig-2": 0, "ig-2b": 0, "omega-full": 0, "omega-minimal": 0}
+   ig-1: {"sha": "c5f310137e75", "vitali": ["alert_coscienza", "sbp"], "gcs": 15, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-1b: {"sha": "6294ca3471ea", "vitali": ["alert_coscienza", "sbp"], "gcs": 15, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-2: {"sha": "26588be51d3c", "vitali": ["alert_coscienza", "avpu"], "gcs": 10, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-2b: {"sha": "2b2c560a46c1", "vitali": ["alert_coscienza", "avpu"], "gcs": 10, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   omega-full: {"sha": "912e7d252cb4", "vitali": ["alert_coscienza", "avpu", "hr", "rr", "sbp", "spo2", "temp"], "gcs": null, "naca": null, "tempi": 5, "valutabile": true, "prio": "ALTO", "anchor_ok": true}
+   omega-minimal: {"sha": "830ba6eaeb6d", "vitali": ["hr"], "gcs": null, "naca": null, "tempi": 1, "valutabile": false, "prio": null, "anchor_ok": true}
+   FAILS: none
+   validator ig-1: exit=1 errors=2 warnings=74
+   validator ig-1b: exit=1 errors=2 warnings=80
+   validator ig-2: exit=1 errors=2 warnings=57
+   validator ig-2b: exit=1 errors=2 warnings=63
+   validator omega-full: exit=0 errors=0 warnings=8
+   validator omega-minimal: exit=0 errors=0 warnings=6
+run 1: downloaded=4/4 validator_failures=4
+run 2: PC1 refused=True PC2 matchbox_errors=13 | anchors ledger PASS | matchbox {"ig-1": 0, "ig-1b": 0, "ig-2": 0, "ig-2b": 0, "omega-full": 0, "omega-minimal": 0}
+   ig-1: {"sha": "c5f310137e75", "vitali": ["alert_coscienza", "sbp"], "gcs": 15, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-1b: {"sha": "6294ca3471ea", "vitali": ["alert_coscienza", "sbp"], "gcs": 15, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-2: {"sha": "26588be51d3c", "vitali": ["alert_coscienza", "avpu"], "gcs": 10, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-2b: {"sha": "2b2c560a46c1", "vitali": ["alert_coscienza", "avpu"], "gcs": 10, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   omega-full: {"sha": "912e7d252cb4", "vitali": ["alert_coscienza", "avpu", "hr", "rr", "sbp", "spo2", "temp"], "gcs": null, "naca": null, "tempi": 5, "valutabile": true, "prio": "ALTO", "anchor_ok": true}
+   omega-minimal: {"sha": "830ba6eaeb6d", "vitali": ["hr"], "gcs": null, "naca": null, "tempi": 1, "valutabile": false, "prio": null, "anchor_ok": true}
+   FAILS: none
+   validator ig-1: exit=1 errors=2 warnings=74
+   validator ig-1b: exit=1 errors=2 warnings=80
+   validator ig-2: exit=1 errors=2 warnings=57
+   validator ig-2b: exit=1 errors=2 warnings=63
+   validator omega-full: exit=0 errors=0 warnings=8
+   validator omega-minimal: exit=0 errors=0 warnings=6
+run 2: downloaded=4/4 validator_failures=4
+run 3: PC1 refused=True PC2 matchbox_errors=13 | anchors ledger PASS | matchbox {"ig-1": 0, "ig-1b": 0, "ig-2": 0, "ig-2b": 0, "omega-full": 0, "omega-minimal": 0}
+   ig-1: {"sha": "c5f310137e75", "vitali": ["alert_coscienza", "sbp"], "gcs": 15, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-1b: {"sha": "6294ca3471ea", "vitali": ["alert_coscienza", "sbp"], "gcs": 15, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-2: {"sha": "26588be51d3c", "vitali": ["alert_coscienza", "avpu"], "gcs": 10, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-2b: {"sha": "2b2c560a46c1", "vitali": ["alert_coscienza", "avpu"], "gcs": 10, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   omega-full: {"sha": "912e7d252cb4", "vitali": ["alert_coscienza", "avpu", "hr", "rr", "sbp", "spo2", "temp"], "gcs": null, "naca": null, "tempi": 5, "valutabile": true, "prio": "ALTO", "anchor_ok": true}
+   omega-minimal: {"sha": "830ba6eaeb6d", "vitali": ["hr"], "gcs": null, "naca": null, "tempi": 1, "valutabile": false, "prio": null, "anchor_ok": true}
+   FAILS: none
+   validator ig-1: exit=1 errors=2 warnings=74
+   validator ig-1b: exit=1 errors=2 warnings=80
+   validator ig-2: exit=1 errors=2 warnings=57
+   validator ig-2b: exit=1 errors=2 warnings=63
+   validator omega-full: exit=0 errors=0 warnings=8
+   validator omega-minimal: exit=0 errors=0 warnings=6
+run 3: downloaded=4/4 validator_failures=4
+run 4: PC1 refused=True PC2 matchbox_errors=13 | anchors ledger PASS | matchbox {"ig-1": 0, "ig-1b": 0, "ig-2": 0, "ig-2b": 0, "omega-full": 0, "omega-minimal": 0}
+   ig-1: {"sha": "c5f310137e75", "vitali": ["alert_coscienza", "sbp"], "gcs": 15, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-1b: {"sha": "6294ca3471ea", "vitali": ["alert_coscienza", "sbp"], "gcs": 15, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-2: {"sha": "26588be51d3c", "vitali": ["alert_coscienza", "avpu"], "gcs": 10, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-2b: {"sha": "2b2c560a46c1", "vitali": ["alert_coscienza", "avpu"], "gcs": 10, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   omega-full: {"sha": "912e7d252cb4", "vitali": ["alert_coscienza", "avpu", "hr", "rr", "sbp", "spo2", "temp"], "gcs": null, "naca": null, "tempi": 5, "valutabile": true, "prio": "ALTO", "anchor_ok": true}
+   omega-minimal: {"sha": "830ba6eaeb6d", "vitali": ["hr"], "gcs": null, "naca": null, "tempi": 1, "valutabile": false, "prio": null, "anchor_ok": true}
+   FAILS: none
+   validator ig-1: exit=1 errors=2 warnings=74
+   validator ig-1b: exit=1 errors=2 warnings=80
+   validator ig-2: exit=1 errors=2 warnings=57
+   validator ig-2b: exit=1 errors=2 warnings=63
+   validator omega-full: exit=0 errors=0 warnings=8
+   validator omega-minimal: exit=0 errors=0 warnings=6
+run 4: downloaded=4/4 validator_failures=4
+run 5: PC1 refused=True PC2 matchbox_errors=13 | anchors ledger PASS | matchbox {"ig-1": 0, "ig-1b": 0, "ig-2": 0, "ig-2b": 0, "omega-full": 0, "omega-minimal": 0}
+   ig-1: {"sha": "c5f310137e75", "vitali": ["alert_coscienza", "sbp"], "gcs": 15, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-1b: {"sha": "6294ca3471ea", "vitali": ["alert_coscienza", "sbp"], "gcs": 15, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-2: {"sha": "26588be51d3c", "vitali": ["alert_coscienza", "avpu"], "gcs": 10, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   ig-2b: {"sha": "2b2c560a46c1", "vitali": ["alert_coscienza", "avpu"], "gcs": 10, "naca": "III", "tempi": 6, "valutabile": false, "prio": null, "anchor_ok": true}
+   omega-full: {"sha": "912e7d252cb4", "vitali": ["alert_coscienza", "avpu", "hr", "rr", "sbp", "spo2", "temp"], "gcs": null, "naca": null, "tempi": 5, "valutabile": true, "prio": "ALTO", "anchor_ok": true}
+   omega-minimal: {"sha": "830ba6eaeb6d", "vitali": ["hr"], "gcs": null, "naca": null, "tempi": 1, "valutabile": false, "prio": null, "anchor_ok": true}
+   FAILS: none
+   validator ig-1: exit=1 errors=2 warnings=74
+   validator ig-1b: exit=1 errors=2 warnings=80
+   validator ig-2: exit=1 errors=2 warnings=57
+   validator ig-2b: exit=1 errors=2 warnings=63
+   validator omega-full: exit=0 errors=0 warnings=8
+   validator omega-minimal: exit=0 errors=0 warnings=6
+run 5: downloaded=4/4 validator_failures=4
+BENCH_DONE

@@ -1,0 +1,733 @@
+{
+ "resourceType": "OperationOutcome",
+ "id": "104f1e30-3034-4b4b-b848-c32e72db692c",
+ "meta": {
+  "source": "matchbox-validation"
+ },
+ "issue": [
+  {
+   "extension": [
+    {
+     "url": "http://matchbox.health/validation",
+     "extension": [
+      {
+       "url": "profile",
+       "valueUri": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document"
+      },
+      {
+       "url": "profileVersion",
+       "valueUri": "2.0.0-ballot"
+      },
+      {
+       "url": "profileDate",
+       "valueDateTime": "2026-06-15T08:00:21+00:00"
+      },
+      {
+       "url": "total",
+       "valueDuration": {
+        "value": 56,
+        "unit": "ms"
+       }
+      },
+      {
+       "url": "validatorVersion",
+       "valueString": "powered by matchbox 4.1.16, hapi-fhir 8.12.0 and org.hl7.fhir.core 6.10.4"
+      },
+      {
+       "url": "ig",
+       "valueString": "ch.fhir.ig.ch-ems#2.0.0-ballot"
+      },
+      {
+       "url": "hintAboutNonMustSupport",
+       "valueBoolean": false
+      },
+      {
+       "url": "recursive",
+       "valueBoolean": false
+      },
+      {
+       "url": "showMessagesFromReferences",
+       "valueBoolean": true
+      },
+      {
+       "url": "doDebug",
+       "valueBoolean": false
+      },
+      {
+       "url": "assumeValidRestReferences",
+       "valueBoolean": false
+      },
+      {
+       "url": "canDoNative",
+       "valueBoolean": false
+      },
+      {
+       "url": "noExtensibleBindingMessages",
+       "valueBoolean": false
+      },
+      {
+       "url": "noUnicodeBiDiControlChars",
+       "valueBoolean": false
+      },
+      {
+       "url": "noInvariants",
+       "valueBoolean": false
+      },
+      {
+       "url": "displayIssuesAreWarnings",
+       "valueBoolean": true
+      },
+      {
+       "url": "wantInvariantsInMessages",
+       "valueBoolean": false
+      },
+      {
+       "url": "doImplicitFHIRPathStringConversion",
+       "valueBoolean": false
+      },
+      {
+       "url": "securityChecks",
+       "valueBoolean": false
+      },
+      {
+       "url": "crumbTrails",
+       "valueBoolean": false
+      },
+      {
+       "url": "forPublication",
+       "valueBoolean": false
+      },
+      {
+       "url": "showMessageIds",
+       "valueBoolean": false
+      },
+      {
+       "url": "showTerminologyRouting",
+       "valueBoolean": false
+      },
+      {
+       "url": "clearTxCache",
+       "valueBoolean": false
+      },
+      {
+       "url": "allowExampleUrls",
+       "valueBoolean": true
+      },
+      {
+       "url": "txServer",
+       "valueUri": "http://localhost:8080/matchboxv3/tx"
+      },
+      {
+       "url": "txServerCache",
+       "valueBoolean": true
+      },
+      {
+       "url": "txUseEcosystem",
+       "valueBoolean": true
+      },
+      {
+       "url": "fhirVersion",
+       "valueString": "4.0.1"
+      },
+      {
+       "url": "ig",
+       "valueString": "ch.fhir.ig.ch-ems#2.0.0-ballot"
+      },
+      {
+       "url": "locale",
+       "valueString": "en"
+      },
+      {
+       "url": "jurisdiction",
+       "valueString": "urn:iso:std:iso:3166#US"
+      },
+      {
+       "url": "check-references",
+       "valueBoolean": false
+      },
+      {
+       "url": "r5-bundle-relative-reference-policy",
+       "valueString": "default"
+      },
+      {
+       "url": "disableDefaultResourceFetcher",
+       "valueBoolean": true
+      },
+      {
+       "url": "check-ips-codes",
+       "valueBoolean": false
+      },
+      {
+       "url": "onlyOneEngine",
+       "valueBoolean": false
+      },
+      {
+       "url": "httpReadOnly",
+       "valueBoolean": false
+      },
+      {
+       "url": "ssrfProtectionEnabled",
+       "valueBoolean": false
+      },
+      {
+       "url": "sessionId",
+       "valueString": "854058021"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.fhir.r4.core#4.0.1"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.fhir.xver-extensions#0.1.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.terminology.r4#7.3.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.fhir.uv.extensions.r4#5.3.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.fhir.uv.xver-r5.r4#0.1.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.fhir.uv.extensions.r4#5.2.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.terminology.r4#6.3.0"
+      },
+      {
+       "url": "package",
+       "valueString": "ihe.formatcode.fhir#1.4.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.terminology.r4#7.0.1"
+      },
+      {
+       "url": "package",
+       "valueString": "ch.fhir.ig.ch-term#3.4.0"
+      },
+      {
+       "url": "package",
+       "valueString": "hl7.terminology.r4#7.1.0"
+      },
+      {
+       "url": "package",
+       "valueString": "ch.fhir.ig.ch-core#7.0.0-ballot"
+      },
+      {
+       "url": "package",
+       "valueString": "ch.fhir.ig.ch-term#3.4.0"
+      },
+      {
+       "url": "package",
+       "valueString": "ch.fhir.ig.ch-ems#2.0.0-ballot"
+      },
+      {
+       "url": "suppressedWarning",
+       "valueString": "Entry '(.+)' isn't reachable by traversing forwards from the Composition"
+      },
+      {
+       "url": "suppressedWarning",
+       "valueString": "\\QConstraint failed: dom-6:\\E"
+      },
+      {
+       "url": "suppressedError",
+       "valueString": "Extension_EXTP_Context_Wrong@^RelatedPerson"
+      }
+     ]
+    }
+   ],
+   "severity": "information",
+   "code": "informational",
+   "diagnostics": "Validation for profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot (2026-06-15T08:00:21+00:00). Loaded packages: hl7.fhir.r4.core#4.0.1, hl7.fhir.xver-extensions#0.1.0, hl7.terminology.r4#7.3.0, hl7.fhir.uv.extensions.r4#5.3.0, hl7.fhir.uv.xver-r5.r4#0.1.0, hl7.fhir.uv.extensions.r4#5.2.0, hl7.terminology.r4#6.3.0, ihe.formatcode.fhir#1.4.0, hl7.terminology.r4#7.0.1, ch.fhir.ig.ch-term#3.4.0, hl7.terminology.r4#7.1.0, ch.fhir.ig.ch-core#7.0.0-ballot, ch.fhir.ig.ch-term#3.4.0, ch.fhir.ig.ch-ems#2.0.0-ballot. Duration: 0.056s. powered by matchbox 4.1.16, hapi-fhir 8.12.0 and org.hl7.fhir.core 6.10.4. Validation parameters: CliContext{doNative=false, extensions=null, hintAboutNonMustSupport=false, recursive=false, showMessagesFromReferences=true, doDebug=false, assumeValidRestReferences=false, canDoNative=false, noExtensibleBindingMessages=false, noUnicodeBiDiControlChars=false, noInvariants=false, displayIssuesAreWarnings=true, wantInvariantsInMessages=false, doImplicitFHIRPathStringConversion=false, htmlInMarkdownCheck=WARNING, txServer='http://localhost:8080/matchboxv3/tx', txServerCache='true', txLog='null', txUseEcosystem=true, lang='null', snomedCT='null', fhirVersion='4.0.1', ig='ch.fhir.ig.ch-ems#2.0.0-ballot', questionnaireMode=CHECK, level=HINTS, mode=VALIDATION, securityChecks=false, crumbTrails=false, forPublication=false, showMessageIds=false, showTerminologyRouting=false, clearTxCache=false, allowExampleUrls=true, locale='en', locations={}, jurisdiction='urn:iso:std:iso:3166#US', checkReferences=false, resolutionContext=null, r5-bundle-relative-reference-policy='default', disableDefaultResourceFetcher=true, checkIpsCodes='false', bundle='null', suppressErrors=null, suppressWarnInfos=null, igs=null}"
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 374
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 4
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "Details_for__matching_against_Profile_"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-missiontimestatus|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "informational",
+   "diagnostics": "This element does not match any known slice defined in the profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot (this may not be a problem, but you should check that it's not intended to match a slice) Slice info: 1.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition') and (resource is Composition),  2.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition does not match for Bundle because of the following profile issues:  3.) Bundle.entry[7].resource: Specified profile type was 'Composition' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition|2.0.0-ballot', but found type 'RiskAssessment',  4.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient') and (resource is Patient),  5.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient does not match for Bundle because of the following profile issues:  6.) Bundle.entry[7].resource: Specified profile type was 'Patient' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient|2.0.0-ballot', but found type 'RiskAssessment',  7.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitioner') and (resource is Practitioner),  8.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitioner does not match for Bundle because of the following profile issues:  9.) Bundle.entry[7].resource: Specified profile type was 'Practitioner' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitioner|2.0.0-ballot', but found type 'RiskAssessment',  10.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitionerrole') and (resource is PractitionerRole),  11.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitionerrole does not match for Bundle because of the following profile issues:  12.) Bundle.entry[7].resource: Specified profile type was 'PractitionerRole' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitionerrole|2.0.0-ballot', but found type 'RiskAssessment',  13.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-organization') and (resource is Organization),  14.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-organization does not match for Bundle because of the following profile issues:  15.) Bundle.entry[7].resource: Specified profile type was 'Organization' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-organization|2.0.0-ballot', but found type 'RiskAssessment',  16.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-relatedperson') and (resource is Resource),  17.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-relatedperson does not match for Bundle because of the following profile issues:  18.) Bundle.entry[7].resource: Specified profile type was 'RelatedPerson' in profile 'http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-relatedperson|7.0.0-ballot', but found type 'RiskAssessment',  19.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-device') and (resource is Device),  20.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-device does not match for Bundle because of the following profile issues:  21.) Bundle.entry[7].resource: Specified profile type was 'Device' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-device|2.0.0-ballot', but found type 'RiskAssessment',  22.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter') and (resource is Encounter),  23.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter does not match for Bundle because of the following profile issues:  24.) Bundle.entry[7].resource: Specified profile type was 'Encounter' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot', but found type 'RiskAssessment',  25.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-location') and (resource is Location),  26.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-location does not match for Bundle because of the following profile issues:  27.) Bundle.entry[7].resource: Specified profile type was 'Location' in profile 'http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-location|7.0.0-ballot', but found type 'RiskAssessment',  28.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-coverage') and (resource is Coverage),  29.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-coverage does not match for Bundle because of the following profile issues:  30.) Bundle.entry[7].resource: Specified profile type was 'Coverage' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-coverage|2.0.0-ballot', but found type 'RiskAssessment',  31.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-procedure') and (resource is Procedure),  32.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-procedure does not match for Bundle because of the following profile issues:  33.) Bundle.entry[7].resource: Specified profile type was 'Procedure' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-procedure|2.0.0-ballot', but found type 'RiskAssessment',  34.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-servicerequest') and (resource is ServiceRequest),  35.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-servicerequest does not match for Bundle because of the following profile issues:  36.) Bundle.entry[7].resource: Specified profile type was 'ServiceRequest' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-servicerequest|2.0.0-ballot', but found type 'RiskAssessment',  37.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation') and (resource is Observation),  38.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation does not match for Bundle because of the following profile issues:  39.) Bundle.entry[7].resource: Specified profile type was 'Observation' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot', but found type 'RiskAssessment',  40.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-allergyintolerance') and (resource is AllergyIntolerance),  41.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-allergyintolerance does not match for Bundle because of the following profile issues:  42.) Bundle.entry[7].resource: Specified profile type was 'AllergyIntolerance' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-allergyintolerance|2.0.0-ballot', but found type 'RiskAssessment',  43.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-medicationstatement') and (resource is MedicationStatement),  44.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-medicationstatement does not match for Bundle because of the following profile issues:  45.) Bundle.entry[7].resource: Specified profile type was 'MedicationStatement' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-medicationstatement|2.0.0-ballot', but found type 'RiskAssessment',  46.) Bundle.entry[7]: discriminator = true and resource.conformsTo('http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-medicationadministration') and (resource is MedicationAdministration),  47.) Bundle.entry[7]: Profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-medicationadministration does not match for Bundle because of the following profile issues:  48.) Bundle.entry[7].resource: Specified profile type was 'MedicationAdministration' in profile 'http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-medicationadministration|2.0.0-ballot', but found type 'RiskAssessment'",
+   "expression": [
+    "Bundle.entry[7]"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 9
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 5
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "UNKNOWN_CODESYSTEM"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-missiontimestatus|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "unknown",
+   "diagnostics": "A definition for CodeSystem 'https://omega.example/fhir/CodeSystem/prealert' could not be found, so the code cannot be validated",
+   "expression": [
+    "Bundle.meta.tag[0].system"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 142
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 5
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient#ch-ems-epr-patient"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient|2.0.0-ballot"
+    }
+   ],
+   "severity": "warning",
+   "code": "invariant",
+   "diagnostics": "Constraint failed: ch-ems-epr-patient: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient)",
+   "expression": [
+    "Bundle.entry[1].resource/*Patient/anon*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 200
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 7
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "Details_for__matching_against_Profile_"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-encounter|7.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "informational",
+   "diagnostics": "This element does not match any known slice defined in the profile http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-encounter|7.0.0-ballot (this may not be a problem, but you should check that it's not intended to match a slice) Slice info: 1.) Bundle.entry[3].resource/*Encounter/missione*/.identifier[0]: discriminator = true and $this.where(type.coding.where((system = 'http://terminology.hl7.org/CodeSystem/v2-0203') and (code = 'VN')).exists()).exists()",
+   "expression": [
+    "Bundle.entry[3].resource/*Encounter/missione*/.identifier[0]"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 201
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-encounter|7.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[3].resource/*Encounter/missione*/.identifier[0].type"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 201
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "Terminology_TX_NoValid_2_CC"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-encounter|7.0.0-ballot"
+    }
+   ],
+   "severity": "warning",
+   "code": "code-invalid",
+   "diagnostics": "None of the codings provided are in the value set 'IdentifierType' (http://hl7.org/fhir/ValueSet/identifier-type|4.0.1), and a coding should come from this value set unless it has no suitable code (note that the validator cannot judge what is suitable) (codes = http://fhir.ch/ig/ch-ems/CodeSystem/IVR#MN)",
+   "expression": [
+    "Bundle.entry[3].resource/*Encounter/missione*/.identifier[0].type"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 61
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-organization|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[0].resource.section[0].code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 85
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-missiontimestatus|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[0].resource.section[1].code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 24
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 5
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition#ch-ems-epr-composition"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition|2.0.0-ballot"
+    }
+   ],
+   "severity": "warning",
+   "code": "invariant",
+   "diagnostics": "Constraint failed: ch-ems-epr-composition: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition)",
+   "expression": [
+    "Bundle.entry[0].resource"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 283
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 5
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "VALIDATION_VAL_PROFILE_SIGNPOST_OBS"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-servicerequest|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "informational",
+   "diagnostics": "Validate Observation against the Heart rate profile (http://hl7.org/fhir/StructureDefinition/heartrate) which is required by the FHIR specification because the LOINC code 8867-4 was found",
+   "expression": [
+    "Bundle.entry[5].resource/*Observation/vit-hr*/"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 346
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "TerminologyEngine"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "MSG_DRAFT"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "business-rule",
+   "diagnostics": "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot",
+   "expression": [
+    "Bundle.entry[6].resource.code"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 387
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 6
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "Terminology_TX_Binding_NoSource"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://hl7.org/fhir/StructureDefinition/RiskAssessment|4.0.1"
+    }
+   ],
+   "severity": "information",
+   "code": "code-invalid",
+   "diagnostics": "Binding for path Bundle.entry[7].resource/*RiskAssessment/prealert*/.method in profile StructureDefinition[http://hl7.org/fhir/StructureDefinition/RiskAssessment|4.0.1] has no source, so can't be checked",
+   "expression": [
+    "Bundle.entry[7].resource/*RiskAssessment/prealert*/.method"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 403
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 8
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "Terminology_TX_Binding_NoSource"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "code-invalid",
+   "diagnostics": "Binding for path Bundle.entry[7].resource/*RiskAssessment/prealert*/.prediction[0].outcome in profile StructureDefinition[http://hl7.org/fhir/StructureDefinition/RiskAssessment|4.0.1] has no source, so can't be checked",
+   "expression": [
+    "Bundle.entry[7].resource/*RiskAssessment/prealert*/.prediction[0].outcome"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 1
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 2
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document#ch-ems-epr-document"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot"
+    }
+   ],
+   "severity": "warning",
+   "code": "invariant",
+   "diagnostics": "Constraint failed: ch-ems-epr-document: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document)",
+   "expression": [
+    "Bundle"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 24
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 5
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "VALIDATION_VAL_PROFILE_SIGNPOST_BUNDLE_PARAM"
+    }
+   ],
+   "severity": "information",
+   "code": "informational",
+   "diagnostics": "Validate resource against profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition - provided as bundle param",
+   "expression": [
+    "Bundle"
+   ]
+  },
+  {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+     "valueInteger": 283
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+     "valueInteger": 5
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+     "valueString": "InstanceValidator"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+     "valueCode": "VALIDATION_VAL_PROFILE_SIGNPOST_OBS"
+    },
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+     "valueString": "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition|2.0.0-ballot"
+    }
+   ],
+   "severity": "information",
+   "code": "informational",
+   "diagnostics": "Validate Observation against the Heart rate profile (http://hl7.org/fhir/StructureDefinition/heartrate) which is required by the FHIR specification because the LOINC code 8867-4 was found",
+   "expression": [
+    "Bundle.entry[5].resource"
+   ]
+  },
+  {
+   "severity": "information",
+   "code": "informational",
+   "diagnostics": "No fatal or error issues detected, the validation has passed"
+  }
+ ]
+}

@@ -152,7 +152,9 @@ minimal one (alarm time only, one vital, patient not alert, no colour, no destin
 patient does not meet the *EPR* restrictions (by design: identity is joined in the hospital), the OMEGA code
 system is not resolvable by the terminology server, and the IVR identifier type `MN` is not in the HL7
 identifier-type value set (a property of the IG). What is **not** exported because OMEGA does not compute it:
-NACA, GCS, diagnosis, procedures. Organisations need a real 13-digit GLN (format checked, registration not).
+NACA, GCS, diagnosis, procedures. Organisations need a real 13-digit GLN (format checked, registration not). The
+OperationOutcome files of both validators, for our two documents and for the IG's four published examples, are in
+`examples/chems_conformance/` (see its EVIDENCE.md).
 
 **Reading CH EMS documents from anyone** — `chems_ingest.py` (`python3 chems_ingest.py doc.json [--validate]
 [--eta 67] [--anchor OPERATOR]`): strict load (duplicate keys refused), document rules (Composition first, every

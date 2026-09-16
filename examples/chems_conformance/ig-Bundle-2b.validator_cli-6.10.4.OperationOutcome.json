@@ -1,0 +1,2651 @@
+{
+  "resourceType" : "OperationOutcome",
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p class=\"res-header-id\"><b>OperationOutcome </b></p><table class=\"grid\"><tr><td><b>Severity</b></td><td><b>Location</b></td><td><b>Code</b></td><td><b>Details</b></td><td><b>Diagnostics</b></td><td><b>Source</b></td></tr><tr><td>Information</td><td>Bundle.entry[0]</td><td>Informational Note</td><td>This element does not match any known slice defined in the profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot (this may not be a problem, but you should check that it's not intended to match a slice)</td><td/><td>InstanceValidator</td></tr><tr><td>Error</td><td>Bundle</td><td>Structural Issue</td><td>Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). Note that other slices are allowed in addition to this required slice</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.type.coding[0].display</td><td>Invalid Content</td><td>There are no valid display names found for the code http://loinc.org#67796-3 for language(s) 'de-CH'. The display is 'EMS patient care report - version 3 Document NEMSIS' which is a valid display for the default language</td><td/><td>TerminologyEngine</td></tr><tr><td>Error</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.confidentiality.extension[0].value.ofType(CodeableConcept).coding[0].display</td><td>Invalid Content</td><td>Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.confidentiality.extension[0].value.ofType(CodeableConcept)</td><td>Invalid Code</td><td>None of the codings provided are in the value set 'DocumentEntry.confidentialityCode' (http://fhir.ch/ig/ch-term/ValueSet/DocumentEntry.confidentialityCode|3.4.0), and a coding should come from this value set unless it has no suitable code (note that the validator cannot judge what is suitable) (codes = http://snomed.info/sct#17621005)</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.confidentiality.extension[0].value.ofType(CodeableConcept).coding[0].display</td><td>Invalid Content</td><td>There are no valid display names found for the code http://snomed.info/sct#17621005 for language(s) 'de-CH'. The display is 'Normal' which is a valid display for the default language</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[0].code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[1].code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[2].code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[3].code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[4].code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[5].code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[6].code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[7].code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[8].code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[9].code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[10].code.coding[0].display</td><td>Invalid Content</td><td>There are no valid display names found for the code http://loinc.org#48767-8 for language(s) 'de-CH'. The display is 'Annotation comment [Interpretation] Narrative' which is a valid display for the default language</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[0].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[1].resource.identifier[0].type</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[1].resource.identifier[0].type</td><td>Invalid Code</td><td>None of the codings provided are in the value set 'IdentifierType' (http://hl7.org/fhir/ValueSet/identifier-type|4.0.1), and a coding should come from this value set unless it has no suitable code (note that the validator cannot judge what is suitable) (codes = http://fhir.ch/ig/ch-ems/CodeSystem/IVR#MN)</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[1].resource/*Encounter/2-Einsatz*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[2].resource/*Patient/2-PatientUnbekannt*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[2].resource/*Patient/2-PatientUnbekannt*/</td><td>Validation rule failed</td><td>Constraint failed: ch-ems-epr-patient: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[3].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[4].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[5].resource/*Practitioner/1-SaniPetraMuster*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[6].resource/*PractitionerRole/1-SaniPetraMuster-PR*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[7].resource/*Practitioner/1-TeamMemberPetraMuster*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[8].resource/*Practitioner/1-TeamMemberHansTransportsanitaeter*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[9].resource/*Organization/1-Rettungsdienst*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[10].resource/*Organization/1-TeamRettungsdienst*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[11].resource/*ServiceRequest/2-AufbietendeOrganisation*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[12].resource/*Location/2-Einsatzort*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[13].resource/*Location/1-Zielort*/.address.country</td><td>Invalid Code</td><td>The value provided ('Switzerland') was not found in the value set 'BFS Verzeichnis der Staaten und Gebiete' (http://fhir.ch/ig/ch-term/ValueSet/bfs-country-codes|3.4.0), and a code is recommended to come from this value set (error message = The System URI could not be determined for the code 'Switzerland' in the ValueSet 'http://fhir.ch/ig/ch-term/ValueSet/bfs-country-codes|3.4.0'; The provided code '#Switzerland' was not found in the value set 'http://fhir.ch/ig/ch-term/ValueSet/bfs-country-codes|3.4.0')</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[13].resource/*Location/1-Zielort*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[14].resource/*Observation/2-Alarm*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[14].resource/*Observation/2-Alarm*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have an effective[x] ()</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[14].resource.code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[14].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[15].resource/*Observation/2-Disposition*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[15].resource/*Observation/2-Disposition*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have an effective[x] ()</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[15].resource.code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[15].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[16].resource/*Observation/2-Rollout*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[16].resource/*Observation/2-Rollout*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have an effective[x] ()</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[16].resource.code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[16].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[17].resource/*Observation/2-ArrivalOnScene*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[17].resource/*Observation/2-ArrivalOnScene*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have an effective[x] ()</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[17].resource.code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[17].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[18].resource/*Observation/2-ArrivalPatient*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[18].resource/*Observation/2-ArrivalPatient*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have an effective[x] ()</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[18].resource.code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[18].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[19].resource/*Observation/2-DepartureFromScene*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[19].resource/*Observation/2-DepartureFromScene*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have an effective[x] ()</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[19].resource.code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[19].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[20].resource/*Observation/2-ArrivalAtTarget*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[20].resource/*Observation/2-ArrivalAtTarget*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have an effective[x] ()</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[20].resource.code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[20].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[21].resource/*Observation/2b-DepartureFromTarget*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[21].resource/*Observation/2b-DepartureFromTarget*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have an effective[x] ()</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[21].resource.code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[21].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[22].resource/*Observation/2b-OperationalReadiness*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[22].resource/*Observation/2b-OperationalReadiness*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have an effective[x] ()</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[22].resource.code</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[22].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[23].resource/*Observation/2-AirwaysBefund*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[23].resource/*Observation/2-AirwaysBefund*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[24].resource/*Observation/2-GCSBefund*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[24].resource.value.ofType(Quantity)</td><td>Business Rule Violation</td><td>UCUM Codes that contain human readable annotations like {score} can be misleading (e.g. they are ignored when comparing units). Best Practice is not to depend on annotations in the UCUM code, so this usage should be checked, and the Quantity.unit SHOULD contain the annotation</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[24].resource.component[0].value.ofType(CodeableConcept)</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[24].resource.component[1].value.ofType(CodeableConcept)</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[24].resource.component[2].value.ofType(CodeableConcept)</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[24].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[25].resource/*Observation/2-AVPUBefund*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[25].resource.value.ofType(CodeableConcept)</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[25].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[26].resource.value.ofType(CodeableConcept).coding[0].system</td><td>Not Found</td><td>A definition for CodeSystem 'http://fhir.de/CodeSystem/bfarm/icd-10-gm' could not be found, so the code cannot be validated</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[26].resource/*Observation/2-Diagnose*/</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[27].resource/*Observation/2-ZustandUebergabe*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[27].resource/*Observation/2-ZustandUebergabe*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have an effective[x] ()</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[27].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[28].resource/*Observation/2-NACAUebergabe*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[28].resource/*Observation/2-NACAUebergabe*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have an effective[x] ()</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[28].resource.value.ofType(CodeableConcept)</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[28].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[29].resource/*Observation/2-GCSUebergabe*/</td><td>Invalid Content</td><td>Best Practice Recommendation: In general, all observations should have a performer</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle.entry[29].resource.value.ofType(Quantity)</td><td>Business Rule Violation</td><td>UCUM Codes that contain human readable annotations like {score} can be misleading (e.g. they are ignored when comparing units). Best Practice is not to depend on annotations in the UCUM code, so this usage should be checked, and the Quantity.unit SHOULD contain the annotation</td><td/><td>InstanceValidator</td></tr><tr><td>Information</td><td>Bundle.entry[29].resource.component[0].value.ofType(CodeableConcept)</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[29].resource.component[1].value.ofType(CodeableConcept)</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Information</td><td>Bundle.entry[29].resource.component[2].value.ofType(CodeableConcept)</td><td>Business Rule Violation</td><td>Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot</td><td/><td>TerminologyEngine</td></tr><tr><td>Warning</td><td>Bundle.entry[29].resource</td><td>Validation rule failed</td><td>Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)</td><td/><td>InstanceValidator</td></tr><tr><td>Warning</td><td>Bundle</td><td>Validation rule failed</td><td>Constraint failed: ch-ems-epr-document: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document)</td><td/><td>InstanceValidator</td></tr></table></div>"
+  },
+  "extension" : [{
+    "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-file",
+    "valueString" : "examples/chems_conformance/ig-Bundle-2b-Einsatzprotokoll.json"
+  }],
+  "issue" : [{
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 13
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 4
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "Details_for__matching_against_Profile_"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "informational",
+    "details" : {
+      "text" : "This element does not match any known slice defined in the profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot (this may not be a problem, but you should check that it's not intended to match a slice)"
+    },
+    "expression" : ["Bundle.entry[0]"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 2
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "Validation_VAL_Profile_Minimum_SLICE"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "error",
+    "code" : "structure",
+    "details" : {
+      "text" : "Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). Note that other slices are allowed in addition to this required slice"
+    },
+    "expression" : ["Bundle"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 24
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "NO_VALID_DISPLAY_FOUND_NONE_FOR_LANG_OK"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Composition|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "invalid",
+    "details" : {
+      "text" : "There are no valid display names found for the code http://loinc.org#67796-3 for language(s) 'de-CH'. The display is 'EMS patient care report - version 3 Document NEMSIS' which is a valid display for the default language"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.type.coding[0].display"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 55
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 12
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "Display_Name_for__should_be_one_of__instead_of"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Practitioner|4.0.1"
+    }],
+    "severity" : "error",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.confidentiality.extension[0].value.ofType(CodeableConcept).coding[0].display"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 55
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 12
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "Terminology_TX_NoValid_2_CC"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Practitioner|4.0.1"
+    }],
+    "severity" : "warning",
+    "code" : "code-invalid",
+    "details" : {
+      "text" : "None of the codings provided are in the value set 'DocumentEntry.confidentialityCode' (http://fhir.ch/ig/ch-term/ValueSet/DocumentEntry.confidentialityCode|3.4.0), and a coding should come from this value set unless it has no suitable code (note that the validator cannot judge what is suitable) (codes = http://snomed.info/sct#17621005)"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.confidentiality.extension[0].value.ofType(CodeableConcept)"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 55
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 12
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "NO_VALID_DISPLAY_FOUND_NONE_FOR_LANG_OK"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Practitioner|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "invalid",
+    "details" : {
+      "text" : "There are no valid display names found for the code http://snomed.info/sct#17621005 for language(s) 'de-CH'. The display is 'Normal' which is a valid display for the default language"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.confidentiality.extension[0].value.ofType(CodeableConcept).coding[0].display"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 77
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[0].code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 122
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[1].code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 137
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[2].code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 152
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[3].code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 167
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[4].code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 197
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[5].code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 215
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[6].code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 230
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[7].code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 245
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[8].code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 260
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[9].code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 290
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "NO_VALID_DISPLAY_FOUND_NONE_FOR_LANG_OK"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "information",
+    "code" : "invalid",
+    "details" : {
+      "text" : "There are no valid display names found for the code http://loinc.org#48767-8 for language(s) 'de-CH'. The display is 'Annotation comment [Interpretation] Narrative' which is a valid display for the default language"
+    },
+    "expression" : ["Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.section[10].code.coding[0].display"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 15
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-organization|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[0].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 311
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[1].resource.identifier[0].type"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 311
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "Terminology_TX_NoValid_2_CC"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "code-invalid",
+    "details" : {
+      "text" : "None of the codings provided are in the value set 'IdentifierType' (http://hl7.org/fhir/ValueSet/identifier-type|4.0.1), and a coding should come from this value set unless it has no suitable code (note that the validator cannot judge what is suitable) (codes = http://fhir.ch/ig/ch-ems/CodeSystem/IVR#MN)"
+    },
+    "expression" : ["Bundle.entry[1].resource.identifier[0].type"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 307
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Location|4.0.1"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[1].resource/*Encounter/2-Einsatz*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 383
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[2].resource/*Patient/2-PatientUnbekannt*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 383
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient#ch-ems-epr-patient"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-patient-epr|7.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: ch-ems-epr-patient: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient)"
+    },
+    "expression" : ["Bundle.entry[2].resource/*Patient/2-PatientUnbekannt*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 401
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitioner|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[3].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 416
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-organization|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[4].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 434
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitioner|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[5].resource/*Practitioner/1-SaniPetraMuster*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 459
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitioner|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[6].resource/*PractitionerRole/1-SaniPetraMuster-PR*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 477
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[7].resource/*Practitioner/1-TeamMemberPetraMuster*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 505
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[8].resource/*Practitioner/1-TeamMemberHansTransportsanitaeter*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 533
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-organization|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[9].resource/*Organization/1-Rettungsdienst*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 545
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[10].resource/*Organization/1-TeamRettungsdienst*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 563
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Organization|4.0.1"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[11].resource/*ServiceRequest/2-AufbietendeOrganisation*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 590
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Location|4.0.1"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[12].resource/*Location/2-Einsatzort*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 624
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 34
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "Terminology_TX_NoValid_18"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-core/StructureDefinition/ch-core-location|7.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "code-invalid",
+    "details" : {
+      "text" : "The value provided ('Switzerland') was not found in the value set 'BFS Verzeichnis der Staaten und Gebiete' (http://fhir.ch/ig/ch-term/ValueSet/bfs-country-codes|3.4.0), and a code is recommended to come from this value set (error message = The System URI could not be determined for the code 'Switzerland' in the ValueSet 'http://fhir.ch/ig/ch-term/ValueSet/bfs-country-codes|3.4.0'; The provided code '#Switzerland' was not found in the value set 'http://fhir.ch/ig/ch-term/ValueSet/bfs-country-codes|3.4.0')"
+    },
+    "expression" : ["Bundle.entry[13].resource/*Location/1-Zielort*/.address.country"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 612
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Location|4.0.1"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[13].resource/*Location/1-Zielort*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 638
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[14].resource/*Observation/2-Alarm*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 638
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have an effective[x] ()"
+    },
+    "expression" : ["Bundle.entry[14].resource/*Observation/2-Alarm*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 642
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[14].resource.code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 638
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[14].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 661
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[15].resource/*Observation/2-Disposition*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 661
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have an effective[x] ()"
+    },
+    "expression" : ["Bundle.entry[15].resource/*Observation/2-Disposition*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 665
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[15].resource.code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 661
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[15].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 684
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[16].resource/*Observation/2-Rollout*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 684
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have an effective[x] ()"
+    },
+    "expression" : ["Bundle.entry[16].resource/*Observation/2-Rollout*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 688
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[16].resource.code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 684
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[16].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 707
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[17].resource/*Observation/2-ArrivalOnScene*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 707
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have an effective[x] ()"
+    },
+    "expression" : ["Bundle.entry[17].resource/*Observation/2-ArrivalOnScene*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 711
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[17].resource.code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 707
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[17].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 730
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[18].resource/*Observation/2-ArrivalPatient*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 730
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have an effective[x] ()"
+    },
+    "expression" : ["Bundle.entry[18].resource/*Observation/2-ArrivalPatient*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 734
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[18].resource.code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 730
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[18].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 753
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[19].resource/*Observation/2-DepartureFromScene*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 753
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have an effective[x] ()"
+    },
+    "expression" : ["Bundle.entry[19].resource/*Observation/2-DepartureFromScene*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 757
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[19].resource.code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 753
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[19].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 776
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[20].resource/*Observation/2-ArrivalAtTarget*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 776
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have an effective[x] ()"
+    },
+    "expression" : ["Bundle.entry[20].resource/*Observation/2-ArrivalAtTarget*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 780
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[20].resource.code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 776
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[20].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 799
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[21].resource/*Observation/2b-DepartureFromTarget*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 799
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have an effective[x] ()"
+    },
+    "expression" : ["Bundle.entry[21].resource/*Observation/2b-DepartureFromTarget*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 803
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[21].resource.code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 799
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[21].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 822
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[22].resource/*Observation/2b-OperationalReadiness*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 822
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have an effective[x] ()"
+    },
+    "expression" : ["Bundle.entry[22].resource/*Observation/2b-OperationalReadiness*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 826
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[22].resource.code"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 822
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[22].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 845
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[23].resource/*Observation/2-AirwaysBefund*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 845
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[23].resource/*Observation/2-AirwaysBefund*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 875
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[24].resource/*Observation/2-GCSBefund*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 893
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "TYPE_SPECIFIC_CHECKS_DT_QTY_UCUM_ANNOTATIONS_NO_UNIT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "UCUM Codes that contain human readable annotations like {score} can be misleading (e.g. they are ignored when comparing units). Best Practice is not to depend on annotations in the UCUM code, so this usage should be checked, and the Quantity.unit SHOULD contain the annotation"
+    },
+    "expression" : ["Bundle.entry[24].resource.value.ofType(Quantity)"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 906
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[24].resource.component[0].value.ofType(CodeableConcept)"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 927
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[24].resource.component[1].value.ofType(CodeableConcept)"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 948
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[24].resource.component[2].value.ofType(CodeableConcept)"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 875
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[24].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 965
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[25].resource/*Observation/2-AVPUBefund*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 983
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[25].resource.value.ofType(CodeableConcept)"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 965
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[25].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1017
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "UNKNOWN_CODESYSTEM"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Practitioner|4.0.1"
+    }],
+    "severity" : "warning",
+    "code" : "not-found",
+    "details" : {
+      "text" : "A definition for CodeSystem 'http://fhir.de/CodeSystem/bfarm/icd-10-gm' could not be found, so the code cannot be validated"
+    },
+    "expression" : ["Bundle.entry[26].resource.value.ofType(CodeableConcept).coding[0].system"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 995
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-practitioner|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[26].resource/*Observation/2-Diagnose*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1028
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[27].resource/*Observation/2-ZustandUebergabe*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1028
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have an effective[x] ()"
+    },
+    "expression" : ["Bundle.entry[27].resource/*Observation/2-ZustandUebergabe*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1028
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[27].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1057
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[28].resource/*Observation/2-NACAUebergabe*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1057
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have an effective[x] ()"
+    },
+    "expression" : ["Bundle.entry[28].resource/*Observation/2-NACAUebergabe*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1074
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[28].resource.value.ofType(CodeableConcept)"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1057
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[28].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1086
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "All_observations_should_have_a_performer"
+    }],
+    "severity" : "warning",
+    "code" : "invalid",
+    "details" : {
+      "text" : "Best Practice Recommendation: In general, all observations should have a performer"
+    },
+    "expression" : ["Bundle.entry[29].resource/*Observation/2-GCSUebergabe*/"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1104
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 8
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "TYPE_SPECIFIC_CHECKS_DT_QTY_UCUM_ANNOTATIONS_NO_UNIT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "UCUM Codes that contain human readable annotations like {score} can be misleading (e.g. they are ignored when comparing units). Best Practice is not to depend on annotations in the UCUM code, so this usage should be checked, and the Quantity.unit SHOULD contain the annotation"
+    },
+    "expression" : ["Bundle.entry[29].resource.value.ofType(Quantity)"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1117
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[29].resource.component[0].value.ofType(CodeableConcept)"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1138
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[29].resource.component[1].value.ofType(CodeableConcept)"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1159
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 10
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "TerminologyEngine"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "MSG_DRAFT"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "information",
+    "code" : "business-rule",
+    "details" : {
+      "text" : "Reference to draft CodeSystem http://fhir.ch/ig/ch-ems/CodeSystem/IVR|2.0.0-ballot"
+    },
+    "expression" : ["Bundle.entry[29].resource.component[2].value.ofType(CodeableConcept)"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1086
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 6
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter|2.0.0-ballot"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: dom-6: 'A resource should have narrative for robust management' (defined in http://hl7.org/fhir/StructureDefinition/DomainResource) (Best Practice Recommendation)"
+    },
+    "expression" : ["Bundle.entry[29].resource"]
+  },
+  {
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+      "valueInteger" : 1
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+      "valueInteger" : 2
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-source",
+      "valueString" : "InstanceValidator"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+      "valueCode" : "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document#ch-ems-epr-document"
+    },
+    {
+      "url" : "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-context",
+      "valueString" : "http://hl7.org/fhir/StructureDefinition/Observation|4.0.1"
+    }],
+    "severity" : "warning",
+    "code" : "invariant",
+    "details" : {
+      "text" : "Constraint failed: ch-ems-epr-document: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document)"
+    },
+    "expression" : ["Bundle"]
+  }]
+}

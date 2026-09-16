@@ -64,18 +64,16 @@ class TestChemsIngest(unittest.TestCase):
     def test_real_ig_examples_are_read(self):
         """The IG's own published documents (package copy; the online files are semantically identical — measured
         16/09): absolute RESTful fullUrls with RELATIVE references, identified and unidentified patients."""
-        base = os.path.expanduser("~/.fhir/packages/ch.fhir.ig.ch-ems#2.0.0-ballot/package/example")
-        if not os.path.isdir(base):
-            self.skipTest("CH EMS package not downloaded")
-        doc = I.leggi_documento(os.path.join(base, "Bundle-1-Einsatzprotokoll.json"))
+        base = "examples/chems_conformance"                      # the IG's published examples, kept in the repo (EVIDENCE.md)
+        doc = I.leggi_documento(os.path.join(base, "ig-Bundle-1-Einsatzprotokoll.json"))
         ex = I.estrai_vitali(doc)
         self.assertEqual(ex["eta"], 55); self.assertEqual(ex["gcs"], 15); self.assertEqual(ex["naca"], "III"); self.assertEqual(ex["missione"]["numero"], "S12345678")
         self.assertEqual(ex["vitali"], {"sbp": 120.0, "alert_coscienza": True}); self.assertEqual(len(ex["tempi"]), 6)
         v = I.valuta_documento(doc); self.assertFalse(v["valutabile"]); self.assertIn("vitali NEWS2 mancanti", v["motivo_non_valutabile"])
-        doc2 = I.estrai_vitali(I.leggi_documento(os.path.join(base, "Bundle-2-Einsatzprotokoll.json")))
+        doc2 = I.estrai_vitali(I.leggi_documento(os.path.join(base, "ig-Bundle-2-Einsatzprotokoll.json")))
         self.assertIsNone(doc2["eta"]); self.assertEqual(doc2["vitali"], {"alert_coscienza": False, "avpu": "V"}); self.assertEqual(doc2["gcs"], 10)
         # a relative reference from a urn:uuid fullUrl is NOT resolvable (spec), an absolute one must match exactly
-        b = json.load(open(os.path.join(base, "Bundle-1-Einsatzprotokoll.json")))
+        b = json.load(open(os.path.join(base, "ig-Bundle-1-Einsatzprotokoll.json")))
         b["entry"][0]["fullUrl"] = "urn:uuid:3b2d3c1e-0000-4000-8000-000000000001"
         with self.assertRaises(I.DocumentoNonValido):
             I.leggi_documento(b)
