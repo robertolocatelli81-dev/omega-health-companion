@@ -419,6 +419,8 @@ def main(argv=None) -> int:
     ap.add_argument("--eta-arrivo-min", type=int, default=0)
     ap.add_argument("--eta", type=int, help="patient age when the document is anonymous (the engine needs it)")
     a = ap.parse_args(argv)
+    if a.anchor:
+        AB.esigi_firma_o_optin("chems_ingest --anchor")   # fail-closed (0.6.1): say it before reading, not at the end
     raw = open(a.doc, "rb").read()                 # read ONCE: scoring, validation and anchor see the same bytes
     doc = leggi_documento(raw)
     out: Dict[str, Any] = {"letto": {k: v for k, v in doc.items() if k in ("bytes_sha256", "profili", "per_tipo", "avvisi")}}

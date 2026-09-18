@@ -11,8 +11,9 @@ append-only **SHA-256 hash-chain (digest only — no health data on disk)** and 
 issue/confirmation can carry a **record-bound electronic signature** (who issued, who
 took charge, when).
 
-**License:** AGPL-3.0-or-later · **Language:** Python 3, stdlib only (`cryptography`
-optional for the signature bridge) · **Author:** Roberto Locatelli, 2026
+**License:** AGPL-3.0-or-later · **Language:** Python 3, stdlib + `cryptography` (declared dependency since
+0.6.1: every event that goes through the audit bridge — pre-alert issue, confirmation, reception, coordination and incident events — is signed, by the Part 11 engine when present or by the built-in Ed25519 signer that needs `cryptography`, and the bridge refuses to record them unsigned unless you opt in
+with `OMEGA_HEALTH_ALLOW_UNSIGNED=1`) · **Author:** Roberto Locatelli, 2026
 
 ## Honest scope (read this first)
 
@@ -60,7 +61,7 @@ optional for the signature bridge) · **Author:** Roberto Locatelli, 2026
 | `fhir_chems.py` · `chems_ingest.py` | Pre-alert → **CH EMS document** (Swiss mission protocol, 0 validator errors on two documents, see below); reader + scoring + evidence for CH EMS documents from any ePCR |
 | `fhir_export.py` | Pre-alert → **FHIR R4 Bundle** (LOINC-coded vitals conformant to the R4 vital-signs profiles — BP as the 85354-9 panel with diastolic `dataAbsentReason` when not measured, SpO2 as 2708-6 + 59408-5; 0 structural errors on both HAPI `$validate` and the HL7 `validator.fhir.org`, re-checked 2026-09-11 — RiskAssessment, Provenance carrying the ledger hash) — validated with **0 errors** against the public HAPI FHIR validator; ATMIST handover; ECG attachment by SHA-256 (never auto-interpreted) |
 | `ambulanza_cli.py` | Field CLI: raw vitals in, computed pre-alert back; honest fallback message if the server is unreachable |
-| `audit_bridge.py` | **Optional** bridge to a 21 CFR Part 11-grade audit engine (signed audit trail, signatures bound to records with meaning). Degrades honestly to "base" level when the engine is absent — the engine is not part of this repository |
+| `audit_bridge.py` | Bridge to a 21 CFR Part 11-grade audit engine (signed audit trail, signatures bound to records with meaning; the engine is not part of this repository), with a built-in local Ed25519 signer (`cryptography`) when the engine is absent. **Fail-closed since 0.6.1:** with neither, it raises `FirmaNonDisponibile` and `team_comms` refuses to start; recording events at the declared unsigned "base" level is possible only behind the explicit opt-in `OMEGA_HEALTH_ALLOW_UNSIGNED=1` (`verifica_trail()` stays a read-only diagnostic and simply reports that the engine is absent) |
 | `companion_seed.py` | Citizen-facing claim verification seed (informative only) |
 | `mission_case.py` | **Mission case file**: declarative FSM (ALLERTA→VALUTAZIONE→TRASPORTO→CONSEGNATA→CHIUSA, +ANNULLATA), SHA-256 hash-chained append-only ledger under an exclusive file lock, digests-only (no PHI), monotonic-clock guard, tamper → pack refused. Optional private case-engine adds an independent double replay; degrades honestly to "fascicolo-locale" (verified: same 17 tests pass with and without the engine) |
 | `prealert_criteria.py` | **RCEM/AACE 2025 pre-alert criteria** (adult thresholds adapted from NEWS2, paediatric table by age band adapted from PEWS, 16 specific conditions, JRCALC high-risk sepsis markers) transcribed from the July 2025 UK national guideline (PDF SHA-256 pinned) — says *whether* the guideline indicates a pre-alert and *why*; "headline + ETA first, then ATMIST, ≤60 s" message. Declared scope: no BP trend, no "new for patient" GCS; children get *criteria*, never an adult score |
@@ -128,7 +129,8 @@ closed-vocabulary or a digest: no free text and no health data on disk.
 
 `fhir_chems.py` renders the pre-alert as a **CH EMS document** (`ch.fhir.ig.ch-ems` 2.0.0-ballot, the IVR / HL7
 Switzerland mission-protocol format, eCH-0207; STU ballot open until 2026-09-30): a `document` Bundle with a
-CHEmsComposition in `status: preliminary` (the pre-alert precedes the handover), the mandatory *mission* section
+CHEmsComposition in `status: preliminary` (the pre-alert precedes the handover), with a version-independent
+`Composition.identifier` and `confidentiality` N + the CH Core EPR confidentiality extension (0.6.1), the mandatory *mission* section
 (CHEmsEncounter with the mission number, the alarm time as `period.start` — required, never defaulted — IVR
 mission-time observations, urgency and mission type only when given), *findings* (heart rate and blood pressure
 in the fixed "Circulation" sub-section, AVPU in "Disability" only when the patient is alert — V/P/U are not
@@ -153,9 +155,10 @@ report display-name mismatches (measured with a positive control, see EVIDENCE.m
 bindings, not display names. Every warning is explained (measured 2026-09-18 by
 declaring the EPR profiles on our resources, `examples/chems_conformance/rerun_20260918/abl-omega-minimal-epr-profiles*`):
 the three `ch-ems-epr-*` warnings are the CH Core *EPR* profiles not being met — the anonymous patient has no
-identifier, name, gender or birth date (by design: identity is joined in the hospital), and the Composition has no
-`identifier` and no `confidentiality`, which `ch-core-composition-epr` requires and CH EMS itself does not; the
-document-level warning follows from the Composition one. The other warnings: the OMEGA code system is not
+identifier, name, gender or birth date (by design: identity is joined in the hospital); since 0.6.1 the Composition
+carries `identifier` and `confidentiality` (required by `ch-core-composition-epr`, not by CH EMS), so its warning
+remains for one reason only — the subject must be a `ch-core-patient-epr` — and the document-level warning follows
+from the Composition one. The other warnings: the OMEGA code system is not
 resolvable by the terminology server, and the IVR identifier type `MN` is not in the HL7 identifier-type value set
 (a property of the IG). What is **not** exported because OMEGA does not compute it:
 NACA, GCS, diagnosis, procedures. Organisations need a real 13-digit GLN (format checked, registration not). The

@@ -69,15 +69,58 @@ class TestFirmaLocaleFallback(unittest.TestCase):
         canon2 = json.dumps(rec2, sort_keys=True, separators=(",", ":")).encode()
         self.assertNotEqual(hashlib.sha256(canon2).hexdigest(), entry["record_sha256"])
 
-    def test_senza_nulla_livello_base_onesto(self):
+    def test_senza_nulla_livello_base_solo_con_opt_in(self):
+        """0.6.1 fail-closed: senza motore né cryptography il ponte RIFIUTA di registrare eventi non firmati,
+        a meno dell'opt-in esplicito OMEGA_HEALTH_ALLOW_UNSIGNED=1, che dà il livello «base» DICHIARATO."""
+        import os
+        from unittest import mock
         orig = AB.FIRMA_LOCALE_DISPONIBILE
         try:
             AB.FIRMA_LOCALE_DISPONIBILE = False
-            out = AB.registra_conferma("PA-1", "x", "dr")
-            self.assertEqual(out["livello"], "base")
-            self.assertIn("nessuna firma", out["nota"])
+            env_off = {k: v for k, v in os.environ.items() if k != AB.PERMETTI_NON_FIRMATO_ENV}
+            with mock.patch.dict(os.environ, env_off, clear=True):
+                with self.assertRaises(AB.FirmaNonDisponibile):    # fail-closed: nessun trail non firmato in silenzio
+                    AB.registra_conferma("PA-1", "x", "dr")
+                with self.assertRaises(AB.FirmaNonDisponibile):
+                    AB.registra_evento_clinico("PA-1", "triage_start", {"triage_start": "rosso"}, "dr")
+            with mock.patch.dict(os.environ, {AB.PERMETTI_NON_FIRMATO_ENV: "1"}):
+                out = AB.registra_conferma("PA-1", "x", "dr")
+                self.assertEqual(out["livello"], "base")
+                self.assertIn("nessuna firma", out["nota"])
         finally:
             AB.FIRMA_LOCALE_DISPONIBILE = orig
+
+    def test_fail_closed_su_tutte_le_registrazioni_e_all_avvio(self):
+        """Tutte e cinque le registra_* alzano senza firma né opt-in; esigi_firma_o_optin (usato da team_comms.serve
+        e da chems_ingest --anchor) esce con SystemExit nominato; con opt-in non esce. Vale in ENTRAMBE le
+        configurazioni CI perché i flag vengono forzati, non dedotti dall'ambiente."""
+        import os
+        from unittest import mock
+        calls = [lambda: AB.registra_conferma("PA-1", "x", "dr"),
+                 lambda: AB.registra_prealert("PA-1", "ab" * 32, "eq"),
+                 lambda: AB.registra_ricezione("PA-1", {"k": 1}, "ps"),
+                 lambda: AB.registra_evento_clinico("PA-1", "triage_start", {"triage_start": "rosso"}, "dr"),
+                 lambda: AB.registra_evento_sistema("PA-1/x", "rimozione_nota", "motivo", "dr")]
+        env_off = {k: v for k, v in os.environ.items() if k != AB.PERMETTI_NON_FIRMATO_ENV}
+        with mock.patch.object(AB, "FIRMA_LOCALE_DISPONIBILE", False), mock.patch.object(AB, "MOTORE_DISPONIBILE", False):
+            with mock.patch.dict(os.environ, env_off, clear=True):
+                for c in calls:
+                    with self.assertRaises(AB.FirmaNonDisponibile):
+                        c()
+                with self.assertRaises(SystemExit) as cm:
+                    AB.esigi_firma_o_optin("test")
+                self.assertIn("nessun motore di firma", str(cm.exception))
+                import team_comms as TC
+                with self.assertRaises(SystemExit):     # il server non arriva nemmeno al bind
+                    TC.serve(port=0)
+            with mock.patch.dict(os.environ, {AB.PERMETTI_NON_FIRMATO_ENV: "1"}):
+                AB.esigi_firma_o_optin("test")          # opt-in esplicito: non esce
+                for c in calls:
+                    self.assertEqual(c()["livello"], "base")
+        # controllo positivo: con un firmatario disponibile nessuna delle due guardie scatta
+        if AB.firma_disponibile():
+            with mock.patch.dict(os.environ, env_off, clear=True):
+                AB.esigi_firma_o_optin("test")
 
 
 class TestBanchi(unittest.TestCase):

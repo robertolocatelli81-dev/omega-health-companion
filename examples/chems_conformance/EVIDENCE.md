@@ -91,3 +91,13 @@ Two additional measurements, with positive controls:
   Composition warning is about the missing identifier and confidentiality (not required by CH EMS itself), and the document
   warning follows from the Composition one. (The other errors in that OperationOutcome are artefacts of declaring the EPR
   profiles: the CH EMS slices then no longer match; they are not findings.)
+
+## Release 0.6.1 (2026-09-18, `release_0.6.1/`)
+The two documents were regenerated with `Composition.identifier` (version-independent) and `Composition.confidentiality` = N
+with the CH Core EPR confidentiality extension (SNOMED 17621005, no display); the identifier is seeded from the mission
+number, the UTC-normalised alarm time and the per-patient `prealert_id` (never from the export instant). New sha256: omega-full `30f15d0e2ce24e19…`,
+omega-minimal `9e9bb8185b31d625…`. validator_cli 6.10.4: 0 errors, 8 and 6 warnings (unchanged set); Matchbox: 0 errors,
+7 and 4 warnings. `abl-omega-minimal-composition-epr.json` declares `ch-core-composition-epr` on the new Composition: the
+only remaining EPR error is `Composition.subject` ("Unable to find a profile match … ch-core-patient-epr", the anonymous
+patient), plus the consequent `Bundle.entry:Composition` slice error; no error mentions `identifier` or `confidentiality`
+any more. So the `ch-ems-epr-composition` warning on our documents now has exactly one cause: the subject.

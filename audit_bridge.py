@@ -27,8 +27,8 @@ import sys
 from typing import Dict, Optional
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-# Motore Part 11 OPZIONALE e privato: percorso configurabile (OMEGA_PACKAGE_DIR); senza, degrado
-# onesto al livello "base" (dichiarato nell'output). Prima era un path hard-coded dell'autore.
+# Motore Part 11 OPZIONALE e privato: percorso configurabile (OMEGA_PACKAGE_DIR); senza, firma locale Ed25519
+# (`cryptography`); senza nemmeno quella, FirmaNonDisponibile (fail-closed, 0.6.1) salvo OMEGA_HEALTH_ALLOW_UNSIGNED=1.
 _OMEGA = os.path.expanduser(os.environ.get("OMEGA_PACKAGE_DIR", "~/omega/omega_package"))
 KEYS_DIR = os.path.join(_HERE, ".audit_keys")
 TRAIL_PATH = os.path.join(_HERE, "part11_health_ledger.jsonl")
@@ -67,6 +67,38 @@ try:
     FIRMA_LOCALE_DISPONIBILE = True
 except Exception:  # noqa: BLE001
     FIRMA_LOCALE_DISPONIBILE = False
+
+
+
+# ── LIVELLO «base» = NESSUNA FIRMA: fail-closed (2026-09-18) ─────────────────
+# Il claim pubblico è «ogni evento clinico è firmato». Senza motore Part 11 e senza `cryptography`
+# (dichiarata come dipendenza dal 0.6.1) il ponte NON registra eventi non firmati in silenzio: alza
+# FirmaNonDisponibile. Chi vuole davvero un trail non firmato (banco, demo su stdlib nudo) lo dice
+# esplicitamente con OMEGA_HEALTH_ALLOW_UNSIGNED=1 e ottiene il livello «base» DICHIARATO.
+PERMETTI_NON_FIRMATO_ENV = "OMEGA_HEALTH_ALLOW_UNSIGNED"
+
+
+class FirmaNonDisponibile(RuntimeError):
+    """Nessun motore di firma disponibile e OMEGA_HEALTH_ALLOW_UNSIGNED non è '1'."""
+
+
+def firma_disponibile() -> bool:
+    return bool(MOTORE_DISPONIBILE or FIRMA_LOCALE_DISPONIBILE)
+
+
+def esigi_firma_o_optin(chi: str = "omega-health") -> None:
+    """Da chiamare all'avvio di ogni entry point (server, CLI): senza motore di firma e senza opt-in esplicito
+    esce SUBITO con un messaggio nominato, invece di fallire alla prima registrazione (Opus review 18/09)."""
+    if not firma_disponibile() and os.environ.get(PERMETTI_NON_FIRMATO_ENV) != "1":
+        raise SystemExit(f"{chi}: nessun motore di firma (installa `cryptography`); per un trail NON firmato "
+                         f"di proposito imposta {PERMETTI_NON_FIRMATO_ENV}=1")
+
+
+def _livello_base(nota: str = "né motore Part 11 né cryptography: nessuna firma", **extra) -> Dict:
+    if os.environ.get(PERMETTI_NON_FIRMATO_ENV) != "1":
+        raise FirmaNonDisponibile(nota + f" — installa `cryptography` (dipendenza dichiarata) oppure imposta "
+                                  f"{PERMETTI_NON_FIRMATO_ENV}=1 per registrare eventi NON firmati di proposito")
+    return {"livello": "base", "nota": nota, **extra}
 
 
 def _fb_key(operatore: str) -> "_EdSk":
@@ -279,7 +311,7 @@ def registra_prealert(prealert_id: str, prealert_sha256: str, operatore: str) ->
         if FIRMA_LOCALE_DISPONIBILE:
             return _fb_registra(prealert_id, "emissione",
                                 {"prealert_sha256": prealert_sha256}, operatore)
-        return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
+        return _livello_base()
     t = _get_trail()
     rec = t.log_change(operatore, AuditAction.CREATE, prealert_id,
                        reason="emissione pre-alert ambulanza",
@@ -308,7 +340,7 @@ def registra_conferma(prealert_id: str, nota: str, operatore: str) -> Dict:
     if not MOTORE_DISPONIBILE:
         if FIRMA_LOCALE_DISPONIBILE:
             return _fb_registra(f"{prealert_id}/conferma", "presa_in_carico", impronta, operatore)
-        return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
+        return _livello_base()
     t = _get_trail()
     rec = t.log_change(operatore, AuditAction.CREATE, f"{prealert_id}/conferma",
                        reason=f"presa in carico (nota legata per digest {impronta['nota_sha256'][:16]}…)",
@@ -330,7 +362,7 @@ def registra_ricezione(prealert_id: str, dettaglio: Dict, operatore_ps: str) -> 
     if not MOTORE_DISPONIBILE:
         if FIRMA_LOCALE_DISPONIBILE:
             return _fb_registra(f"{prealert_id}/ricezione", "ricezione_pre_alert", dettaglio, operatore_ps)
-        return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
+        return _livello_base()
     t = _get_trail()
     rec = t.log_change(operatore_ps, AuditAction.CREATE, f"{prealert_id}/ricezione",
                        reason=(f"ricezione pre-alert PS: richiesta {dettaglio.get('risposta_richiesta')} → "
@@ -351,7 +383,7 @@ def registra_evento_clinico(prealert_id: str, azione: str, dettaglio: Dict, oper
     if not MOTORE_DISPONIBILE:
         if FIRMA_LOCALE_DISPONIBILE:
             return _fb_registra(f"{prealert_id}/{azione}", azione, dettaglio, operatore)
-        return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
+        return _livello_base()
     t = _get_trail()
     rec = t.log_change(operatore, AuditAction.CREATE, f"{prealert_id}/{azione}",
                        reason=f"evento di coordinamento: {azione}", new_value=dettaglio)
@@ -375,7 +407,7 @@ def registra_evento_sistema(target_id: str, azione: str, motivo: str, operatore:
     if not MOTORE_DISPONIBILE:
         if FIRMA_LOCALE_DISPONIBILE:
             return _fb_registra(target_id, azione, dettaglio, operatore)
-        return {"livello": "base", "nota": "né motore Part 11 né cryptography: nessuna firma"}
+        return _livello_base()
     t = _get_trail()
     act = AuditAction.DELETE if azione.startswith("rimozione") else AuditAction.MODIFY
     # §11.10(e): su modifica/cancellazione il valore precedente NON si oscura. Qui il "precedente" è

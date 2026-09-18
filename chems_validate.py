@@ -33,7 +33,7 @@ SAMPLE_MISSION = {
     "tempi": {"allarme": "2026-09-16T10:12:00+02:00", "partenza": "2026-09-16T10:14:00+02:00",
               "arrivo_sul_posto": "2026-09-16T10:25:00+02:00", "arrivo_paziente": "2026-09-16T10:27:00+02:00",
               "partenza_dal_posto": "2026-09-16T10:38:00+02:00"},
-    "triage_colore": "rosso", "urgenza": "sirena", "incidente_id": 42, "lingua": "de",
+    "triage_colore": "rosso", "urgenza": "sirena", "incidente_id": 42, "prealert_id": "prealert-7", "lingua": "de",
 }   # the GLN is the one of the IG's own example organisation (format-valid); real deployments use their own
 
 
@@ -51,7 +51,7 @@ def build_minimal() -> dict:
     vit = dict(hr=135, alert_coscienza=False)
     out = A.valuta_paziente(vit, [], None, 12)
     m = {k: v for k, v in SAMPLE_MISSION.items() if k in ("numero_missione", "sistema_oid", "organizzazione", "richiedente")}
-    m["tempi"] = {"allarme": SAMPLE_MISSION["tempi"]["allarme"]}; m["lingua"] = "fr"
+    m["tempi"] = {"allarme": SAMPLE_MISSION["tempi"]["allarme"]}; m["lingua"] = "fr"; m["prealert_id"] = "prealert-3"
     return C.prealert_to_chems_document(out["PRE_ALERT_INTEGRATO"], vit, "2026-09-16T10:15:00+02:00", m)
 
 

@@ -23,6 +23,9 @@ jobs:
       - name: Unit + end-to-end (HTTP server, sandboxed ledger and audit trail) — ${{ matrix.crypto }}
         env:
           OMEGA_PACKAGE_DIR: /nonexistent
+          # bare stdlib: since 0.6.1 the audit bridge is fail-closed (no unsigned events unless opted in);
+          # this job opts in EXPLICITLY so the declared "base" level stays tested. The cryptography job does not.
+          OMEGA_HEALTH_ALLOW_UNSIGNED: ${{ matrix.crypto == 'none' && '1' || '' }}
         run: |
           for t in test_*.py; do
             echo "== $t"

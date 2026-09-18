@@ -124,12 +124,13 @@ def _pubblica(prealert: dict, vitali: dict | None,
     with _LOCK:
         if _BOARD_SEQ[0] == 0:            # after a restart continue from the signed ledger (council r2: ids were reused)
             _BOARD_SEQ[0] = AB.ultimo_id_prealert()
-        _BOARD_SEQ[0] += 1
-        rid = _BOARD_SEQ[0]
-        # audit Part 11 (ponte opzionale): CREATE firmato authorship; degrado
-        # onesto a "base" se il motore privato non è presente sul sistema
+        rid = _BOARD_SEQ[0] + 1                # l'id si CONSUMA solo dopo la firma (review r2: prima una firma fallita
+                                               # bruciava l'id e lasciava un buco nel trail)
+        # audit: CREATE firmato authorship (motore Part 11 se presente, altrimenti firma locale Ed25519); senza
+        # firma alza FirmaNonDisponibile (fail-closed 0.6.1) salvo opt-in esplicito OMEGA_HEALTH_ALLOW_UNSIGNED=1
         audit = AB.registra_prealert(f"prealert-{rid}",
                                      S._hash(prealert), operatore)
+        _BOARD_SEQ[0] = rid
         rec = {"id": rid, "ts": ts, "prealert": prealert,
                "vitali": vitali, "provenienza": prov,
                "audit": audit, "conferme": [], "ricezioni": [], "messaggi": [], "posizioni": [],
@@ -387,6 +388,15 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
+            return self._do_POST()
+        except AB.FirmaNonDisponibile as e:      # fail-closed (0.6.1): mai registrare non firmato in silenzio → 503 nominato
+            return self._json(503, {"ok": False, "error": f"audit non firmabile: {e}"})
+        except OSError as e:                     # chiavi/ledger non scrivibili (disco pieno, cartella read-only): lo stato in
+            # memoria NON è stato toccato (la firma precede ogni mutazione) → 503 nominato, non una connessione caduta
+            return self._json(503, {"ok": False, "error": f"audit non scrivibile: {e.__class__.__name__}"})
+
+    def _do_POST(self):
+        try:
             n = int(self.headers.get("Content-Length", 0))
         except ValueError:
             return self._json(400, {"ok": False, "error": "Content-Length invalido"})
@@ -520,16 +530,20 @@ class H(BaseHTTPRequestHandler):
             operatore = str(body.get("operatore") or "centrale")[:60]
             if not desc:
                 return self._json(400, {"ok": False, "error": "descrizione richiesta (≤120 caratteri)"})
-            with _LOCK:
+            with _LOCK:      # firma e stato sotto lo stesso lock, firma PRIMA dell'append (Opus review 18/09: prima
+                             # l'incidente entrava in memoria e poi si firmava; se la firma falliva restava un incidente
+                             # senza audit, visibile in bacheca e conteggiato nel tetto)
                 if len(INCIDENTI) >= CAP["incidenti"]:
                     return self._json(429, {"ok": False, "error": "tetto incidenti aperti raggiunto"})
-                _INCIDENTE_SEQ[0] += 1
-                inc = {"id": _INCIDENTE_SEQ[0], "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                       "descrizione": desc, "aperto_da": operatore}      # descrizione SOLO in memoria
+                nuovo_id = _INCIDENTE_SEQ[0] + 1
+                # nel ledger va il DIGEST della descrizione (luogo/targhe/nomi = testo libero), evento CREATE firmato
+                audit = AB.registra_evento_clinico(f"incidente-{nuovo_id}", "apertura_incidente",
+                                                   {"descrizione": CO.impronta_testo(desc)}, operatore)
+                _INCIDENTE_SEQ[0] = nuovo_id
+                inc = {"id": nuovo_id, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                       "descrizione": desc, "aperto_da": operatore}      # descrizione SOLO in memoria (RAM del processo,
+                # per la durata dell'incidente; mai su disco: nel ledger entra solo la sua impronta)
                 INCIDENTI.append(inc)
-            # nel ledger va il DIGEST della descrizione (luogo/targhe/nomi = testo libero), evento CREATE firmato
-            audit = AB.registra_evento_clinico(f"incidente-{inc['id']}", "apertura_incidente",
-                                               {"descrizione": CO.impronta_testo(desc)}, operatore)
             return self._json(200, {"ok": True, "incidente": inc, "audit": audit})
         if self.path == "/triage":
             # tag START (rosso/giallo/verde/nero): decisione clinica → FIRMATA e ri-aggiornabile (il re-triage è la norma)
@@ -690,7 +704,9 @@ class H(BaseHTTPRequestHandler):
 
 
 def serve(port=8097, host="127.0.0.1"):
-    print(f"OMEGA team-comms su http://{host}:{port}/  (bacheca PS) · token: {TOKEN_FILE}")
+    AB.esigi_firma_o_optin("team-comms")       # fail-closed (0.6.1): senza motore di firma il server non parte
+    livello = "part11" if AB.MOTORE_DISPONIBILE else ("firma-locale" if AB.FIRMA_LOCALE_DISPONIBILE else "base (NON FIRMATO, opt-in)")
+    print(f"OMEGA team-comms su http://{host}:{port}/  (bacheca PS) · token: {TOKEN_FILE} · audit: {livello}")
     _token()                                   # genera il token al primo avvio
     ThreadingHTTPServer((host, port), H).serve_forever()
 

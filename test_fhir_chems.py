@@ -23,6 +23,14 @@ class TestChemsDocument(unittest.TestCase):
         b = self.b
         self.assertEqual(b["type"], "document"); self.assertEqual(b["meta"]["profile"], [C.PROFILE["document"]])
         self.assertTrue(b["identifier"]["value"].startswith("urn:uuid:")); self.assertEqual(b["timestamp"], "2026-09-16T10:40:00+02:00")
+        comp = b["entry"][0]["resource"]
+        # 0.6.1: Composition.identifier (version-independent, ≠ Bundle.identifier) + confidentiality N with the CH Core EPR
+        # extension WITHOUT display (tx.fhir.org rejects "Normal" for de-CH)
+        self.assertTrue(comp["identifier"]["value"].startswith("urn:uuid:")); self.assertNotEqual(comp["identifier"]["value"], b["identifier"]["value"])
+        self.assertEqual(comp["confidentiality"], "N")
+        ext = comp["_confidentiality"]["extension"][0]
+        self.assertEqual(ext["url"], "http://fhir.ch/ig/ch-core/StructureDefinition/ch-ext-epr-confidentialitycode")
+        self.assertEqual(ext["valueCodeableConcept"]["coding"][0]["code"], "17621005"); self.assertNotIn("display", ext["valueCodeableConcept"]["coding"][0])
         comp = self.res[0]
         self.assertEqual(comp["resourceType"], "Composition"); self.assertEqual(comp["status"], "preliminary")
         self.assertEqual(comp["type"]["coding"][0]["code"], "67796-3"); self.assertEqual(comp["title"], "Einsatzprotokoll Rettungsdienst")
@@ -129,12 +137,39 @@ class TestChemsDocument(unittest.TestCase):
         self.assertIn("Alter 67", next(r for r in self.res if r["resourceType"] == "Patient")["text"]["div"])
         # same mission + ts but another status → another document identifier
         b2 = self._build(stato="final"); self.assertNotEqual(b2["identifier"]["value"], self.b["identifier"]["value"])
+        # 0.6.1: Composition.identifier is VERSION-INDEPENDENT — same mission number + alarm time → same value across
+        # status and export instant; a different alarm time → a different value (null control)
+        cid = lambda b: b["entry"][0]["resource"]["identifier"]["value"]
+        b3 = self._build(ts="2026-09-16T11:55:00+02:00", stato="amended")
+        self.assertEqual(cid(b2), cid(self.b)); self.assertEqual(cid(b3), cid(self.b))
+        self.assertNotEqual(b3["identifier"]["value"], self.b["identifier"]["value"])
+        t2 = copy.deepcopy(SAMPLE_MISSION["tempi"]); t2["allarme"] = "2026-09-16T09:00:00+02:00"
+        self.assertNotEqual(cid(self._build(missione={"tempi": t2})), cid(self.b))
+        # same instant spelled in UTC → same identifier (normalised); another patient of the same mission → another one
+        import datetime as _dt
+        t3 = copy.deepcopy(SAMPLE_MISSION["tempi"])
+        t3["allarme"] = _dt.datetime.fromisoformat(SAMPLE_MISSION["tempi"]["allarme"]).astimezone(_dt.timezone.utc).isoformat()
+        self.assertTrue(t3["allarme"].endswith("+00:00")); self.assertEqual(cid(self._build(missione={"tempi": t3})), cid(self.b))
+        self.assertNotEqual(cid(self._build(missione={"prealert_id": "prealert-8"})), cid(self.b))
+        # null controls: prealert_id is required ALWAYS (also without incidente_id), empty and bad tokens are refused,
+        # a naive alarm time (no offset: host-timezone dependent) is refused before any identifier is derived
+        m = copy.deepcopy(SAMPLE_MISSION); del m["prealert_id"]; del m["incidente_id"]
+        with self.assertRaises(ValueError):
+            self._build(missione_replace=m)
+        for bad in ("", "bad token!", "x" * 65, True):
+            with self.assertRaises(ValueError):
+                self._build(missione={"prealert_id": bad})
+        t4 = copy.deepcopy(SAMPLE_MISSION["tempi"]); t4["allarme"] = "2026-09-16T10:12:00"
+        with self.assertRaises(ValueError):
+            self._build(missione={"tempi": t4})
 
     # ── NULL controls: nothing required by CH EMS is ever invented ─────────────────────────────────────────────
     def _build(self, **over):
         vit = dict(rr=28, spo2=89, su_ossigeno=True, sbp=85, hr=135, alert_coscienza=True, temp=39.4)
         out = A.valuta_paziente(vit, [], 67, 8)
-        m = copy.deepcopy(SAMPLE_MISSION); m.update(over.pop("missione", {}))
+        m = over.pop("missione_replace", None)          # a whole mission dict, not merged over SAMPLE_MISSION
+        if m is None:
+            m = copy.deepcopy(SAMPLE_MISSION); m.update(over.pop("missione", {}))
         return C.prealert_to_chems_document(out["PRE_ALERT_INTEGRATO"], vit, over.pop("ts", "2026-09-16T10:40:00+02:00"), m, **over)
 
     def test_null_controls_refuse(self):

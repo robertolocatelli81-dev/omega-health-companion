@@ -29,8 +29,28 @@
       "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition"
      ]
     },
+    "identifier": {
+     "system": "urn:ietf:rfc:3986",
+     "value": "urn:uuid:0327e7a2-c813-5960-8384-1f254b593b7a"
+    },
     "language": "de",
     "status": "preliminary",
+    "confidentiality": "N",
+    "_confidentiality": {
+     "extension": [
+      {
+       "url": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-ext-epr-confidentialitycode",
+       "valueCodeableConcept": {
+        "coding": [
+         {
+          "system": "http://snomed.info/sct",
+          "code": "17621005"
+         }
+        ]
+       }
+      }
+     ]
+    },
     "type": {
      "coding": [
       {

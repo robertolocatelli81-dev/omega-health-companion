@@ -1,0 +1,31 @@
+{
+ "omega-full": {
+  "validator_cli": {
+   "information": 27,
+   "warning": 8
+  },
+  "matchbox": {
+   "information": 32,
+   "warning": 7
+  },
+  "sha256": "30f15d0e2ce24e1902a8864ebdebe24d7e01fcf19027c8c4aa1758a4d80a971f"
+ },
+ "omega-minimal": {
+  "validator_cli": {
+   "information": 10,
+   "warning": 6
+  },
+  "matchbox": {
+   "information": 14,
+   "warning": 4
+  },
+  "sha256": "9e9bb8185b31d625bc453ae8d9a3ec33add797e0320a2a8aa7fc43f7ccd46ace"
+ },
+ "abl-omega-minimal-composition-epr": {
+  "validator_cli": {
+   "information": 15,
+   "error": 2,
+   "warning": 7
+  }
+ }
+}

@@ -11,3 +11,9 @@ team_token.txt
 verbali/
 verifiers/rust/Cargo.lock
 verifiers/rust/target/
+
+# artefacts written by `chems_validate.py --strict` in the working directory
+chems_document.json
+chems_document_minimal.json
+chems_validation.json
+broken.json

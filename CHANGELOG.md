@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.6.1 — 2026-09-18 — fail-closed signing, Composition identifier/confidentiality, exact EPR explanation
+
+- **Audit bridge is fail-closed.** Without a signing engine (the private Part 11 engine or the local Ed25519 signer that
+  needs `cryptography`) the bridge no longer records unsigned clinical events silently: `registra_conferma`,
+  `registra_prealert`, `registra_evento_clinico` and the others raise `audit_bridge.FirmaNonDisponibile`, and
+  `team_comms.serve()` refuses to start. The declared "base" (unsigned) level still exists, but only with the explicit
+  opt-in `OMEGA_HEALTH_ALLOW_UNSIGNED=1` (CI's bare-stdlib job sets it; the `cryptography` job does not).
+  `cryptography>=41` is now a declared dependency, so `pip install` brings the signer. Reason: the public statement
+  "every event is signed" was true only when the optional dependency happened to be installed.
+  `team_comms.serve()` and `chems_ingest --anchor` call `audit_bridge.esigi_firma_o_optin()` at start; the HTTP server
+  maps `FirmaNonDisponibile` and signer `OSError`s to a named 503 (never a silent success or a dropped connection);
+  opening an incident and publishing a pre-alert now sign BEFORE mutating the board or consuming a sequence id
+  (previously an incident could exist in memory without its audit record if signing failed).
+- **CH EMS export: `missione.prealert_id` (opaque per-patient token) is now REQUIRED** and seeds `Composition.identifier`
+  together with the mission number and the UTC-normalised alarm time (never the export instant), so two patients of one
+  mission never share a Composition identifier, whether or not an OMEGA incident was opened (review finding). Callers
+  of `prealert_to_chems_document` must pass it (breaking for 0.6.0 callers, on purpose: nothing is invented).
+- **CH EMS document: `Composition.identifier` (version-independent, distinct from the per-instance `Bundle.identifier`)
+  and `Composition.confidentiality` = N with the CH Core EPR confidentiality extension (SNOMED 17621005, no display —
+  tx.fhir.org rejects "Normal" for de-CH, the error the IG's own examples show).** CH EMS does not require either;
+  `ch-core-composition-epr` does. Measured: still 0 errors on validator_cli 6.10.4 and Matchbox, same 8/6 warnings; the
+  `ch-ems-epr-composition` warning remains for one reason only, the subject must be a `ch-core-patient-epr`, which an
+  anonymous pre-alert cannot satisfy (ablation in `examples/chems_conformance/release_0.6.1/`).
+- README: the three `ch-ems-epr-*` warnings explained exactly (measured, not assumed); Matchbox caveat (it does not report
+  display-name mismatches, shown with a positive control); incident descriptions live in process memory only.
+- Conformance evidence re-measured on 2026-09-18 from scratch (validator re-downloaded, IG examples re-downloaded):
+  `examples/chems_conformance/rerun_20260918/` + EVIDENCE.md — positive controls, ablations, why the IG's qa.html shows
+  0 errors on examples that give 2 with the plain validator.
+
 ## 0.6.0 — 2026-09-16 — CH EMS document (Switzerland)
 
 - `fhir_chems.py`: the pre-alert as a **CH EMS document** (`ch.fhir.ig.ch-ems` 2.0.0-ballot): `document` Bundle,

@@ -27,7 +27,7 @@ from __future__ import annotations
 import base64
 import binascii
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -134,7 +134,9 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
       partenza_dal_posto|arrivo_destinazione|consegna_paziente: ISO 8601} (optional), triage_colore
       rosso|giallo|verde (optional → status priority), destinazione {nome, gln} (optional → handover),
       urgenza sirena|senza_sirena (optional), tipo_missione primaria|secondaria|standby (optional), incidente_id
-      (optional, OMEGA event id: letters/digits/._- only, never a person identifier), lingua de|fr|it|en.
+      (optional, OMEGA event id: letters/digits/._- only, never a person identifier), prealert_id (REQUIRED: opaque
+      per-patient token, same charset — it keeps Composition.identifier distinct for each patient of a mission),
+      lingua de|fr|it|en.
       `tempi.allarme` is REQUIRED: CHEmsEncounter.period.start is 1..1 and is never defaulted (council 16/09).
       `provenienza_omega` = {ancorato, self_hash} anchors the ledger digest in Provenance.entity; a real signature
       (firma_b64 64-byte Ed25519 over the OMEGA audit record, pubkey_b64, record_sha256) adds the signature material
@@ -332,8 +334,33 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
                      "text": _xhtml(X["ann"].format(prio=p.get("priorita"), news=p.get("NEWS2"), avvisi="; ".join(p.get("avvisi") or []) or X["none"],
                                                     percorsi=", ".join(p.get("percorsi_attivare") or []) or X["none"])),
                      "entry": [ref(i) for i in ann_ids]})
+    # Composition.identifier is the VERSION-INDEPENDENT id (FHIR documents): same mission number + alarm time (normalised to
+    # UTC, so +02:00 and Z spell the same instant) + the per-patient `prealert_id` → same value across preliminary/final/
+    # amended and across re-exports. NOT seeded with `ts` (the export instant) — Gemini Pro's review of 18/09 caught that —
+    # and NOT shared between patients of one multi-patient mission — Opus' review caught that: when `incidente_id` is given
+    # the caller MUST also give an opaque `prealert_id`, otherwise two patients of the same mission would get one identifier.
+    # Bundle.identifier (below) is per instance (status + ts included).
+    pid = missione.get("prealert_id")
+    if pid is None or isinstance(pid, bool) or not _ID_SAFE.match(str(pid)):
+        # ALWAYS required (Opus review r2, 18/09): mission number + alarm time are per MISSION, and a mission can carry
+        # several patients whether or not the caller opened an OMEGA incident — without a per-patient token two
+        # patients' documents would look like two versions of one document to an EPR. Nothing is invented.
+        raise ValueError("CH EMS: prealert_id (opaque per-patient token: letters, digits, . _ -; max 64) is required — "
+                         "it keeps Composition.identifier distinct for each patient of a mission")
+    pid = str(pid)
+    _alarm_dt = datetime.fromisoformat(tempi["allarme"].replace("Z", "+00:00"))   # tz-aware: enforced above for every mission time
+    _alarm_utc = _alarm_dt.astimezone(timezone.utc).isoformat()
+    _comp_seed = f"omega-prealert/chems/{mn.strip()}/{_alarm_utc}/{pid}/composition"
+    # CH EMS does not require identifier or confidentiality; CH Core's EPR composition profile does, so both are set.
+    # confidentiality: FHIR "N" + the CH Core EPR confidentiality extension (SNOMED 17621005, NO display: tx.fhir.org
+    # rejects "Normal" for de-CH — the very error the IG's own examples show).
     composition = {"resourceType": "Composition", "id": "composition", "meta": {"profile": [PROFILE["composition"]]},
+                   "identifier": {"system": "urn:ietf:rfc:3986",
+                                  "value": "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, _comp_seed))},
                    "language": lang, "status": stato,
+                   "confidentiality": "N",
+                   "_confidentiality": {"extension": [{"url": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-ext-epr-confidentialitycode",
+                                                       "valueCodeableConcept": {"coding": [{"system": "http://snomed.info/sct", "code": "17621005"}]}}]},
                    "type": {"coding": [{"system": LOINC_SYS, "code": "67796-3"}]},
                    "subject": ref("anon"), "encounter": ref("missione"), "date": ts, "author": [ref("soccorso")],
                    "title": T["doc"], "custodian": ref("soccorso"), "section": sections}
