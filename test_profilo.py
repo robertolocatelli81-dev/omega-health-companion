@@ -126,7 +126,7 @@ class TestProfilo(unittest.TestCase):
             self.assertEqual(p["avvisi"], [])
             # forma ESATTA di un record del motore ripristinato sotto il default (review Gemini+Opus r6): sottoinsieme del contratto
             # (eta_mesi manca in un adulto) più problemi_dati; un ipotetico tipo_paziente dentro il pre-alert viene tolto
-            self.assertTrue(set(p) <= CONTRATTO_COMUNICAZIONE | {"problemi_dati"}, set(p) - CONTRATTO_COMUNICAZIONE)
+            self.assertTrue(set(p) <= CONTRATTO_COMUNICAZIONE | {"problemi_dati"}, set(p) - (CONTRATTO_COMUNICAZIONE | {"problemi_dati"}))
             self.assertEqual(p["campi_ignorati"], []); self.assertEqual(p["nota_profilo"], T.NOTA_PROFILO)
             self.assertNotIn("tipo_paziente", T.applica_profilo({**out, "tipo_paziente": {"tipi": ["sepsi"]}}))
         with mock.patch.dict(os.environ, {T.PROFILO_ENV: "punteggi"}):
@@ -237,15 +237,25 @@ class TestE2EProfilo(unittest.TestCase):
             for nome in ("/api/board", "/metriche", "/incidenti", f"/incidente/{iid}", "/audit", *[f"/fhir/{i}" for i in ids]):
                 st, u = self._req("GET", nome); self.assertEqual(st, 200, nome); uscite[nome] = u    # stato asserito: mai scansione di un corpo d'errore
             self.assertEqual(len(uscite["/api/board"]), 5)
-            # /audit qui è il riepilogo del trail (livello «base» senza il motore Part 11: nessun record dentro): la sostanza da
-            # scandire è il ledger locale FIRMATO, che deve avere una riga per POST e nessun token decisionale (review Opus r6)
+            # /audit qui è il riepilogo del trail (livello «base» senza il motore Part 11: nessun record dentro). La sostanza è
+            # STRUTTURALE, per record (review Opus r7: cercare un token in un ledger a soli digest è un test nullo): ogni
+            # «emissione» del ledger firmato porta SOLO il digest del pre-alert e l'identità, una per POST che ancora
+            def _emissioni():
+                recs = [json.loads(l) for l in open(AB.FALLBACK_LEDGER, encoding="utf-8").read().splitlines() if l.strip()]
+                return [r for r in recs if r.get("azione") == "emissione"], recs
             self.assertEqual(uscite["/audit"]["livello"], "base")
-            ledger = open(AB.FALLBACK_LEDGER, encoding="utf-8").read(); self.assertGreaterEqual(len(ledger.strip().splitlines()), 5)
-            for k in (set(T.CAMPI_DECISIONALI) - {"avvisi"}) | {"NITRATI"}:
-                self.assertFalse(_token_presente(k, ledger), f"ledger: {k}")
-            # un nome di chiave malformato DENTRO vitali: 400, e il testo non finisce nel trail firmato
-            st, err = self._req_err("POST", "/valuta", dict(VIT, vitali={**VIT["vitali"], "priorita ALTA: NITRATI": 1})); self.assertEqual(st, 400)
-            self.assertNotIn("NITRATI", json.dumps(self._req("GET", "/audit")[1]))
+            em, tutti = _emissioni(); self.assertEqual(len(em), len(ids), [r.get("azione") for r in tutti])
+            for r in em:
+                self.assertEqual(set(r["dettaglio"]), {"prealert_sha256", "identita"}, r["dettaglio"])
+            catena = [json.loads(l) for l in open(S.LEDGER, encoding="utf-8").read().splitlines() if l.strip()]
+            self.assertEqual(len(catena), len(ids))
+            for r in catena:
+                self.assertEqual(r.get("payload"), "digest"); self.assertNotIn("prealert", r); self.assertNotIn("vitali", r)
+            # un nome di chiave malformato DENTRO vitali: 400, e i DUE ledger rilettI DOPO sono identici (una richiesta rifiutata non ancora nulla)
+            prima = (open(AB.FALLBACK_LEDGER, encoding="utf-8").read(), open(S.LEDGER, encoding="utf-8").read())
+            st, err = self._req_err("POST", "/valuta", dict(VIT, vitali={**VIT["vitali"], "priorita ALTA: NITRATI": 1})); self.assertEqual(st, 400, err)
+            dopo = (open(AB.FALLBACK_LEDGER, encoding="utf-8").read(), open(S.LEDGER, encoding="utf-8").read())
+            self.assertEqual(prima, dopo); self.assertNotIn("NITRATI", dopo[0] + dopo[1])
             for i in ids:
                 self.assertEqual(uscite[f"/fhir/{i}"]["resourceType"], "Bundle"); self.assertTrue(uscite[f"/fhir/{i}"]["entry"])
             self.assertEqual(uscite[f"/incidente/{iid}"]["pazienti"], 1)          # l'incidente ha davvero un paziente: la scansione non è a vuoto
