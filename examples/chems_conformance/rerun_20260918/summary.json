@@ -143,5 +143,19 @@
    "warning": 7
   },
   "matchbox_errors": []
+ },
+ "abl-Bundle-1-no-language": {
+  "validator_cli": {
+   "information": 37,
+   "warning": 74
+  },
+  "validator_errors": []
+ },
+ "abl-Bundle-1-fsn-display": {
+  "validator_cli": {
+   "information": 40,
+   "warning": 72
+  },
+  "validator_errors": []
  }
 }

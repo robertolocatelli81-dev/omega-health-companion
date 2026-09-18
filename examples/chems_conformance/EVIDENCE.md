@@ -101,3 +101,7 @@ omega-minimal `9e9bb8185b31d625…`. validator_cli 6.10.4: 0 errors, 8 and 6 war
 only remaining EPR error is `Composition.subject` ("Unable to find a profile match … ch-core-patient-epr", the anonymous
 patient), plus the consequent `Bundle.entry:Composition` slice error; no error mentions `identifier` or `confidentiality`
 any more. So the `ch-ems-epr-composition` warning on our documents now has exactly one cause: the subject.
+- **Two more ablations on the IG's Bundle-1 (2026-09-18, `rerun_20260918/abl-Bundle-1-*`).** With only `Composition.language`
+  ("de-CH") removed: 0 errors (37 information, 74 warnings) — the display "Normal" is rejected in the de-CH language
+  context, not per se. With the display replaced by "Normal (qualifier value)": 0 errors (40 information, 72 warnings).
+  So both suggested fixes for the examples (omit the display, or use the display tx.fhir.org offers for de-CH) are measured.
