@@ -185,7 +185,7 @@
       },
       "entry": [
        {
-        "reference": "urn:uuid:4a9b0a38-4f67-50e9-9cc6-bf1bb2fbeba9"
+        "reference": "urn:uuid:3541e651-c6e5-5f2d-9725-112e8df4f220"
        },
        {
         "reference": "urn:uuid:318838d6-a253-5ff9-b725-ec03cdb43e9c"
@@ -958,10 +958,10 @@
    }
   },
   {
-   "fullUrl": "urn:uuid:4a9b0a38-4f67-50e9-9cc6-bf1bb2fbeba9",
+   "fullUrl": "urn:uuid:3541e651-c6e5-5f2d-9725-112e8df4f220",
    "resource": {
     "resourceType": "Observation",
-    "id": "priorita-paziente",
+    "id": "stato-paziente",
     "meta": {
      "profile": [
       "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-statuspriority"
@@ -994,7 +994,7 @@
     },
     "text": {
      "status": "generated",
-     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation priorita-paziente (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation stato-paziente (OMEGA pre-alert, missione ZH-2026-000123)</div>"
     },
     "performer": [
      {

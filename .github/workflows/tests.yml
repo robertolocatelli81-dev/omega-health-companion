@@ -33,6 +33,10 @@ jobs:
           done
       - name: Same suite collected in ONE process (profile must not leak between files)
         run: python3 -m unittest discover -p "test_*.py"
+      - name: Same suite with OMEGA_PROFILO exported (the configuration that exposed the setdefault bug)
+        run: |
+          OMEGA_PROFILO=comunicazione python3 -m unittest discover -p "test_*.py"
+          OMEGA_PROFILO=punteggi python3 -m unittest discover -p "test_*.py"
       - name: Demo runs to completion
         run: python3 demo.py > /dev/null
       - name: Hostile-input regression must fail on a deliberately broken validator (the bench can fail)

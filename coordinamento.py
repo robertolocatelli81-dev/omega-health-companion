@@ -308,7 +308,9 @@ def _priorita_o_stato(r: Dict) -> str:
     return pa.get("priorita", "SCADUTO")
 
 
-def riepilogo_incidente(incidente: Dict, board: List[Dict]) -> Dict:
+def riepilogo_incidente(incidente: Dict, board: List[Dict], profilo_vivo: Optional[str] = None) -> Dict:
+    """`profilo_vivo`: il profilo del server (team_comms.profilo()); serve per i record SCADUTI, che non portano più il
+    proprio (review Gemini 18/09 r3: un pre-alert scaduto rientrava nel ramo punteggi con «priorita: SCADUTO»)."""
     pre = [r for r in board if r.get("incidente_id") == incidente["id"]]
     conte: Dict[str, int] = {}
     start: Dict[str, int] = {}
@@ -318,16 +320,17 @@ def riepilogo_incidente(incidente: Dict, board: List[Dict]) -> Dict:
         if r.get("triage_start"):
             start[r["triage_start"]] = start.get(r["triage_start"], 0) + 1
     return {**incidente, "pazienti": len(pre), "per_priorita": conte, "per_triage_start": start,
-            "pre_alert": [_riga_incidente(r) for r in pre]}
+            "pre_alert": [_riga_incidente(r, profilo_vivo) for r in pre]}
 
 
-def _riga_incidente(r: Dict) -> Dict:
+def _riga_incidente(r: Dict, profilo_vivo: Optional[str] = None) -> Dict:
     """Una riga per pre-alert nel riepilogo: nel profilo comunicazione NESSUNA chiave decisionale, nemmeno a None
-    (review Opus 18/09 r2: «priorita: None» è ancora la chiave di un punteggio); i valori calcolati solo in punteggi."""
+    (review Opus 18/09 r2: «priorita: None» è ancora la chiave di un punteggio); i valori calcolati solo in punteggi.
+    Un record scaduto (prealert None) segue il profilo VIVO del server."""
     pa = r.get("prealert") or {}
     riga = {"id": r["id"], "triage_start": r.get("triage_start"),
-            "eta_arrivo_min": r.get("eta_corrente", pa.get("eta_arrivo_stimato_min"))}
-    if pa.get("profilo") == "comunicazione":
+            "eta_arrivo_min": r.get("eta_corrente", pa.get("eta_arrivo_stimato_min")), "scaduto": r.get("prealert") is None}
+    if pa.get("profilo") == "comunicazione" or (not pa and profilo_vivo == "comunicazione"):
         riga["profilo"] = "comunicazione"
     else:
         riga["priorita"] = _priorita_o_stato(r); riga["tipi"] = (r.get("tipo_paziente") or {}).get("tipi")

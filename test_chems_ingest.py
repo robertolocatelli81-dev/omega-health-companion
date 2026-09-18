@@ -178,7 +178,7 @@ class TestChemsIngest(unittest.TestCase):
         `problemi` is deterministic under Bundle reversal."""
         raw = open(SAMPLE, "rb").read()
         def obs(b, rid): return next(e["resource"] for e in b["entry"] if e["resource"]["id"] == rid)
-        b = json.loads(raw); pr = obs(b, "priorita-paziente"); pr["valueCodeableConcept"]["coding"].insert(0, {"system": "http://snomed.info/sct", "code": "999999"})
+        b = json.loads(raw); pr = obs(b, "stato-paziente"); pr["valueCodeableConcept"]["coding"].insert(0, {"system": "http://snomed.info/sct", "code": "999999"})
         av = obs(b, "vit-avpu"); av["valueCodeableConcept"]["coding"].insert(0, {"system": C.CS_IVR, "code": "X"})
         ex = I.estrai_vitali(I.leggi_documento(b)); self.assertEqual(ex["colore"], "rosso"); self.assertEqual(ex["vitali"]["avpu"], "A")
         b = json.loads(raw); obs(b, "vit-hr")["status"] = "corrected"

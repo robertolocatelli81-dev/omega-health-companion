@@ -109,3 +109,11 @@ any more. So the `ch-ems-epr-composition` warning on our documents now has exact
   second coding next to IVR#MN on `Encounter.identifier:missionNumber.type`: with v2-0203 `MR` the extensible-binding
   warning disappears (0 errors, 5 warnings); with v2-0203 `VN` the identifier matches the `VisitNumber` slice as well
   (discriminator `value:$this`): "Element matches more than one slice" and "Slice missionNumber not found", 7 errors.
+
+## Release 0.7.2 (2026-09-18, `release_0.7.2/`)
+The `Observation` carrying the crew's START triage colour (profile `ch-ems-observation-statuspriority`, LOINC 77941-3) had
+the local id `priorita-paziente`; the id is now `stato-paziente`, because the value is the colour *declared by the crew*
+(`missione.triage_colore`), not a computed priority, and the default-profile scan of 0.7.2 must not find the token
+`priorita` in a communication-only document. Only `omega-full` changes (4 lines: the id and the references to it), new
+sha256 `3c2426762f124c9c…`; `omega-minimal` has no such observation and is byte-identical (`9e9bb8185b31d625…`).
+validator_cli 6.10.4 re-run on both: 0 errors, 8 and 6 warnings (same set as 0.6.1; logs in `release_0.7.2/`).

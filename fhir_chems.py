@@ -264,7 +264,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
         if missione["triage_colore"] not in START_TO_SNOMED:
             raise ValueError("CH EMS: triage_colore must be rosso | giallo | verde (SNOMED hospital priority)")
         c, d = START_TO_SNOMED[missione["triage_colore"]]
-        priority = {"resourceType": "Observation", "id": "priorita-paziente", "meta": {"profile": [PROFILE["statuspriority"]]}, "status": "final",
+        priority = {"resourceType": "Observation", "id": "stato-paziente", "meta": {"profile": [PROFILE["statuspriority"]]}, "status": "final",
                     "code": {"coding": [{"system": LOINC_SYS, "code": "77941-3"}]},
                     "subject": ref("anon"), "encounter": ref("missione"), "effectiveDateTime": ts,
                     "valueCodeableConcept": {"coding": [{"system": SNOMED, "code": c, "display": d}]}}

@@ -19,7 +19,7 @@
   to the comunicazione pre-alert and a nested `trauma_team` added to `/metriche` were both caught before the code was
   restored; the journal restore test restarts with the variable absent. Under this profile the paediatric gate has nothing to
   guard (no adult score is ever computed) and a child's vitals are validated like any other input. Review of the diff by
-  Gemini Pro, Opus 5, Sonnet 5 and Haiku 4.5, two rounds: five round-1 findings were false against the code (journal restore
+  Gemini Pro, Opus 5, Sonnet 5 and Haiku 4.5, three rounds: five round-1 findings were false against the code (journal restore
   and `tipo_paziente` were already gated, the engine branch precedes the engine call, `/prealert` recomputes, CI runs each
   test file in its own process) and are recorded as such; the true ones are in this entry.
 - **Round 2 (Opus 5) under the default, all measured and fixed:** the incident summary (`/incidenti`, `/incidente/<id>`)
@@ -32,7 +32,26 @@
   of 0 that could never be computed; they are `null` with a `NON_CALCOLATI` note when no pre-alert carries the 2025
   criteria. Board page footer, expired-card header (`NEWS2 —`) and the ATMIST I segment (`vedi percorsi`) were profile-blind;
   fixed and asserted. The end-to-end test now also creates an incident with a linked patient, posts an outcome, and builds
-  the CH EMS document from every case.
+  the CH EMS document from every case. Round 3 (Gemini Pro): an expired pre-alert linked to an incident fell back into the
+  `punteggi` branch of the incident row (`"priorita": "SCADUTO"`); the live profile is now passed to the summary and the
+  test expires a linked patient and re-scans. Round 3 (Opus 5): the expired board card under the default showed `None`
+  instead of the retention notice; `campi_ignorati` is now generic (every request key the profile does not read, so a
+  client-computed `NEWS2` is named too); blank drug strings are dropped; `avvisi` is no longer listed as "not computed"
+  (it is present, always empty); the test scans assert HTTP 200 and real bodies, scan JSON text for every decisional token
+  after removing the keys that legitimately list field names, pin the comunicazione pre-alert to an exact allowlist of
+  keys, guard the engine's output against unclassified keys, prove the same three cases *do* leak under `punteggi`, and pin
+  that the library computes regardless of the profile; CI also runs the suite with the variable exported as
+  `comunicazione` and as `punteggi`. The token scan found one real collision: the CH EMS observation carrying the crew's
+  START colour had the id `priorita-paziente` — an input, not a score — renamed `stato-paziente` (samples regenerated,
+  validator_cli 6.10.4: 0 errors, `examples/chems_conformance/EVIDENCE.md`). 200 tests.
+- **"Compared with the field" table re-read from primary sources (2026-09-18, quotes and digests in
+  `gtm/health_070_20260918/competitors/` of the OMEGA repository, summarised here):** "Evidentiary record: none documented" was
+  too strong — corpuls documents delegations «dreifach rechtssicher dokumentiert» plus audit logging of accesses, Pulsara a
+  «time-stamped source of truth for each case»; the row now says what none documents (a record verifiable by a third party
+  offline). "Escalation — Pulsara" was not a documented product feature (a regional advisory tells crews to phone after 60 s);
+  "ED status — Twiage" is not stated on the TigerConnect page; rows that exist only in `punteggi` are marked. Every OMEGA cell
+  was measured on the running 0.7.2 server in both profiles, and the CH EMS document built from a default-profile pre-alert
+  validates with 0 errors (validator_cli 6.10.4).
 
 ## 0.7.1 — 2026-09-18 — after Gemini Pro's whole-product judgement (8 dossiers + synthesis, 7/10)
 

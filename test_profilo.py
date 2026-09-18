@@ -4,6 +4,7 @@
 sono elencati; in `punteggi` tutto come prima; un profilo sconosciuto ferma l'avvio."""
 import json
 import os
+import re
 import shutil
 import tempfile
 import threading
@@ -22,7 +23,65 @@ VIT = {"vitali": {"rr": 28, "spo2": 89, "su_ossigeno": True, "sbp": 85, "hr": 13
        "farmaci": ["warfarin", "ibuprofene", "sildenafil"], "clinica": {"dolore_toracico": True}}   # sildenafil + dolore toracico → avviso nitrati
 
 
+# contratto del pre-alert nel profilo comunicazione: ALLOWLIST esatta (review Opus 18/09 r3: una blacklist che controlla
+# una blacklist è una tautologia; un campo nuovo del motore non classificato deve far cadere un test, non passare)
+CONTRATTO_COMUNICAZIONE = {"vitali", "eta_paziente", "eta_mesi", "eta_arrivo_stimato_min", "farmaci_in_uso", "avvisi", "profilo",
+                           "campi_non_calcolati", "campi_ignorati", "nota_profilo"}
+# chiavi NON decisionali che il motore (punteggi) può emettere: tutto il resto del suo output deve stare in CAMPI_DECISIONALI
+MOTORE_NON_DECISIONALI = {"vitali", "eta_paziente", "eta_mesi", "eta_arrivo_stimato_min", "farmaci_in_uso", "problemi_dati"}
+
+
+def _chiavi(x, acc):
+    if isinstance(x, dict):
+        acc.update(x.keys()); [_chiavi(v, acc) for v in x.values()]
+    elif isinstance(x, list):
+        [_chiavi(v, acc) for v in x]
+    return acc
+
+
+def _valori(x, chiave, acc):                          # ogni valore di `chiave` a qualunque profondità
+    if isinstance(x, dict):
+        [acc.append(v) for k, v in x.items() if k == chiave]; [_valori(v, chiave, acc) for v in x.values()]
+    elif isinstance(x, list):
+        [_valori(v, chiave, acc) for v in x]
+    return acc
+
+
+def _senza(x, chiavi):                                # copia senza le chiavi che ELENCANO legittimamente i nomi dei campi
+    if isinstance(x, dict):
+        return {k: _senza(v, chiavi) for k, v in x.items() if k not in chiavi}
+    if isinstance(x, list):
+        return [_senza(v, chiavi) for v in x]
+    return x
+
+
+ELENCHI = {"campi_non_calcolati", "nota_profilo", "nota"}
+
+
 class TestProfilo(unittest.TestCase):
+    def test_deriva_motore_classificata(self):
+        """Ogni chiave che il motore emette è o decisionale (CAMPI_DECISIONALI) o nell'allowlist non decisionale:
+        una chiave nuova non classificata fa cadere QUESTO test invece di passare inosservata nel profilo comunicazione."""
+        casi = [A.valuta_paziente(VIT["vitali"], VIT["farmaci"], 67, 8, clinica=VIT["clinica"]),
+                A.valuta_paziente({"rr": 35, "spo2": 94, "su_ossigeno": False, "sbp": 85, "hr": 150, "alert_coscienza": True, "temp": 39.2}, [], 3, 8),
+                A.valuta_paziente({"rr": 40, "spo2": 96, "su_ossigeno": False, "sbp": 80, "hr": 160, "alert_coscienza": True, "temp": 38.0}, [], 0, 8, eta_mesi=6),
+                A.valuta_paziente(VIT["vitali"], ["warfarin"], 67, 8, fast_segni={"faccia": True}, condizioni={"ustione": True}, sepsi={"map_mmhg": 60})]
+        for out in casi:
+            resto = set(out["PRE_ALERT_INTEGRATO"]) - set(T.CAMPI_DECISIONALI)
+            self.assertTrue(resto <= MOTORE_NON_DECISIONALI, f"chiavi del motore non classificate: {resto - MOTORE_NON_DECISIONALI}")
+        self.assertEqual(set(T.prealert_comunicazione(VIT)), CONTRATTO_COMUNICAZIONE)
+        self.assertEqual(T.prealert_comunicazione({**VIT, "NEWS2": 9, "priorita": "ALTO"})["campi_ignorati"], ["NEWS2", "clinica", "priorita"])
+
+    def test_libreria_e_cli_ignorano_il_profilo(self):
+        """La libreria calcola SEMPRE (il profilo governa il server, non il motore): pinnato, così una deriva in un senso o
+        nell'altro si vede (review Opus 18/09 r3)."""
+        with mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != T.PROFILO_ENV}, clear=True):
+            out = A.valuta_paziente(VIT["vitali"], VIT["farmaci"], 67, 8, clinica=VIT["clinica"])["PRE_ALERT_INTEGRATO"]
+            self.assertIsInstance(out["NEWS2"], int); self.assertTrue(out["avvisi"])
+        with mock.patch.dict(os.environ, {T.PROFILO_ENV: "diagnosi"}):
+            with self.assertRaises(SystemExit):        # valore non ammesso: il server NON parte, niente ripiego silenzioso
+                T.profilo()
+
     def test_motore_non_eseguito_in_comunicazione(self):
         """Il pre-alert del profilo comunicazione nasce SENZA chiamare il motore (review Gemini 18/09)."""
         with mock.patch.object(A, "valuta_paziente", side_effect=AssertionError("motore chiamato")):
@@ -137,38 +196,33 @@ class TestE2EProfilo(unittest.TestCase):
                 self.assertIsNone(o.get("tipo_paziente")); self.assertEqual(o["prealert"]["avvisi"], [])
                 self.assertEqual(o["prealert"]["campi_ignorati"], ["clinica"])   # dolore_toracico: input del motore, qui dichiarato ignorato
             st, es = self._req("POST", "/esito", {"id": ids[-1], "operatore_ps": "dr-z", "esito": "percorso_confermato"}); self.assertEqual(st, 200, es)
-            def _chiavi(x, acc):
-                if isinstance(x, dict):
-                    acc.update(x.keys()); [_chiavi(v, acc) for v in x.values()]
-                elif isinstance(x, list):
-                    [_chiavi(v, acc) for v in x]
-                return acc
-            uscite = {"/api/board": self._req("GET", "/api/board")[1], "/metriche": self._req("GET", "/metriche")[1],
-                      "/incidenti": self._req("GET", "/incidenti")[1], f"/incidente/{iid}": self._req("GET", f"/incidente/{iid}")[1]}
+            for pp in prealerts:
+                self.assertEqual(set(pp), CONTRATTO_COMUNICAZIONE)                # allowlist esatta, non blacklist (review Opus r3)
+            uscite = {}
+            for nome in ("/api/board", "/metriche", "/incidenti", f"/incidente/{iid}", *[f"/fhir/{i}" for i in ids]):
+                st, u = self._req("GET", nome); self.assertEqual(st, 200, nome); uscite[nome] = u    # stato asserito: mai scansione di un corpo d'errore
+            self.assertEqual(len(uscite["/api/board"]), 3)
+            for i in ids:
+                self.assertEqual(uscite[f"/fhir/{i}"]["resourceType"], "Bundle"); self.assertTrue(uscite[f"/fhir/{i}"]["entry"])
             self.assertEqual(uscite[f"/incidente/{iid}"]["pazienti"], 1)          # l'incidente ha davvero un paziente: la scansione non è a vuoto
             self.assertIsNone(uscite["/metriche"]["over_triage_proxy"])         # proxy NON_CALCOLATI, non zeri strutturali (review Opus r2)
             self.assertIn("NON_CALCOLATI", uscite["/metriche"]["nota"])
-            for i in ids:
-                uscite[f"/fhir/{i}"] = self._req("GET", f"/fhir/{i}")[1]
             for n, pp in enumerate(prealerts):                                    # documento CH EMS costruito da OGNI caso (libreria)
                 uscite[f"chems/{n}"] = C.prealert_to_chems_document(pp, pp["vitali"], "2026-09-18T10:40:00+02:00", SAMPLE_MISSION)
             vietate = set(T.CAMPI_DECISIONALI) - {"avvisi"}     # avvisi resta come chiave, e ogni sua occorrenza deve essere [] (sotto)
-            def _valori(x, chiave, acc):                          # ogni valore di `chiave` a qualunque profondità (review Sonnet r2: avvisi non
-                if isinstance(x, dict):                           # è solo «NITRATI», è il campo delle raccomandazioni calcolate)
-                    [acc.append(v) for k, v in x.items() if k == chiave]; [_valori(v, chiave, acc) for v in x.values()]
-                elif isinstance(x, list):
-                    [_valori(v, chiave, acc) for v in x]
-                return acc
-            # controllo positivo DEL BANCO, in codice: lo scanner deve vedere una chiave iniettata e un avviso iniettato
-            finto = {"a": [{"b": {"NEWS2": 5}}], "c": {"avvisi": ["x"]}}
+            # controllo positivo DEL BANCO, in codice: chiave iniettata, avviso iniettato, punteggio codificato come VALORE (FHIR code.text)
+            finto = {"a": [{"b": {"NEWS2": 5}}], "c": {"avvisi": ["x"]}, "d": {"code": {"text": "NEWS2"}, "valueInteger": 5}}
             self.assertTrue(_chiavi(finto, set()) & vietate); self.assertEqual(_valori(finto, "avvisi", []), [["x"]])
+            self.assertTrue([k for k in vietate if re.search(r"(?<![A-Za-z0-9_])" + re.escape(k) + r"(?![A-Za-z0-9_])", json.dumps(_senza(finto, ELENCHI)))])
             for nome, u in uscite.items():
                 chiavi = _chiavi(u, set())
                 self.assertFalse(chiavi & vietate, f"{nome}: {chiavi & vietate}")
                 for av in _valori(u, "avvisi", []):
                     self.assertEqual(av, [], f"{nome}: avvisi non vuoto {av!r}")
-                testo = json.dumps(u, ensure_ascii=False)
-                self.assertNotIn("NITRATI", testo, nome)
+                testo = json.dumps(_senza(u, ELENCHI), ensure_ascii=False)         # scansione a TOKEN del testo, tolti gli elenchi legittimi
+                for k in vietate:                                                   # token interi: «per_priorita» (istogramma) non è «priorita»
+                    self.assertIsNone(re.search(r"(?<![A-Za-z0-9_])" + re.escape(k) + r"(?![A-Za-z0-9_])", testo), f"{nome}: token {k} nel testo")
+                self.assertNotIn("nitrat", testo.lower(), nome)
                 for tp in _valori(u, "tipo_paziente", []):
                     self.assertIsNone(tp, f"{nome}: tipo_paziente {tp!r}")
             for i in ids:
@@ -178,7 +232,7 @@ class TestE2EProfilo(unittest.TestCase):
                     self.assertNotIn(k, atm, f"atmist {i}: {k}")
                 self.assertNotIn("NITRATI", atm)
             st, page = self._req_text("GET", "/?token=" + self.token)
-            self.assertNotIn("NITRATI", page); self.assertNotIn("pediatrico", page.lower()); self.assertNotIn("NEWS2 ", page)
+            self.assertNotIn("nitrat", page.lower()); self.assertNotIn("pediatrico", page.lower()); self.assertNotIn("NEWS2", page)
             self.assertIn("nessun punteggio calcolato", page)                     # piè di pagina del profilo, non «gli score sono standard validati»
             self.assertNotIn("gli score sono", page)
             atm = urllib.request.urlopen(urllib.request.Request(self.base + f"/atmist/{ids[0]}", headers={"X-Omega-Token": self.token}), timeout=30).read().decode()
@@ -186,9 +240,34 @@ class TestE2EProfilo(unittest.TestCase):
             with T._LOCK:                                                          # un pre-alert scaduto: la scheda non deve tornare a «NEWS2 —»
                 T.BOARD[0]["prealert"] = None
             st, page = self._req_text("GET", "/?token=" + self.token)
-            self.assertNotIn("NEWS2", page); self.assertIn("dati clinici rimossi", page)
+            self.assertNotIn("NEWS2", page); self.assertIn("dati clinici rimossi", page); self.assertNotIn(">None<", page)
+            self.assertIn("rimossi dalla bacheca dopo", page)                     # la nota di ritenzione resta (review Opus r3)
+            with T._LOCK:                                                          # e il paziente dell'incidente scaduto: la riga non torna a «priorita: SCADUTO»
+                next(x for x in T.BOARD if x["id"] == ids[-1])["prealert"] = None  # (review Gemini 18/09 r3)
+            for nome in ("/incidenti", f"/incidente/{iid}"):
+                u = self._req("GET", nome)[1]
+                self.assertFalse(_chiavi(u, set()) & vietate, nome); self.assertIn('"scaduto": true', json.dumps(u))
         # nel ledger firmato non c'è comunque mai un punteggio (digest-only): controllo che regge in entrambi i profili
         self.assertNotIn('"NEWS2":', open(AB.FALLBACK_LEDGER).read())
+
+    def test_punteggi_stessi_casi_lo_scanner_trova(self):
+        """Controllo positivo degli SCENARI (review Opus 18/09 r3): gli stessi tre casi sotto punteggi devono produrre
+        le chiavi decisionali, il tipo paziente del bambino, un avviso e il testo sui nitrati — altrimenti il test del
+        default asserirebbe meno di quanto sembra."""
+        vietate = set(T.CAMPI_DECISIONALI) - {"avvisi"}
+        with mock.patch.dict(os.environ, {T.PROFILO_ENV: "punteggi"}):
+            st, adulto = self._req("POST", "/valuta", VIT); self.assertEqual(st, 200)
+            st, bimbo = self._req("POST", "/valuta", dict(VIT, eta=3, vitali={"hr": 150, "rr": 35, "spo2": 94, "sbp": 85, "temp": 39.2, "su_ossigeno": False, "alert_coscienza": True}))
+            self.assertEqual(st, 200)
+            st, inter = self._req("POST", "/valuta", dict(VIT, eta=64.0, farmaci=["sildenafil", "nitroglicerina"])); self.assertEqual(st, 200)
+            st, board = self._req("GET", "/api/board"); self.assertEqual(st, 200)
+            self.assertTrue(_chiavi(board, set()) & vietate)
+            self.assertTrue(any(_valori(board, "avvisi", [])))
+            self.assertEqual(bimbo["prealert"]["priorita"], "NON_VALUTABILE_PEDIATRICO"); self.assertIsNotNone(bimbo.get("tipo_paziente"))
+            self.assertTrue(any("NITRATI" in a for a in inter["prealert"]["avvisi"] + adulto["prealert"]["avvisi"]))
+            st, page = self._req_text("GET", "/?token=" + self.token); self.assertIn("NITRATI", page); self.assertIn("NEWS2", page)
+            for k in vietate & {"NEWS2", "priorita"}:
+                self.assertIn(k, json.dumps(_senza(board, ELENCHI)))
 
 
 if __name__ == "__main__":

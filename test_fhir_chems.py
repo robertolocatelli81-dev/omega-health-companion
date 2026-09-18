@@ -71,7 +71,7 @@ class TestChemsDocument(unittest.TestCase):
         for o in obs:
             if o["id"].startswith("tempo-"):
                 self.assertEqual(o["valueDateTime"], o["effectiveDateTime"])
-        pr = next(o for o in obs if o["id"] == "priorita-paziente"); self.assertEqual(pr["valueCodeableConcept"]["coding"][0]["code"], "371240000")
+        pr = next(o for o in obs if o["id"] == "stato-paziente"); self.assertEqual(pr["valueCodeableConcept"]["coding"][0]["code"], "371240000")
         avpu = next(o for o in obs if o["id"] == "vit-avpu"); self.assertEqual(avpu["valueCodeableConcept"]["coding"][0]["code"], "A")
 
     def test_patient_anonymous_no_pii(self):

@@ -73,13 +73,13 @@ with `OMEGA_HEALTH_ALLOW_UNSIGNED=1`) · **Author:** Roberto Locatelli, 2026
 ## Quick start
 
 ```bash
-python3 test_health.py                  # 21 tests (unit benches + E2E over localhost)
+python3 test_health.py                  # 23 tests (unit benches + E2E over localhost)
 python3 test_mission_case.py            # 17 tests — mission case file (both engine levels)
 python3 test_input_types.py             # 31 tests — hostile input types (red-team 2026-09-11, three rounds)
 python3 test_news2_certificate.py       #  4 tests — NEWS2 certificate
 python3 test_prealert_2025.py           # 49 tests — RCEM/AACE 2025 criteria at the boundaries, ED receipt, verbale, tamper/re-sign/deletion detection
 python3 test_coordinamento.py           #  4 tests — patient types, incidents, ETA/position, messages, attachments, outcomes, metrics, expiry (end-to-end)
-# 126 tests in these six files; CI runs ALL fifteen test_*.py files (197 tests, counted 2026-09-18 by loading every test_*.py with unittest) on every push, with and without `cryptography`, never with the private engine
+# 128 tests in these six files; CI runs ALL fifteen test_*.py files (200 tests, run green 2026-09-18 in six configurations: with and without `cryptography`, `OMEGA_PROFILO` absent / exported as `comunicazione` / exported as `punteggi`, each file alone and all collected in one process) on every push, never with the private engine
 # HEALTH_TSA_URL=https://freetsa.org/tsr HEALTH_TSA_CAFILE=cacert.pem python3 test_prealert_2025.py   # + 2 opt-in network tests: real RFC 3161 timestamp, trust chain, wrong CA refused
 python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \
@@ -105,25 +105,29 @@ None without a CA, False with a wrong one; the stamped bytes are persisted under
 level declared — not an eIDAS *qualified* timestamp unless the TSA is a QTSP). Every field is
 closed-vocabulary or a digest: no free text and no health data in the ledgers (the optional board journal of 0.7.0 is encrypted at rest, see PRIVACY.md and INTENDED_USE.md).
 
-## Compared with the field (read online on 2026-09-13)
+## Compared with the field (read online on 2026-09-13, re-read from primary sources on 2026-09-18)
 
-| Capability | Pulsara / Twiage / corpuls / NIDA | OMEGA Health Companion |
+The competitor column is what the vendors *state* (quotes and page digests in the release notes of 0.7.2); the OMEGA column is
+*measured* on the running 0.7.2 server in both profiles. Rows marked **(punteggi)** exist only with `OMEGA_PROFILO=punteggi`;
+a standard installation (default `comunicazione`) returns them as not computed.
+
+| Capability | Pulsara / TigerConnect (ex Twiage) / corpuls / NIDA | OMEGA Health Companion |
 |---|---|---|
-| Pre-arrival notification with vitals, ETA | yes | yes (`/valuta`), plus the **national 2025 criteria** saying *why* |
-| Patient types → team | Pulsara: 12 patient types | `tipo_paziente` / `team_da_allertare`, derived, closed vocabulary |
+| Pre-arrival notification with vitals, ETA | yes | yes (`/valuta`); the **national 2025 criteria** saying *why* **(punteggi)** |
+| Patient types → team | Pulsara: 12 patient types (incl. General) | `tipo_paziente` / `team_da_allertare`, derived, closed vocabulary **(punteggi)** |
 | ECG / photo / document sharing | yes | `POST /allegato/<id>` — bytes in memory (TTL), digest in the signed ledger, magic bytes checked |
 | GPS / ETA updates en route | yes | `POST /posizione` — exact position in memory, only ETA + a **salted commitment** (HMAC-SHA256, salt in memory) of the position in the ledger: a bare digest of coordinates was enumerable |
 | Two-way secure chat | yes | `POST /messaggio` — text in memory, salted commitment signed; provable only while the board record (and its salt) lives |
 | Outcome feedback ("close the loop") | Pulsara | `POST /esito` — closed vocabulary, signed |
-| QA/QI performance data | Pulsara, corpuls.web ANALYSE | `GET /metriche` — aggregates, no identifiers |
+| QA/QI performance data | Pulsara (NEMSIS-formatted database integration), corpuls ANALYSE | `GET /metriche` — aggregates, no identifiers; over/under-triage proxies **(punteggi)**, `null` otherwise |
 | Mass-casualty / multi-patient | Pulsara | `POST /incidente`, `GET /incidente/<id>`, START tags per patient (`POST /triage`, signed, re-triage allowed) |
-| ED status / divert | Pulsara, Twiage | `POST /stato_ps` — accetta / saturo / dirotta, signed, returned with every pre-alert |
-| Escalation when nobody takes the call | Pulsara | `da_escalare` in `GET /metriche` (no receipt after 120 s) |
-| **Evidentiary record of the pre-alert** (who said what, who answered, chain, timestamp) | none documented | `GET /verbale/<id>` — this is the difference |
+| ED status / divert | Pulsara (ED Availability); TigerConnect: not stated | `POST /stato_ps` — accetta / saturo / dirotta, signed, returned with every pre-alert |
+| Escalation when nobody takes the call | not documented as a product feature by any vendor; a regional EMS advisory using Pulsara tells crews to phone after 60 s without acknowledgement | `da_escalare` in `GET /metriche` (no receipt after 120 s) |
+| **Evidentiary record of the pre-alert** (who said what, who answered, chain, timestamp) | corpuls: delegations «dreifach rechtssicher dokumentiert» (device data, LIVE mission report, paper print) and audit logging of privacy-relevant accesses; Pulsara: «time-stamped source of truth for each case»; none documents a record **verifiable by a third party offline** (registered keys, hash chain, independent verifiers) | `GET /verbale/<id>` + four offline verifiers (Python, JS, Go, Rust); a tampered ledger fails in all — this is the difference |
 | Audio/video calls, live 12-lead telemetry | yes | **not done**: infrastructure, not evidence; integrate with those tools instead |
-| Patient identity lookup / pre-registration | Twiage | **not done by design**: PII-free |
+| Patient identity lookup / pre-registration | TigerConnect («registered before arrival») | **not done by design**: PII-free |
 | NEMSIS export | US products | **not done**: FHIR R4 is the European road |
-| MDR certification | corpuls.mission LIVE | **not yet**: pilot + class IIa file are the roadmap |
+| MDR certification | corpuls.mission LIVE («zertifiziert als Medizinprodukt nach Verordnung (EU) 745/2017», class not stated) | **not yet**: the default profile is outside the qualification in our reading of the Swissmedic Merkblatt (INTENDED_USE.md); `punteggi` declares the Rule 11 exposure; pilot + class IIa file are the roadmap |
 
 ## CH EMS (Switzerland) — measured, not declared (2026-09-16, re-measured 2026-09-18)
 
@@ -208,8 +212,8 @@ without clinical validation it would be an overclaim.
 `INTENDED_USE.md` states what the software is for and for what it is not, with the Swissmedic Merkblatt on
 software (BW630_30_007 v3.0) and EU MDR Rule 11 as references. Two profiles, chosen at start-up with
 `OMEGA_PROFILO`: `comunicazione` (**the default since 0.7.2**: vitals as sent, identity, signed evidence, CH EMS
-document — **no score, no recommendation**, the scoring engine is not executed and the fields are listed as not
-computed in every response) and `punteggi` (opt-in, `OMEGA_PROFILO=punteggi`: scores shown as supporting
+document via the library — **no score, no recommendation**, the scoring engine is not executed and the fields are listed
+as not computed in every pre-alert record) and `punteggi` (opt-in, `OMEGA_PROFILO=punteggi`: scores shown as supporting
 information; regulatory exposure declared, no conformity assessment done). The CLI (`ambulanza_cli.py`) and the
 library keep computing scores when called directly: the profile governs the server, which under `comunicazione`
 rebuilds every pre-alert from the validated inputs and ignores any decisional field a client sends (`/prealert`

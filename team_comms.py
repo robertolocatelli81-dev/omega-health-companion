@@ -140,24 +140,31 @@ def prealert_comunicazione(body: dict) -> dict:
         raise ValueError("; ".join(problemi))
     # input clinici del motore (segni FAST, condizioni, sepsi, clinica) che qui NON vengono né valutati né mostrati: dichiarati,
     # non scartati in silenzio (review Opus 18/09 r2)
-    ignorati = [k for k in ("clinica", "fast_segni", "condizioni", "sepsi") if k in body]
+    ignorati = sorted(set(body) - CAMPI_LETTI_COMUNICAZIONE)   # ogni chiave non letta QUI: input clinici del motore, punteggi di un client…
     return {"vitali": dict(vit), "eta_paziente": eta, "eta_mesi": eta_mesi, "eta_arrivo_stimato_min": arrivo,
-            "farmaci_in_uso": [f.strip() for f in farmaci if isinstance(f, str)], "avvisi": [],
-            "profilo": "comunicazione", "campi_non_calcolati": list(CAMPI_DECISIONALI) + ["tipo_paziente"],
+            "farmaci_in_uso": [f.strip() for f in farmaci if isinstance(f, str) and f.strip()], "avvisi": [],
+            "profilo": "comunicazione", "campi_non_calcolati": NON_CALCOLATI,
             "campi_ignorati": ignorati,
-            "nota_profilo": "profilo comunicazione: motore dei punteggi NON eseguito; vitali come inviati; la valutazione è del clinico"}
+            "nota_profilo": "profilo comunicazione: motore dei punteggi NON eseguito; vitali come inviati; avvisi sempre vuoto; la valutazione è del clinico"}
+
+
+# chiavi del corpo di /valuta che il server LEGGE nel profilo comunicazione: tutto il resto (input clinici del motore —
+# clinica, fast_segni, condizioni, sepsi — o punteggi calcolati da un client) è dichiarato in campi_ignorati invece di
+# sparire in silenzio (review Opus 18/09 r2-r3)
+CAMPI_LETTI_COMUNICAZIONE = frozenset({"vitali", "eta", "eta_mesi", "eta_arrivo_min", "farmaci", "operatore", "triage_start", "incidente_id"})
+NON_CALCOLATI = [c for c in CAMPI_DECISIONALI if c != "avvisi"] + ["tipo_paziente"]   # avvisi resta come chiave, vuota
 
 
 def applica_profilo(prealert: dict) -> dict:
     """Profilo 'comunicazione': toglie ogni campo decisionale dal pre-alert e lo DICHIARA; 'punteggi': invariato."""
     if profilo() != "comunicazione" or prealert.get("profilo") == "comunicazione":   # già in profilo: intatto (review Opus r2)
         return prealert
-    tolti = [k for k in CAMPI_DECISIONALI if k in prealert]
+    tolti = [k for k in CAMPI_DECISIONALI if k in prealert and k != "avvisi"]
     out = {k: v for k, v in prealert.items() if k not in CAMPI_DECISIONALI}
     out["avvisi"] = []                                  # il campo resta (la pagina lo legge), vuoto
     out["profilo"] = "comunicazione"
     out["campi_non_calcolati"] = tolti + ["tipo_paziente"]
-    out["nota_profilo"] = "profilo comunicazione: nessun punteggio né raccomandazione calcolati; vitali come inviati; la valutazione è del clinico"
+    out["nota_profilo"] = "profilo comunicazione: nessun punteggio né raccomandazione calcolati; vitali come inviati; avvisi sempre vuoto; la valutazione è del clinico"
     return out
 
 
@@ -333,7 +340,7 @@ def _pagina() -> str:
         <div class=card style="border-left:8px solid {_COL.get(pr,'#777')}">
           <div class=hdr><b>#{r['id']}</b> · <span class=pri style="background:{_COL.get(pr,'#777')}">{html.escape(str(pr))}</span>
              · {("dati clinici rimossi" if pa.get('priorita') == 'SCADUTO' else ("vitali come inviati: " + html.escape(", ".join(f"{k} {v}" for k, v in (pa.get('vitali') or {}).items()))) if pa.get('profilo') == 'comunicazione' else ("NEWS2 " + html.escape(str(pa.get('NEWS2','—')))))} · arrivo {html.escape(str(pa.get('eta_arrivo_stimato_min','?')))} min</div>
-          <div class=az>{html.escape(str(pa.get('nota_profilo') if pa.get('profilo') == 'comunicazione' else pa.get('azione_raccomandata','')))}</div>
+          <div class=az>{html.escape(str((pa.get('nota_profilo') if pa.get('profilo') == 'comunicazione' else None) or pa.get('azione_raccomandata','')))}</div>
           <ul>{perc}{avv}</ul>
           <div class=meta>conferme: {conf} · <a href="/fhir/{r['id']}">FHIR</a> · <a href="/atmist/{r['id']}">ATMIST</a></div>
           <form method=post action=/conferma>
@@ -548,7 +555,7 @@ class H(BaseHTTPRequestHandler):
                 return self._json(200, CO.metriche(list(BOARD)))
         if self.path == "/incidenti":
             with _LOCK:
-                return self._json(200, [CO.riepilogo_incidente(i, list(BOARD)) for i in INCIDENTI])
+                return self._json(200, [CO.riepilogo_incidente(i, list(BOARD), profilo()) for i in INCIDENTI])
         path_noq = self.path.split("?", 1)[0]          # la query (es. ?marca=1) non fa parte dell'id
         if path_noq.startswith("/allegato/"):
             try:
@@ -576,7 +583,7 @@ class H(BaseHTTPRequestHandler):
                 inc = next((i for i in INCIDENTI if i["id"] == iid), None)
                 if not inc:
                     return self._json(404, {"ok": False, "error": "incidente inesistente"})
-                return self._json(200, CO.riepilogo_incidente(inc, list(BOARD)))
+                return self._json(200, CO.riepilogo_incidente(inc, list(BOARD), profilo()))
         for prefix, fn in (("/fhir/", self._fhir), ("/atmist/", self._atmist), ("/verbale/", self._verbale),
                            ("/messaggi/", self._messaggi)):
             if path_noq.startswith(prefix):

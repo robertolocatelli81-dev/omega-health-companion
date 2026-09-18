@@ -1,0 +1,17 @@
+examples/chems_document_sample.json {
+ "ran": true,
+ "returncode": 0,
+ "counts": {
+  "information": 27,
+  "warning": 8
+ },
+ "errors": []
+}
+  WARN Bundle.entry[0].resource | Constraint failed: ch-ems-epr-composition: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/Struc
+  WARN Bundle.entry[1].resource/*Patient/anon*/ | Constraint failed: ch-ems-epr-patient: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/Structure
+  WARN Bundle.entry[4].resource/*Encounter/missione*/.identifier[0] | None of the codings provided are in the value set 'IdentifierType' (http://hl7.org/fhir/ValueSet/identifier-type|4.0.1), and a coding should come from this valu
+  WARN Bundle.entry[4].resource/*Encounter/missione*/.identifier[1] | A definition for CodeSystem 'https://omega.example/fhir/CodeSystem/prealert' could not be found, so the code cannot be validated
+  WARN Bundle.entry[4].resource/*Encounter/missione*/.identifier[1] | None of the codings provided are in the value set 'IdentifierType' (http://hl7.org/fhir/ValueSet/identifier-type|4.0.1), and a coding should come from this valu
+  WARN Bundle.entry[18].resource/*RiskAssessment/prealert*/.method. | A definition for CodeSystem 'https://omega.example/fhir/CodeSystem/prealert' could not be found, so the code cannot be validated
+  WARN Bundle.entry[18].resource/*RiskAssessment/prealert*/.predict | A definition for CodeSystem 'https://omega.example/fhir/CodeSystem/prealert' could not be found, so the code cannot be validated
+  WARN Bundle | Constraint failed: ch-ems-epr-document: 'Warning that the resource is not conform to the CH Core EPR restrictions' (defined in http://fhir.ch/ig/ch-ems/Structur
