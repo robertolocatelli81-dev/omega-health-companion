@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.2 — 2026-09-18 — public claims audited: test counts, opt-in TSA tests
+
+- No code change in the product. Every checkable statement in the README was re-measured on 2026-09-18 and three were
+  wrong and are corrected: the test counts (160 tests in the eleven `test_*.py` files CI runs, not "125 in six";
+  `test_health.py` has 21, `test_input_types.py` 23 distinct methods), and "the same six files run in CI" (CI runs all
+  eleven). The packaged README of 0.6.1 carried the old numbers; this release carries the measured ones.
+- `test_prealert_2025.py`: the no-TSA null control removed `HEALTH_TSA_URL` from the process without restoring it, so the
+  two opt-in network tests (real RFC 3161 timestamp from freetsa.org, trust chain) errored when run in the same process.
+  Fixed with an isolated environment patch; re-run against the real TSA: OK.
+- Re-measured and unchanged: plain FHIR R4 export validates with 0 errors on validator_cli 6.10.4 (R4 vital-signs
+  profiles applied by the validator); all README links resolve; the pip index carries `#sha256=` fragments.
+
 ## 0.6.1 — 2026-09-18 — fail-closed signing, Composition identifier/confidentiality, exact EPR explanation
 
 - **Audit bridge is fail-closed.** Without a signing engine (the private Part 11 engine or the local Ed25519 signer that
