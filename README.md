@@ -79,7 +79,7 @@ python3 test_input_types.py             # 31 tests — hostile input types (red-
 python3 test_news2_certificate.py       #  4 tests — NEWS2 certificate
 python3 test_prealert_2025.py           # 49 tests — RCEM/AACE 2025 criteria at the boundaries, ED receipt, verbale, tamper/re-sign/deletion detection
 python3 test_coordinamento.py           #  4 tests — patient types, incidents, ETA/position, messages, attachments, outcomes, metrics, expiry (end-to-end)
-# 126 tests in these six files; CI runs ALL eleven test_*.py files (160 tests, counted 2026-09-18) on every push, with and without `cryptography`, never with the private engine
+# 126 tests in these six files; CI runs ALL fifteen test_*.py files (182 tests, counted 2026-09-18) on every push, with and without `cryptography`, never with the private engine
 # HEALTH_TSA_URL=https://freetsa.org/tsr HEALTH_TSA_CAFILE=cacert.pem python3 test_prealert_2025.py   # + 2 opt-in network tests: real RFC 3161 timestamp, trust chain, wrong CA refused
 python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \
@@ -200,6 +200,17 @@ What this needs next is not more code: it is a **measured pilot** (pre-registere
 endpoints, published results) with a clinical partner. See `GRANT_APPLICATION.md` and
 `ONE_PAGER_CLINICO.md`. Automatic ECG interpretation is deliberately **absent**:
 without clinical validation it would be an overclaim.
+
+## Intended use and run profiles (0.7.0)
+`INTENDED_USE.md` states what the software is for and for what it is not, with the Swissmedic Merkblatt on
+software (BW630_30_007 v3.0) and EU MDR Rule 11 as references. Two profiles, chosen at start-up with
+`OMEGA_PROFILO`: `comunicazione` (vitals as sent, identity, signed evidence, CH EMS document — **no score, no
+recommendation**, the fields are removed and listed in every response) and `punteggi` (default: scores shown as
+supporting information; regulatory exposure declared, no conformity assessment done). Also new in 0.7.0:
+per-operator tokens (`POST /operatori`, admin token only; `OMEGA_REQUIRE_OPERATOR=1` refuses clinical events
+without an authenticated operator), the optional AES-256-GCM board journal (`OMEGA_BOARD_STORE`), the receipt
+endpoint for third-party ePCRs (`POST /chems/ingest`, `POST /chems/verifica`), and Swissmedic-backed drug
+recognition by GTIN in CH EMS documents.
 
 ## Install (pip)
 

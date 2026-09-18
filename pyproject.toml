@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omega-health-companion"
-version = "0.6.2"
+version = "0.7.0"
 description = "Ambulance pre-alert companion: honest emergency scores, signed audit, FHIR R4 export, mission case file (pilot software, NOT a medical device)"
 license = {text = "AGPL-3.0-or-later"}
 requires-python = ">=3.9"
@@ -21,4 +21,4 @@ Homepage = "https://github.com/robertolocatelli81-dev/omega-health-companion"
 ambulanza-cli = "ambulanza_cli:main"
 
 [tool.setuptools]
-py-modules = ['ambulanza_cli', 'ambulanza_intelligente', 'audit_bridge', 'barella_prealert', 'companion_seed', 'coordinamento', 'fhir_export', 'fhir_chems', 'chems_validate', 'chems_ingest', 'interazioni_farmaci', 'mission_case', 'news2_certificate', 'prealert_criteria', 'scores_emergenza', 'team_comms', 'verbale_probatorio', 'health_verify']
+py-modules = ['bacheca_store', 'chems_receipt', 'swissmedic_gtin_atc', 'operatori', 'ambulanza_cli', 'ambulanza_intelligente', 'audit_bridge', 'barella_prealert', 'companion_seed', 'coordinamento', 'fhir_export', 'fhir_chems', 'chems_validate', 'chems_ingest', 'interazioni_farmaci', 'mission_case', 'news2_certificate', 'prealert_criteria', 'scores_emergenza', 'team_comms', 'verbale_probatorio', 'health_verify']

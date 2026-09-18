@@ -349,6 +349,73 @@ def estrai_vitali(doc: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ── 3. scoring on someone else's document ────────────────────────────────────────────────────────────────────────
+def estrai_farmaci(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Farmaci del SOGGETTO della Composition da MedicationStatement (terapia in corso: status active) e
+    MedicationAdministration (somministrati in missione: status completed/in-progress), risolvendo
+    medicationReference → Medication contenuta o del Bundle. Ritorna il nome come scritto (display del GTIN o
+    text), la classe riconosciuta o None, e l'elenco dei NON riconosciuti: il motore interazioni lavora solo su
+    ciò che riconosce e lo dice (0.7.0)."""
+    import interazioni_farmaci as IF
+    by_url, comp = doc["_by_url"], doc["composition"]
+    comp_url = next(u for u, r in by_url.items() if r is comp)
+    pat_ref = (comp.get("subject") or {}).get("reference")
+    pat_url = C.risolvi_riferimento(pat_ref, comp_url, by_url) if pat_ref else None
+    out: List[Dict[str, Any]] = []; scartati = 0
+    for u, r in by_url.items():
+        rt = r.get("resourceType")
+        if rt not in ("MedicationStatement", "MedicationAdministration"):
+            continue
+        ok_status = (rt == "MedicationStatement" and r.get("status") == "active") or \
+                    (rt == "MedicationAdministration" and r.get("status") in ("completed", "in-progress"))
+        s_ref = (r.get("subject") or {}).get("reference")
+        if not ok_status or pat_url is None or not s_ref or C.risolvi_riferimento(s_ref, u, by_url) != pat_url:
+            scartati += 1; continue
+        cc = r.get("medicationCodeableConcept")
+        if cc is None and isinstance(r.get("medicationReference"), dict):
+            ref = r["medicationReference"].get("reference") or ""
+            med = None
+            if ref.startswith("#"):
+                med = next((c for c in r.get("contained", []) if c.get("resourceType") == "Medication" and c.get("id") == ref[1:]), None)
+            else:
+                mu = C.risolvi_riferimento(ref, u, by_url); med = by_url.get(mu) if mu else None
+            cc = (med or {}).get("code")
+        nome = None; gtin = None
+        if isinstance(cc, dict):
+            nome = next((c.get("display") for c in cc.get("coding", []) if c.get("display")), None) or cc.get("text")
+            gtin = next((c.get("code") for c in cc.get("coding", []) if c.get("system") in IF.GTIN_SYSTEMS and c.get("code")), None)
+        if not nome and not gtin:
+            scartati += 1; continue
+        # 1) GTIN → ATC (Swissmedic, dato ufficiale) → classe; 2) altrimenti nome commerciale; 3) altrimenti dichiarato non riconosciuto
+        classi, atc, da = None, None, None
+        if gtin:
+            hit = IF.riconosci_gtin(gtin)
+            if hit:
+                classi, atc = hit; da = "gtin-swissmedic" if classi else None
+        if not classi and nome:
+            c = IF.riconosci_commerciale(nome)
+            if c:
+                classi, da = {c}, "nome-commerciale"
+        out.append({"nome": str(nome or gtin)[:80], "gtin": gtin, "atc": atc, "origine": rt,
+                    "classi": sorted(classi) if classi else None, "riconosciuto_da": da})
+    return {"farmaci": out, "riconosciuti": [f for f in out if f["classi"]],
+            "non_riconosciuti": [f["nome"] + (f" (ATC {f['atc']}: fuori dalla tabella interazioni)" if f["atc"] else "") for f in out if not f["classi"]],
+            "scartati": scartati,
+            "fonte_gtin": (IF._gtin_atc().get("_provenienza") or {}).get("stand")}
+
+
+def interazioni_documento(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Interazioni gravi note fra i farmaci RICONOSCIUTI del documento; i non riconosciuti sono elencati, non
+    ignorati in silenzio. Informativo: il medico decide."""
+    import interazioni_farmaci as IF
+    f = estrai_farmaci(doc)
+    res = IF.controlla_classi([(x["nome"], set(x["classi"])) for x in f["riconosciuti"]]) if len(f["riconosciuti"]) >= 2 else \
+        {"n_farmaci": len(f["riconosciuti"]), "interazioni_note_trovate": [], "nessun_allarme": True, "honest_scope": IF._DISCLAIMER}
+    return {**res, "farmaci_letti": f["farmaci"], "non_riconosciuti": f["non_riconosciuti"], "scartati": f["scartati"],
+            "nota": ("controllo solo sui farmaci riconosciuti per nome commerciale/principio attivo; "
+                     f"{len(f['non_riconosciuti'])} non riconosciuti NON sono stati valutati") if f["non_riconosciuti"] else
+                    "tutti i farmaci letti sono stati valutati"}
+
+
 def valuta_documento(doc: Dict[str, Any], eta_arrivo_min: int = 0, eta: Optional[int] = None) -> Dict[str, Any]:
     """OMEGA scores computed from the document's own vitals. `assunzioni` lists every input the engine needed and
     the document did not carry (supplemental O2 is not a CH EMS observation: assumed absent and SAID). The engine
@@ -377,7 +444,8 @@ def valuta_documento(doc: Dict[str, Any], eta_arrivo_min: int = 0, eta: Optional
     if motivo is not None:
         return {"estratto": {k: v for k, v in ex.items() if k != "vitali"}, "vitali_usati": vit, "assunzioni": assunzioni,
                 "valutabile": False, "motivo_non_valutabile": motivo, "PRE_ALERT_INTEGRATO": {}, "problemi_dati": None,
-                "news2_limite_inferiore": limite_inferiore, "nota": "documento non valutabile: nessun punteggio calcolato"}
+                "news2_limite_inferiore": limite_inferiore, "nota": "documento non valutabile: nessun punteggio calcolato",
+                "interazioni_farmaci": interazioni_documento(doc)}
     out = A.valuta_paziente(vit, [], eta_usata, eta_arrivo_min)
     pa = out.get("PRE_ALERT_INTEGRATO") or {}
     valutabile = pa.get("priorita") not in (None, "NON_VALUTABILE_DATI_INVALIDI", "NON_VALUTABILE_PEDIATRICO")
@@ -385,7 +453,8 @@ def valuta_documento(doc: Dict[str, Any], eta_arrivo_min: int = 0, eta: Optional
             "valutabile": valutabile,
             "motivo_non_valutabile": None if valutabile else str(out.get("problemi_dati") or pa.get("priorita")),
             "PRE_ALERT_INTEGRATO": pa, "problemi_dati": out.get("problemi_dati"), "news2_limite_inferiore": limite_inferiore,
-            "nota": "punteggi calcolati dal documento CH EMS ricevuto; nessuna interazione farmaci (liste non lette); il medico decide"}
+            "nota": "punteggi calcolati dal documento CH EMS ricevuto; il medico decide",
+            "interazioni_farmaci": interazioni_documento(doc)}
 
 
 # ── 4. evidence ──────────────────────────────────────────────────────────────────────────────────────────────────

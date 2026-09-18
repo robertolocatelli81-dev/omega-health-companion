@@ -115,7 +115,8 @@ def prealert_to_fhir(prealert_integrato: Dict, vitali: Dict, ts: str,
                              "display": "ossigeno supplementare"}]},
         "subject": {"reference": _urn("anon")}, "effectiveDateTime": ts,
         "valueBoolean": bool(vitali.get("su_ossigeno"))}})
-    rischio = {"resourceType": "RiskAssessment", "id": "prealert", "status": "final",
+    solo_comunicazione = p.get("profilo") == "comunicazione"      # 0.7.0: nessun RiskAssessment senza punteggi calcolati
+    rischio = None if solo_comunicazione else {"resourceType": "RiskAssessment", "id": "prealert", "status": "final",
                "subject": {"reference": _urn("anon")}, "occurrenceDateTime": ts,
                "method": {"coding": [{"system": CS_LOCALE, "code": "news2",
                                       "display": "NEWS2 (RCP 2017) + percorsi tempo-dipendenti"}]},
@@ -125,7 +126,8 @@ def prealert_to_fhir(prealert_integrato: Dict, vitali: Dict, ts: str,
                                                                "code": str(p.get("priorita")).lower()}]}}],
                "note": [{"text": a} for a in ([p.get("azione_raccomandata")] +
                                               list(p.get("percorsi_attivare") or [])) if a]}
-    entries.append({"resource": rischio})
+    if rischio is not None:
+        entries.append({"resource": rischio})
     for i, avviso in enumerate(p.get("avvisi") or []):
         entries.append({"resource": {"resourceType": "Flag", "id": f"avviso-{i}",
                                      "status": "active",
@@ -134,7 +136,9 @@ def prealert_to_fhir(prealert_integrato: Dict, vitali: Dict, ts: str,
     if provenienza_omega and provenienza_omega.get("ancorato"):
         entries.append({"resource": {
             "resourceType": "Provenance", "id": "omega-anchor",
-            "target": [{"reference": _urn("prealert")}],
+            # l'ancora copre il pre-alert (RiskAssessment) quando c'è; nel profilo comunicazione copre le osservazioni
+            "target": ([{"reference": _urn("prealert")}] if rischio is not None else
+                       [{"reference": e["resource"].get("_urn") or _urn(e["resource"]["id"])} for e in entries if e["resource"]["resourceType"] == "Observation"]),
             "recorded": ts,
             "agent": [{"who": {"display": "OMEGA prealert ledger (hash-chained, append-only)"}}],
             "signature": [{"type": [{"system": CS_LOCALE, "code": "sha256-chain"}],

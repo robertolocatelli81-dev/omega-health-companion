@@ -261,5 +261,83 @@ class TestChemsIngest(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+class TestFarmaciDocumento(unittest.TestCase):
+    """0.7.0: farmaci del documento CH EMS → motore interazioni, con controllo positivo/null e i NON riconosciuti dichiarati."""
+    HERE = os.path.dirname(os.path.abspath(__file__))
+
+    def _ig1(self):
+        return I.leggi_documento(open(os.path.join(self.HERE, "examples", "chems_conformance", "ig-Bundle-1-Einsatzprotokoll.json"), "rb").read())
+
+    def test_esempio_ig_letto(self):
+        f = I.estrai_farmaci(self._ig1())
+        self.assertEqual([x["classi"] for x in f["farmaci"]], [["oppioidi"], ["nitrati"], ["fans"]])
+        # i due GTIN dell'esempio IG sono risolti da Swissmedic (ATC ufficiale), l'aspirina dal nome (nessun GTIN nel testo)
+        self.assertEqual([x["riconosciuto_da"] for x in f["farmaci"]], ["gtin-swissmedic", "gtin-swissmedic", "nome-commerciale"])
+        self.assertEqual([x["atc"] for x in f["farmaci"]], ["N01AH01", "C01DA02", None])
+        self.assertEqual(f["non_riconosciuti"], []); self.assertIn("31.08.2026", f["fonte_gtin"])
+        r = I.interazioni_documento(self._ig1())
+        self.assertEqual(r["interazioni_note_trovate"], [])          # oppioide+nitrato+FANS: nessuna coppia grave in tabella
+        self.assertTrue(r["nessun_allarme"])
+
+    def test_gtin_controllo_positivo_e_nullo(self):
+        import interazioni_farmaci as IF
+        self.assertEqual(IF.riconosci_gtin("7680405580012"), ({"nitrati"}, "C01DA02"))          # Nitrolingual (esempio IG)
+        self.assertEqual(IF.riconosci_gtin("7680539870027"), ({"oppioidi"}, "N01AH01"))         # Fentanyl Sintetica (esempio IG)
+        self.assertIsNone(IF.riconosci_gtin("7680000000000"))                                  # GTIN non in lista: None, non inventato
+        hit = IF.riconosci_gtin(next(g for g, a in IF._gtin_atc()["gtin"].items() if a.startswith("J07")))   # un vaccino: ATC noto, classe NO
+        self.assertIsNone(hit[0]); self.assertTrue(hit[1].startswith("J07"))
+        # documento con SOLO GTIN (nessun display): riconosciuto lo stesso; Nitrolingual + Viagra via GTIN → allarme GRAVE
+        viagra = next(g for g, a in IF._gtin_atc()["gtin"].items() if a == "G04BE03")
+        r = I.interazioni_documento(self._con_farmaci([None, None], gtin=["7680405580012", viagra]))
+        self.assertEqual(len(r["interazioni_note_trovate"]), 1); self.assertEqual(r["interazioni_note_trovate"][0]["gravita"], "GRAVE")
+        self.assertEqual([x["riconosciuto_da"] for x in r["farmaci_letti"]], ["gtin-swissmedic", "gtin-swissmedic"])
+        # GTIN noto ma fuori tabella + nome ignoto → dichiarato con l'ATC
+        r = I.interazioni_documento(self._con_farmaci(["Xyz"], gtin=[next(g for g, a in IF._gtin_atc()["gtin"].items() if a.startswith("J07"))]))
+        self.assertEqual(len(r["non_riconosciuti"]), 1); self.assertIn("ATC J07", r["non_riconosciuti"][0])
+
+    def _con_farmaci(self, nomi, status="completed", rt="MedicationAdministration", altro_paziente=False, gtin=None):
+        doc = self._ig1(); b = doc["bundle"]
+        comp = doc["composition"]; subj = comp["subject"]["reference"]
+        rimossi = {e["fullUrl"] for e in b["entry"] if e["resource"]["resourceType"] in ("MedicationStatement", "MedicationAdministration")}
+        rimossi |= {"/".join(u.split("/")[-2:]) for u in rimossi}          # anche la forma relativa usata nelle sezioni
+        b["entry"] = [e for e in b["entry"] if e["fullUrl"] not in rimossi]
+        def _strip(sec):                                                      # le sezioni non devono più puntare ai rimossi
+            sec["entry"] = [x for x in sec.get("entry", []) if x.get("reference") not in rimossi]
+            for sub in sec.get("section", []): _strip(sub)
+        for sec in comp.get("section", []): _strip(sec)
+        # le nuove risorse devono essere RAGGIUNGIBILI dalla Composition (regola del lettore): entrano nella prima sezione
+        comp["section"][0].setdefault("entry", []).extend({"reference": f"{rt}/x{i}"} for i in range(len(nomi)))
+        base = next(e["fullUrl"] for e in b["entry"] if e["resource"] is comp).rsplit("/", 2)[0]   # stessa base RESTful dell'IG
+        if altro_paziente:                                                    # un SECONDO paziente reale nel Bundle
+            b["entry"].append({"fullUrl": f"{base}/Patient/other", "resource": {"resourceType": "Patient", "id": "other"}})
+            comp["section"][0].setdefault("entry", []).append({"reference": "Patient/other"})
+        for i, n in enumerate(nomi):
+            b["entry"].append({"fullUrl": f"{base}/{rt}/x{i}", "resource": {
+                "resourceType": rt, "id": f"x{i}", "status": status, "subject": {"reference": "Patient/other" if altro_paziente else subj},
+                "contained": [{"resourceType": "Medication", "id": "m", "code": (
+                    {"coding": [{"system": "urn:oid:2.51.1.1", "code": gtin[i], **({"display": n} if n else {})}]} if gtin and gtin[i] else {"text": n})}],
+                "medicationReference": {"reference": "#m"},
+                **({"effectiveDateTime": "2016-12-10T12:30:00+01:00"} if rt == "MedicationAdministration" else {})}})
+        return I.leggi_documento(json.dumps(b).encode())
+
+    def test_controllo_positivo_nitrato_pde5(self):
+        r = I.interazioni_documento(self._con_farmaci(["NITROLINGUAL Pumpspray", "Viagra 50 mg"]))
+        self.assertEqual(len(r["interazioni_note_trovate"]), 1); self.assertEqual(r["interazioni_note_trovate"][0]["gravita"], "GRAVE")
+        self.assertFalse(r["nessun_allarme"])
+
+    def test_non_riconosciuto_dichiarato_non_inventato(self):
+        r = I.interazioni_documento(self._con_farmaci(["NITROLINGUAL Pumpspray", "Xyzzy Pumpspray"]))
+        self.assertEqual(r["non_riconosciuti"], ["Xyzzy Pumpspray"]); self.assertEqual(r["interazioni_note_trovate"], [])
+        self.assertIn("1 non riconosciuti", r["nota"])
+        # una sottostringa NON basta: "Nitro-qualcosa" sconosciuto resta sconosciuto
+        r = I.interazioni_documento(self._con_farmaci(["Nitroxyz", "Viagra"])); self.assertEqual(r["non_riconosciuti"], ["Nitroxyz"]); self.assertEqual(r["interazioni_note_trovate"], [])
+
+    def test_null_controls_status_e_soggetto(self):
+        # status non attivo/completato → non conta; altro paziente → non conta (e viene detto)
+        self.assertEqual(I.estrai_farmaci(self._con_farmaci(["Nitrolingual", "Viagra"], status="entered-in-error"))["farmaci"], [])
+        f = I.estrai_farmaci(self._con_farmaci(["Nitrolingual", "Viagra"], altro_paziente=True)); self.assertEqual(f["farmaci"], []); self.assertEqual(f["scartati"], 2)
+        self.assertEqual(I.estrai_farmaci(self._con_farmaci(["Nitrolingual"], status="stopped", rt="MedicationStatement"))["farmaci"], [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

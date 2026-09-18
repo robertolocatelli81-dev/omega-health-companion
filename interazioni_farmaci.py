@@ -75,11 +75,84 @@ _DISCLAIMER = ("⚠️ Informazione, non prescrizione. Questo elenco di interazi
                "In caso di sintomi gravi: 112 / pronto soccorso.")
 
 
+# Nomi COMMERCIALI (CH/DE/IT) → classe, per i farmaci come compaiono in un documento CH EMS (Medication.code.display
+# di un GTIN, o code.text): il principio attivo NON è nel documento. Mappa esplicita e corta: ciò che non è qui
+# viene dichiarato «non riconosciuto» (mai indovinato da una sottostringa). Chiave = prima parola in minuscolo.
+COMMERCIALI_CH = {
+    "nitrolingual": "nitrati", "nitroglycerin": "nitrati", "isoket": "nitrati",
+    "aspirin": "fans", "aspégic": "fans", "aspegic": "fans", "alcacyl": "fans",
+    "fentanyl": "oppioidi", "morphin": "oppioidi", "morphine": "oppioidi", "oxynorm": "oppioidi", "targin": "oppioidi",
+    "tramal": "oppioidi", "temesta": "benzodiazepine", "dormicum": "benzodiazepine", "valium": "benzodiazepine",
+    "midazolam": "benzodiazepine", "marcoumar": "warfarin", "sintrom": "warfarin", "xarelto": "doac", "eliquis": "doac",
+    "lixiana": "doac", "pradaxa": "doac", "viagra": "inibitori-pde5", "cialis": "inibitori-pde5",
+    "sortis": "statine", "crestor": "statine", "zocor": "statine", "klacid": "macrolidi", "zithromax": "macrolidi",
+    "ciproxin": "chinolonici", "tavanic": "chinolonici", "glucophage": "metformina",
+}
+
+
+# ATC (WHO) → classe della tabella interazioni. Prefissi, dal più specifico: la prima corrispondenza vince.
+# Fonte del codice ATC per un farmaco svizzero: Swissmedic «Zugelassene Packungen» via GTIN (data/swissmedic_gtin_atc.json).
+ATC_CLASSE = [
+    ("C01DA", "nitrati"), ("G04BE", "inibitori-pde5"),
+    ("N01AH", "oppioidi"), ("N02A", "oppioidi"), ("N02AX02", "tramadolo"),
+    ("N05BA", "benzodiazepine"), ("N05CD", "benzodiazepine"), ("N05CF", "benzodiazepine"),
+    ("B01AA", "warfarin"), ("B01AE", "doac"), ("B01AF", "doac"),
+    ("M01A", "fans"), ("N02BA", "fans"), ("B01AC06", "fans"),
+    ("C10AA", "statine"), ("J01FA", "macrolidi"), ("J01MA", "chinolonici"),
+    ("C09A", "ace-inibitori"), ("C09B", "ace-inibitori"), ("C03DA", "diuretici-risparmiatori-k"),
+    ("A10BA02", "metformina"), ("N06AB", "ssri"), ("N06AF", "imao"), ("N06AG", "imao"),
+    ("J02AB", "azoli-antifungini"), ("J02AC", "azoli-antifungini"), ("A12BA", "potassio"),
+    ("V08", "mezzo-di-contrasto"),
+]
+
+_GTIN_ATC = None
+GTIN_SYSTEMS = ("urn:oid:2.51.1.1",)          # GS1 GTIN, come negli esempi dell'IG CH EMS
+
+
+def _gtin_atc() -> dict:
+    global _GTIN_ATC
+    if _GTIN_ATC is None:
+        try:
+            import swissmedic_gtin_atc as D                    # modulo generato (scripts/build_swissmedic_atc.py)
+            _GTIN_ATC = {"_provenienza": D.PROVENIENZA, "gtin": D.GTIN_ATC}
+        except ImportError:
+            _GTIN_ATC = {"_provenienza": None, "gtin": {}}    # senza il modulo: nessun GTIN riconosciuto, dichiarato
+    return _GTIN_ATC
+
+
+def classe_da_atc(atc: str):
+    a = (atc or "").strip().upper()
+    for pref, cl in sorted(ATC_CLASSE, key=lambda x: -len(x[0])):     # prefisso più lungo prima (N02AX02 prima di N02A)
+        if a.startswith(pref):
+            return {"oppioidi", "tramadolo-serotoninergico"} if cl == "tramadolo" else {cl}
+    return None
+
+
+def riconosci_gtin(gtin: str):
+    """GTIN svizzero → (classi, atc) via Swissmedic, o None. Dato ufficiale con provenienza nel file dati."""
+    atc = _gtin_atc()["gtin"].get(str(gtin).strip())
+    if not atc:
+        return None
+    cl = classe_da_atc(atc)
+    return (cl, atc) if cl else (None, atc)
+
+
+def riconosci_commerciale(nome: str):
+    """Nome commerciale/display di un documento CH EMS → classe, o None (dichiarato, non inferito)."""
+    if not isinstance(nome, str) or not nome.strip():
+        return None
+    prima = nome.strip().lower().split()[0].strip(",.;()")
+    return COMMERCIALI_CH.get(prima)
+
+
 def _classi(farmaco: str) -> set:
     f = farmaco.strip().lower()
     if f in MULTICLASSE:
         return set(MULTICLASSE[f])
-    return {SINONIMI.get(f, f)}
+    if f in SINONIMI:
+        return {SINONIMI[f]}
+    c = riconosci_commerciale(f)
+    return {c} if c else {f}
 
 
 def _classe(farmaco: str) -> str:      # retro-compatibilità (prima classe)
@@ -93,7 +166,13 @@ def _sha(s: str) -> str:
 def controlla(farmaci: List[str]) -> Dict:
     """Segnala le interazioni gravi note fra i farmaci dati. Privacy: input
     effimero, non salvato né trasmesso."""
-    classi = [(f, _classi(f)) for f in farmaci]
+    return controlla_classi([(f, _classi(f)) for f in farmaci])
+
+
+def controlla_classi(classi: List[tuple]) -> Dict:
+    """Come `controlla`, ma con le classi GIÀ risolte: [(nome, {classi})]. Usato dal lettore CH EMS, dove la classe
+    viene dal codice ATC Swissmedic (GTIN) e non dal nome."""
+    farmaci = [f for f, _ in classi]
     trovate = []
     for (fa, ca), (fb, cb) in combinations(classi, 2):
         for a, b, grav, eff, fonte in INTERAZIONI:
