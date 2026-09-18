@@ -124,7 +124,7 @@ closed-vocabulary or a digest: no free text and no health data on disk.
 | NEMSIS export | US products | **not done**: FHIR R4 is the European road |
 | MDR certification | corpuls.mission LIVE | **not yet**: pilot + class IIa file are the roadmap |
 
-## CH EMS (Switzerland) — measured, not declared (2026-09-16)
+## CH EMS (Switzerland) — measured, not declared (2026-09-16, re-measured 2026-09-18)
 
 `fhir_chems.py` renders the pre-alert as a **CH EMS document** (`ch.fhir.ig.ch-ems` 2.0.0-ballot, the IVR / HL7
 Switzerland mission-protocol format, eCH-0207; STU ballot open until 2026-09-30): a `document` Bundle with a
@@ -148,10 +148,16 @@ Measured with the official HL7 validator 6.10.4 against `CHEmsDocument` (`python
 also a CI job with a positive control that must fail) on **two** documents — the full pre-alert and the earliest
 minimal one (alarm time only, one vital, patient not alert, no colour, no destination): **0 errors** each (8 and
 6 warnings); the same two documents on ahdis's public Matchbox server (`test.ahdis.ch/matchboxv3`, ch-ems
-2.0.0-ballot loaded, 16/09/2026): **0 errors** each (7 and 4 warnings). Every warning is explained: the anonymous
-patient does not meet the *EPR* restrictions (by design: identity is joined in the hospital), the OMEGA code
-system is not resolvable by the terminology server, and the IVR identifier type `MN` is not in the HL7
-identifier-type value set (a property of the IG). What is **not** exported because OMEGA does not compute it:
+2.0.0-ballot loaded, 16/09 and 18/09/2026): **0 errors** each (7 and 4 warnings) — note that Matchbox does not
+report display-name mismatches (measured with a positive control, see EVIDENCE.md), so it corroborates structure and
+bindings, not display names. Every warning is explained (measured 2026-09-18 by
+declaring the EPR profiles on our resources, `examples/chems_conformance/rerun_20260918/abl-omega-minimal-epr-profiles*`):
+the three `ch-ems-epr-*` warnings are the CH Core *EPR* profiles not being met — the anonymous patient has no
+identifier, name, gender or birth date (by design: identity is joined in the hospital), and the Composition has no
+`identifier` and no `confidentiality`, which `ch-core-composition-epr` requires and CH EMS itself does not; the
+document-level warning follows from the Composition one. The other warnings: the OMEGA code system is not
+resolvable by the terminology server, and the IVR identifier type `MN` is not in the HL7 identifier-type value set
+(a property of the IG). What is **not** exported because OMEGA does not compute it:
 NACA, GCS, diagnosis, procedures. Organisations need a real 13-digit GLN (format checked, registration not). The
 OperationOutcome files of both validators, for our two documents and for the IG's four published examples, are in
 `examples/chems_conformance/` (see its EVIDENCE.md).

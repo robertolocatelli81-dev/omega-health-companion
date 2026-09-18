@@ -28,9 +28,11 @@ Everything the README and our messages say about CH EMS conformance is reproduci
 | ig-Bundle-2 | 2 | 57 | 0 | 29 | `26588be51d3c1cba…` |
 | ig-Bundle-2b | 2 | 63 | 0 | 33 | `2b2c560a46c192e8…` |
 
-- Our two documents: 0 errors on both validators. Warnings, all explained: `ch-ems-epr-*` constraints (the patient is
-  anonymous by design before identification), our own code system unknown to the terminology server, the IVR identifier
-  type `MN` against the HL7 identifier-type value set.
+- Our two documents: 0 errors on both validators. Warnings, all explained: `ch-ems-epr-*` constraints (the CH Core EPR
+  profiles are not met: the patient is anonymous by design before identification, and the Composition carries no
+  `identifier` and no `confidentiality`, which `ch-core-composition-epr` requires — measured on 2026-09-18, see below),
+  our own code system unknown to the terminology server, the IVR identifier type `MN` against the HL7 identifier-type
+  value set.
 - The IG's four examples: 0 errors on Matchbox, 2 errors each on validator_cli 6.10.4 — `Composition.confidentiality`
   extension coding SNOMED 17621005 with display "Normal" is refused for language de-CH ("Normal (qualifier value)"), and
   that display error makes the Composition fail its profile, so the `Bundle.entry:Composition` slice is reported as not
@@ -81,3 +83,11 @@ Two additional measurements, with positive controls:
   information/warning instead of error; the examples carry `Composition.language = de-CH`, and for that language
   tx.fhir.org accepts only "Normal (qualifier value)" for SNOMED 17621005. With validator_cli's default settings the
   same mismatch is an error.
+- **What the `ch-ems-epr-*` warnings are exactly (2026-09-18, `rerun_20260918/abl-omega-minimal-epr-profiles*`).** Our
+  minimal document with `ch-core-composition-epr` declared on the Composition and `ch-core-patient-epr` on the Patient
+  (`meta.profile`), validated as before: the EPR profiles fail on `Composition.identifier` (min 1), `Composition.confidentiality`
+  (min 1), `Composition.subject` (must be a `ch-core-patient-epr`), and on the Patient on `identifier`, `name`, `gender`,
+  `birthDate` and `ch-pat-1-epr` (family name). Nothing else. So "anonymous patient" explains the patient warning; the
+  Composition warning is about the missing identifier and confidentiality (not required by CH EMS itself), and the document
+  warning follows from the Composition one. (The other errors in that OperationOutcome are artefacts of declaring the EPR
+  profiles: the CH EMS slices then no longer match; they are not findings.)
