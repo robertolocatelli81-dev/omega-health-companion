@@ -105,3 +105,7 @@ any more. So the `ch-ems-epr-composition` warning on our documents now has exact
   ("de-CH") removed: 0 errors (37 information, 74 warnings) — the display "Normal" is rejected in the de-CH language
   context, not per se. With the display replaced by "Normal (qualifier value)": 0 errors (40 information, 72 warnings).
   So both suggested fixes for the examples (omit the display, or use the display tx.fhir.org offers for de-CH) are measured.
+- **Identifier-type warning, two more ablations (2026-09-18, `rerun_20260918/abl-mn-plus-*`).** Our minimal document with a
+  second coding next to IVR#MN on `Encounter.identifier:missionNumber.type`: with v2-0203 `MR` the extensible-binding
+  warning disappears (0 errors, 5 warnings); with v2-0203 `VN` the identifier matches the `VisitNumber` slice as well
+  (discriminator `value:$this`): "Element matches more than one slice" and "Slice missionNumber not found", 7 errors.
