@@ -67,9 +67,16 @@ class TestStore(unittest.TestCase):
         self.assertIsNone(snap["stato_ps"]["destinazione_alternativa"])      # testo libero: mai su disco (review Opus 18/09)
         with open(self.path, "rb") as fh:                # marcatori LUNGHI: un marcatore di 2 byte compariva per caso nel ciphertext
             raw = fh.read()                              # (1 rosso su 30, misurato 18/09: metro sbagliato, non cifratura rotta)
-            for m in (b"Ospedale Nord Trauma Center", b"VIA ROSSI 12 TARGA", b"SALE-SOLO-IN-MEMORIA-MAI-SU-DISCO",
-                      b'"stato": "saturo"', b'"triage_start": "rosso"'):   # gli ultimi due SONO persistiti: se leggibili, la cifratura manca
-                self.assertNotIn(m, raw)
+        # controllo di CIFRATURA con marcatori derivati dal serializzatore dello store (review Opus r10: «"stato": "saturo"» con
+        # gli spazi non poteva mai comparire nel JSON compatto → test nullo). Prima si prova che il marcatore È nel plaintext
+        # che lo store cifra, poi che NON è nel file.
+        persistiti = {"stato": "saturo", "triage_start": "rosso", "hr": 135}
+        for k, v in persistiti.items():
+            m = BS.serializza({k: v})[1:-1]; self.assertGreaterEqual(len(m), 8, m)
+            self.assertIn(m, BS.serializza(snap["stato_ps"]) + BS.serializza(r), m)   # positivo: nel plaintext c'è
+            self.assertNotIn(m, raw, m)                                                # negativo: nel file cifrato no
+        for m in (b"Ospedale Nord Trauma Center", b"VIA ROSSI 12 TARGA", b"SALE-SOLO-IN-MEMORIA-MAI-SU-DISCO"):   # solo in RAM
+            self.assertNotIn(m, raw)
         self.assertEqual(oct(os.stat(self.path).st_mode & 0o777), "0o600")
 
     def test_sale_esiti_e_chiave_altrove(self):

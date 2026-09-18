@@ -49,6 +49,12 @@ def _aesgcm():
     return AESGCM
 
 
+
+def serializza(obj: Any) -> bytes:
+    """Il plaintext esatto che viene cifrato (JSON compatto): esposto perché il test di cifratura derivi i suoi marcatori
+    da QUI e non da un json.dumps a mano con separatori diversi (review Opus 18/09 r10: il controllo era nullo)."""
+    return json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
 class Store:
     def __init__(self, path: str):
         self.path = path
@@ -108,7 +114,7 @@ class Store:
     # ── primitive cifrate ─────────────────────────────────────────────────────────────────────────────────────
     def _put(self, k: str, obj: Any) -> None:
         nonce = secrets.token_bytes(12)
-        data = json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        data = serializza(obj)
         blob = self._cipher.encrypt(nonce, data, k.encode("utf-8"))   # la chiave della voce è dato associato
         with self._lock:
             self._db.execute("INSERT OR REPLACE INTO kv (k, nonce, blob) VALUES (?, ?, ?)", (k, nonce, blob))
