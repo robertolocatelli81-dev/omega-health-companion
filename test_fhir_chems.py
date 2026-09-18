@@ -162,6 +162,13 @@ class TestChemsDocument(unittest.TestCase):
         t4 = copy.deepcopy(SAMPLE_MISSION["tempi"]); t4["allarme"] = "2026-09-16T10:12:00"
         with self.assertRaises(ValueError):
             self._build(missione={"tempi": t4})
+        # fractions of 1 or 5 digits pass _ISO and must not break the seed on Python 3.9/3.10 (fromisoformat grammar);
+        # ".1" and ".100000" are the same instant → same identifier, and period.start keeps the string as given
+        t5 = copy.deepcopy(SAMPLE_MISSION["tempi"]); t5["allarme"] = "2026-09-16T10:12:00.1+02:00"
+        t6 = copy.deepcopy(SAMPLE_MISSION["tempi"]); t6["allarme"] = "2026-09-16T10:12:00.100000+02:00"
+        b5, b6 = self._build(missione={"tempi": t5}), self._build(missione={"tempi": t6})
+        self.assertEqual(cid(b5), cid(b6))
+        self.assertEqual([e["resource"]["period"]["start"] for e in b5["entry"] if e["resource"]["resourceType"] == "Encounter"], ["2026-09-16T10:12:00.1+02:00"])
 
     # ── NULL controls: nothing required by CH EMS is ever invented ─────────────────────────────────────────────
     def _build(self, **over):

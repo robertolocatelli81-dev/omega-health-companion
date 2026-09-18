@@ -145,18 +145,24 @@ def fb_pubkey_registrata(operatore: str) -> Optional[str]:
         return f.read().strip()
 
 
-def ultimo_id_prealert() -> int:
-    """Highest N of a `prealert-N` target in the signed ledger (0 if none): the board's id counter must
-    continue from here after a restart, or a new patient would reuse an old id in the signed history."""
+def ultimo_id(prefisso: str) -> int:
+    """Highest N of a `<prefisso>-N` target in the signed local ledger (0 if none): an in-memory counter must
+    continue from here after a restart, or a new record would reuse an old id in the signed history.
+    Prefixes in use: `prealert` (board) and `incidente` (multi-patient incidents, since 0.6.1)."""
     if not os.path.exists(FALLBACK_LEDGER):
         return 0
     best = 0
+    rx = __import__("re").compile(r'"target":\s*"' + __import__("re").escape(prefisso) + r'-(\d+)')
     with open(FALLBACK_LEDGER, encoding="utf-8") as f:
         for line in f:
-            m = __import__("re").search(r'"target":\s*"prealert-(\d+)', line)
+            m = rx.search(line)
             if m:
                 best = max(best, int(m.group(1)))
     return best
+
+
+def ultimo_id_prealert() -> int:
+    return ultimo_id("prealert")
 
 
 def enrol_legacy_keys() -> Dict[str, int]:

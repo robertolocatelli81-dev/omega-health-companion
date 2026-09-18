@@ -80,6 +80,15 @@ MISSION_TIME_ROLE = {  # OMEGA mission-time keys → IVR-VS-missionTimeRole
 }
 START_TO_SNOMED = {"rosso": ("371240000", "red"), "giallo": ("371244009", "yellow"), "verde": ("371246006", "green")}
 URGENCY = {"sirena": ("1000007", "with siren"), "senza_sirena": ("1000008", "without siren")}
+def _frazione6(iso: str) -> str:
+    """ISO 8601 instant → same instant with the fraction padded/truncated to 6 digits and Z → +00:00 (fromisoformat-safe on 3.9+)."""
+    m = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})$", iso)
+    if not m:
+        raise ValueError(f"CH EMS: not an ISO 8601 instant with timezone: {iso!r}")
+    frac = (m.group(2) or "")[:6].ljust(6, "0")
+    return f"{m.group(1)}.{frac}{'+00:00' if m.group(3) == 'Z' else m.group(3)}"
+
+
 _ISO = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$")
 
 
@@ -348,7 +357,9 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
         raise ValueError("CH EMS: prealert_id (opaque per-patient token: letters, digits, . _ -; max 64) is required — "
                          "it keeps Composition.identifier distinct for each patient of a mission")
     pid = str(pid)
-    _alarm_dt = datetime.fromisoformat(tempi["allarme"].replace("Z", "+00:00"))   # tz-aware: enforced above for every mission time
+    # tz-aware is enforced above (_ISO) for every mission time; the fraction is normalised to 6 digits because Python 3.9/3.10
+    # fromisoformat accepts only 3 or 6 (review r3) — the string written to period.start stays as given
+    _alarm_dt = datetime.fromisoformat(_frazione6(tempi["allarme"]))
     _alarm_utc = _alarm_dt.astimezone(timezone.utc).isoformat()
     _comp_seed = f"omega-prealert/chems/{mn.strip()}/{_alarm_utc}/{pid}/composition"
     # CH EMS does not require identifier or confidentiality; CH Core's EPR composition profile does, so both are set.

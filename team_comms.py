@@ -391,8 +391,11 @@ class H(BaseHTTPRequestHandler):
             return self._do_POST()
         except AB.FirmaNonDisponibile as e:      # fail-closed (0.6.1): mai registrare non firmato in silenzio → 503 nominato
             return self._json(503, {"ok": False, "error": f"audit non firmabile: {e}"})
-        except OSError as e:                     # chiavi/ledger non scrivibili (disco pieno, cartella read-only): lo stato in
-            # memoria NON è stato toccato (la firma precede ogni mutazione) → 503 nominato, non una connessione caduta
+        except (ConnectionError, TimeoutError):  # socket del client caduto o lento: NON è un errore di audit (review r3)
+            raise
+        except OSError as e:                     # chiavi/ledger non scrivibili (disco pieno, cartella read-only): in ogni
+            # route la firma precede la mutazione dello stato (verificato route per route il 18/09), quindi lo stato in
+            # memoria non è stato toccato → 503 nominato invece di una connessione caduta senza status
             return self._json(503, {"ok": False, "error": f"audit non scrivibile: {e.__class__.__name__}"})
 
     def _do_POST(self):
@@ -535,6 +538,8 @@ class H(BaseHTTPRequestHandler):
                              # senza audit, visibile in bacheca e conteggiato nel tetto)
                 if len(INCIDENTI) >= CAP["incidenti"]:
                     return self._json(429, {"ok": False, "error": "tetto incidenti aperti raggiunto"})
+                if _INCIDENTE_SEQ[0] == 0:        # after a restart continue from the signed ledger (0.6.1, review r3:
+                    _INCIDENTE_SEQ[0] = AB.ultimo_id("incidente")   # `incidente-1` was re-CREATEd in the trail)
                 nuovo_id = _INCIDENTE_SEQ[0] + 1
                 # nel ledger va il DIGEST della descrizione (luogo/targhe/nomi = testo libero), evento CREATE firmato
                 audit = AB.registra_evento_clinico(f"incidente-{nuovo_id}", "apertura_incidente",
@@ -705,7 +710,8 @@ class H(BaseHTTPRequestHandler):
 
 def serve(port=8097, host="127.0.0.1"):
     AB.esigi_firma_o_optin("team-comms")       # fail-closed (0.6.1): senza motore di firma il server non parte
-    livello = "part11" if AB.MOTORE_DISPONIBILE else ("firma-locale" if AB.FIRMA_LOCALE_DISPONIBILE else "base (NON FIRMATO, opt-in)")
+    livello = "part11" if AB.MOTORE_DISPONIBILE else ("firma-locale" if AB.FIRMA_LOCALE_DISPONIBILE else
+                                                        "base (NON FIRMATO, opt-in; senza trail gli id NON sono stabili al riavvio)")
     print(f"OMEGA team-comms su http://{host}:{port}/  (bacheca PS) · token: {TOKEN_FILE} · audit: {livello}")
     _token()                                   # genera il token al primo avvio
     ThreadingHTTPServer((host, port), H).serve_forever()

@@ -13,6 +13,8 @@
   maps `FirmaNonDisponibile` and signer `OSError`s to a named 503 (never a silent success or a dropped connection);
   opening an incident and publishing a pre-alert now sign BEFORE mutating the board or consuming a sequence id
   (previously an incident could exist in memory without its audit record if signing failed).
+  Incident ids continue from the signed ledger after a restart (`audit_bridge.ultimo_id("incidente")`), as pre-alert
+  ids already did. In the opt-in unsigned mode there is no trail to continue from: ids restart, and the banner says so.
 - **CH EMS export: `missione.prealert_id` (opaque per-patient token) is now REQUIRED** and seeds `Composition.identifier`
   together with the mission number and the UTC-normalised alarm time (never the export instant), so two patients of one
   mission never share a Composition identifier, whether or not an OMEGA incident was opened (review finding). Callers
