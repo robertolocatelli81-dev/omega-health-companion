@@ -8,9 +8,11 @@
   the CH EMS document. Scores return only with `OMEGA_PROFILO=punteggi`, written in the organisation's configuration: activating
   an uncertified decision-support function (EU MDR Annex VIII Rule 11 / MepV exposure) is an explicit act, never a default.
   0.7.1 deployments that relied on scores must set the variable. The CLI and the library are unchanged (they compute when
-  called). Tests of the `punteggi` path set the profile at the top of their files (explicit assignment, so an `OMEGA_PROFILO`
-  exported in the environment cannot change what they test — measured: with `setdefault` and the variable exported to
-  `comunicazione`, 5 files failed). The profile tests cover the default: the end-to-end test now posts an adult, a 3-year-old
+  called). Tests of the `punteggi` path set the profile in `setUpModule` and restore it in `tearDownModule` (explicit
+  assignment, so an `OMEGA_PROFILO` exported in the environment cannot change what they test — measured: with `setdefault`
+  and the variable exported to `comunicazione`, 5 files failed; and not at import time, because `unittest discover` imports
+  every file before running any — measured: with a module-level set plus restore, `test_coordinamento` ran under the default
+  and failed). CI now also runs the suite collected in one process. The profile tests cover the default: the end-to-end test now posts an adult, a 3-year-old
   and a known drug interaction, then scans the board, metrics, incidents, page, FHIR export, ATMIST and CH EMS document for
   every decisional key, for `tipo_paziente` and for the nitrate warning (positive control: an injected key in `/metriche` is
   caught); the journal restore test restarts with the variable absent. Under this profile the paediatric gate has nothing to

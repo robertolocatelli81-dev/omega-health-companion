@@ -11,8 +11,20 @@ from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 os.environ.setdefault("OMEGA_PACKAGE_DIR", "/nonexistent")
-os.environ["OMEGA_PROFILO"] = "punteggi"   # questi test esercitano il profilo punteggi (default = comunicazione dal 0.7.2); assegnazione
-                                           # esplicita, non setdefault: un OMEGA_PROFILO esportato nell'ambiente non deve cambiare cosa si testa (review Gemini+Opus 18/09)
+_PROFILO_PRIMA = [None]
+
+
+def setUpModule():                         # questi test esercitano il profilo punteggi (default = comunicazione dal 0.7.2). Assegnazione ESPLICITA
+    _PROFILO_PRIMA[0] = os.environ.get("OMEGA_PROFILO")   # (non setdefault: un OMEGA_PROFILO esportato non deve cambiare cosa si testa — Gemini+Opus 18/09)
+    os.environ["OMEGA_PROFILO"] = "punteggi"              # e in setUpModule, non a livello di modulo: `unittest discover` importa TUTTI i file prima di
+                                                          # eseguirli, e un set a import-time vale per il processo intero (misurato 18/09, review Sonnet)
+
+
+def tearDownModule():                      # ripristino: il profilo non trapela nei file eseguiti dopo
+    if _PROFILO_PRIMA[0] is None:
+        os.environ.pop("OMEGA_PROFILO", None)
+    else:
+        os.environ["OMEGA_PROFILO"] = _PROFILO_PRIMA[0]
 import audit_bridge as AB
 import bacheca_store as BS
 import team_comms as TC

@@ -31,6 +31,8 @@ jobs:
             echo "== $t"
             python3 "$t"
           done
+      - name: Same suite collected in ONE process (profile must not leak between files)
+        run: python3 -m unittest discover -p "test_*.py"
       - name: Demo runs to completion
         run: python3 demo.py > /dev/null
       - name: Hostile-input regression must fail on a deliberately broken validator (the bench can fail)
