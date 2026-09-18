@@ -1,0 +1,147 @@
+{
+ "Bundle-1-Einsatzprotokoll": {
+  "validator_cli": {
+   "information": 41,
+   "error": 2,
+   "warning": 74
+  },
+  "validator_errors": [
+   "Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). Note that other slices are allowed in addition to this required slice",
+   "Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')"
+  ],
+  "matchbox": {
+   "information": 45,
+   "warning": 31
+  },
+  "matchbox_errors": []
+ },
+ "Bundle-1b-Einsatzprotokoll": {
+  "validator_cli": {
+   "information": 43,
+   "error": 2,
+   "warning": 80
+  },
+  "validator_errors": [
+   "Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). Note that other slices are allowed in addition to this required slice",
+   "Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')"
+  ],
+  "matchbox": {
+   "information": 47,
+   "warning": 35
+  },
+  "matchbox_errors": []
+ },
+ "Bundle-2-Einsatzprotokoll": {
+  "validator_cli": {
+   "information": 31,
+   "error": 2,
+   "warning": 57
+  },
+  "validator_errors": [
+   "Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). Note that other slices are allowed in addition to this required slice",
+   "Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')"
+  ],
+  "matchbox": {
+   "information": 32,
+   "warning": 29
+  },
+  "matchbox_errors": []
+ },
+ "Bundle-2b-Einsatzprotokoll": {
+  "validator_cli": {
+   "information": 33,
+   "error": 2,
+   "warning": 63
+  },
+  "validator_errors": [
+   "Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). Note that other slices are allowed in addition to this required slice",
+   "Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')"
+  ],
+  "matchbox": {
+   "information": 34,
+   "warning": 33
+  },
+  "matchbox_errors": []
+ },
+ "abl-Bundle-1-no-normal-display": {
+  "validator_cli": {
+   "information": 39,
+   "warning": 72
+  },
+  "validator_errors": []
+ },
+ "abl-omega-minimal-requester-toplevel": {
+  "validator_cli": {
+   "information": 12,
+   "warning": 7,
+   "error": 1
+  },
+  "validator_errors": [
+   "Reference is internal which isn't supported by the specified aggregation mode(s) for the reference (contained)"
+  ],
+  "matchbox": {
+   "information": 20,
+   "error": 2,
+   "warning": 4
+  },
+  "matchbox_errors": [
+   "Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). Note that other slices are allowed in addition to this required slice",
+   "Reference is internal which isn't supported by the specified aggregation mode(s) for the reference (contained)"
+  ]
+ },
+ "omega-full-with-short-displays": {
+  "validator_cli": {
+   "information": 31,
+   "warning": 8,
+   "error": 2
+  },
+  "validator_errors": [
+   "Wrong Display Name 'Level of Responsiveness (AVPU)' for http://loinc.org#11454-6. Valid display is one of 3 choices: 'Responsiveness assessment at First encounter' (en-US), 'Responsiveness assessment at First encounter' (en-US) or 'Responsiveness assessment 1st enctr' (en-US) (for the language(s) 'en')",
+   "Wrong Display Name 'Patient Status' for http://loinc.org#77941-3. Valid display is one of 3 choices: 'Final patient acuity NEMSIS' (en-US), 'Final patient acuity NEMSIS' (en-US) or 'Final patient acuity NEMSIS' (en-US) (for the language(s) 'en')"
+  ],
+  "matchbox": {
+   "information": 32,
+   "warning": 7
+  },
+  "matchbox_errors": []
+ },
+ "omega-full": {
+  "validator_cli": {
+   "information": 27,
+   "warning": 8
+  },
+  "validator_errors": [],
+  "matchbox": {
+   "information": 32,
+   "warning": 7
+  },
+  "matchbox_errors": []
+ },
+ "omega-minimal": {
+  "validator_cli": {
+   "information": 10,
+   "warning": 6
+  },
+  "validator_errors": [],
+  "matchbox": {
+   "information": 14,
+   "warning": 4
+  },
+  "matchbox_errors": []
+ },
+ "positive-control-display-banana": {
+  "validator_cli": {
+   "information": 29,
+   "warning": 9,
+   "error": 1
+  },
+  "validator_errors": [
+   "Wrong Display Name 'Banana' for http://loinc.org#8867-4. Valid display is one of 3 choices: 'Heart rate' (en-US), 'Heart rate' (en-US) or 'Heart rate' (en-US) (for the language(s) 'en')"
+  ],
+  "matchbox": {
+   "information": 32,
+   "warning": 7
+  },
+  "matchbox_errors": []
+ }
+}

@@ -46,3 +46,38 @@ documents. Results identical across the five runs.
 `python3 chems_ingest.py examples/chems_conformance/ig-Bundle-1-Einsatzprotokoll.json` extracts mission number, six
 mission times, GCS, NACA and blood pressure; NEWS2 is not computed because the vital set is absent, and the output says
 which inputs are missing (`test_chems_ingest.py::test_real_ig_examples_are_read`).
+
+## Re-run on 2026-09-18 (`rerun_20260918/`)
+Everything above was measured again from scratch on 2026-09-18 (validator_cli 6.10.4 jar re-downloaded, sha256
+`1106b9d58f9e363e…`; the four IG examples re-downloaded, sha256 unchanged; our two documents unchanged). Same results:
+our two documents 0 errors on both validators (8 and 6 warnings on validator_cli), the four IG examples 2 errors each on
+validator_cli 6.10.4 and 0 on Matchbox. Log: `rerun_20260918/validator_cli_run.log`, counts: `rerun_20260918/summary.json`.
+
+Two additional measurements, with positive controls:
+- **Matchbox does not check display names.** `positive-control-display-banana.json` is our full document with
+  `Coding.display = "Banana"` on LOINC 8867-4 (heart rate). validator_cli 6.10.4: 1 error ("Wrong Display Name 'Banana'
+  for http://loinc.org#8867-4"). Matchbox (test.ahdis.ch/matchboxv3, ch-ems-document|2.0.0-ballot): 0 errors, no issue
+  mentioning the display, identical counts to the unmodified document. So "0 errors on Matchbox" says nothing about
+  display names; the 2 errors validator_cli reports on the IG examples are a check Matchbox does not run, not a
+  disagreement. The broken-document control (`positive-control-no-composition.json`, no Composition) fails on both
+  (Matchbox: 13 errors), so Matchbox was validating. Matchbox's own OperationOutcome states why: "powered by matchbox 4.1.16 … org.hl7.fhir.core
+  6.10.4", validation parameters `displayIssuesAreWarnings=true`, `txServer=http://localhost:8080/matchboxv3/tx` (its
+  internal terminology server), file `rerun_20260918/positive-control-display-banana.matchbox.OperationOutcome.json`.
+- **The element shorts are not valid LOINC display names.** `omega-full-with-short-displays.json` is our full document
+  with the shorts from the profiles copied into `Coding.display`: "Patient Status" on LOINC 77941-3
+  (ch-ems-observation-statuspriority) and "Level of Responsiveness (AVPU)" on LOINC 11454-6 (ch-ems-observation-avpu).
+  validator_cli 6.10.4 with tx.fhir.org: 2 errors ("Valid display is … 'Final patient acuity NEMSIS'" and
+  "… 'Responsiveness assessment at First encounter'"). Matchbox: 0 errors (see previous point). Our exported documents
+  omit `display` on these two codes.
+- **Ablations (2026-09-18, `rerun_20260918/abl-*`).** `abl-Bundle-1-no-normal-display.json` is the IG's Bundle-1 with
+  only the `display` removed from the SNOMED 17621005 coding in `Composition.confidentiality` (extension): validator_cli
+  6.10.4 gives 0 errors (39 information, 72 warnings), so the `Bundle.entry:Composition` slice error is a consequence of
+  that single display error. `abl-omega-minimal-requester-toplevel.json` is our minimal document with the requesting
+  Organization moved from `ServiceRequest.contained` to a bundle entry: 1 error, "Reference is internal which isn't
+  supported by the specified aggregation mode(s) for the reference (contained)" at `ServiceRequest.requester`. Matchbox gives the same error (plus the consequent `Bundle.entry:Composition` slice error), 2 errors in total.
+  Note that the IG's own QA runs with `checkAggregation` off, so this is not visible in the published qa.html.
+- **Why the IG's own QA shows 0 errors for the same examples.** The published `qa.html` for 2.0.0-ballot (IG Publisher
+  v2.2.9, tx.fhir.org/r4) runs the validator with `displayWarnings` on, which reports display-name mismatches as
+  information/warning instead of error; the examples carry `Composition.language = de-CH`, and for that language
+  tx.fhir.org accepts only "Normal (qualifier value)" for SNOMED 17621005. With validator_cli's default settings the
+  same mismatch is an error.

@@ -1,0 +1,50 @@
+=== Bundle-1-Einsatzprotokoll 07:23:48
+exit=1 07:25:18
+   {'information': 41, 'error': 2, 'warning': 74}
+   ERR: Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). Note that other slices are allowed in addition to this requi @ Bundle
+   DISP[information]: There are no valid display names found for the code http://loinc.org#67796-3 for language(s) 'de-CH'. The display is 'EMS patient care report - version 3 Document NEMSIS' which is a valid display for the default language
+   ERR: Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH') @ Bundle.entry[0].resource/*Composition/1-Einsatzprotokoll-Composition*/.confident
+   DISP[error]: Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')
+   DISP[information]: There are no valid display names found for the code http://snomed.info/sct#17621005 for language(s) 'de-CH'. The display is 'Normal' which is a valid display for the default language
+   DISP[information]: There are no valid display names found for the code http://loinc.org#48767-8 for language(s) 'de-CH'. The display is 'Annotation comment [Interpretation] Narrative' which is a valid display for the default language
+=== Bundle-1b-Einsatzprotokoll 07:25:18
+exit=1 07:26:25
+   {'information': 43, 'error': 2, 'warning': 80}
+   ERR: Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). Note that other slices are allowed in addition to this requi @ Bundle
+   DISP[information]: There are no valid display names found for the code http://loinc.org#67796-3 for language(s) 'de-CH'. The display is 'EMS patient care report - version 3 Document NEMSIS' which is a valid display for the default language
+   ERR: Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH') @ Bundle.entry[0].resource/*Composition/1b-Einsatzprotokoll-Composition*/.confiden
+   DISP[error]: Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')
+   DISP[information]: There are no valid display names found for the code http://snomed.info/sct#17621005 for language(s) 'de-CH'. The display is 'Normal' which is a valid display for the default language
+   DISP[information]: There are no valid display names found for the code http://loinc.org#48767-8 for language(s) 'de-CH'. The display is 'Annotation comment [Interpretation] Narrative' which is a valid display for the default language
+=== Bundle-2-Einsatzprotokoll 07:26:25
+exit=1 07:27:23
+   {'information': 31, 'error': 2, 'warning': 57}
+   ERR: Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). Note that other slices are allowed in addition to this requi @ Bundle
+   DISP[information]: There are no valid display names found for the code http://loinc.org#67796-3 for language(s) 'de-CH'. The display is 'EMS patient care report - version 3 Document NEMSIS' which is a valid display for the default language
+   ERR: Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH') @ Bundle.entry[0].resource/*Composition/2-Einsatzprotokoll-Composition*/.confident
+   DISP[error]: Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')
+   DISP[information]: There are no valid display names found for the code http://snomed.info/sct#17621005 for language(s) 'de-CH'. The display is 'Normal' which is a valid display for the default language
+   DISP[information]: There are no valid display names found for the code http://loinc.org#48767-8 for language(s) 'de-CH'. The display is 'Annotation comment [Interpretation] Narrative' which is a valid display for the default language
+=== Bundle-2b-Einsatzprotokoll 07:27:23
+exit=1 07:28:18
+   {'information': 33, 'error': 2, 'warning': 63}
+   ERR: Slice 'Bundle.entry:Composition': a matching slice is required, but not found (from http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot). Note that other slices are allowed in addition to this requi @ Bundle
+   DISP[information]: There are no valid display names found for the code http://loinc.org#67796-3 for language(s) 'de-CH'. The display is 'EMS patient care report - version 3 Document NEMSIS' which is a valid display for the default language
+   ERR: Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH') @ Bundle.entry[0].resource/*Composition/2b-Einsatzprotokoll-Composition*/.confiden
+   DISP[error]: Wrong Display Name 'Normal' for http://snomed.info/sct#17621005. Valid display is 'Normal (qualifier value)' (for the language(s) 'de-CH')
+   DISP[information]: There are no valid display names found for the code http://snomed.info/sct#17621005 for language(s) 'de-CH'. The display is 'Normal' which is a valid display for the default language
+   DISP[information]: There are no valid display names found for the code http://loinc.org#48767-8 for language(s) 'de-CH'. The display is 'Annotation comment [Interpretation] Narrative' which is a valid display for the default language
+=== omega-full 07:28:18
+exit=0 07:29:22
+   {'information': 27, 'warning': 8}
+=== omega-minimal 07:29:22
+exit=0 07:30:20
+   {'information': 10, 'warning': 6}
+=== omega-full-with-short-displays 07:30:20
+exit=1 07:31:19
+   {'information': 31, 'warning': 8, 'error': 2}
+   ERR: Wrong Display Name 'Level of Responsiveness (AVPU)' for http://loinc.org#11454-6. Valid display is one of 3 choices: 'Responsiveness assessment at First encounter' (en-US), 'Responsiveness assessment at First encounter'  @ Bundle.entry[11].resource/*Observation/vit-avpu*/.code.coding[0].display
+   DISP[error]: Wrong Display Name 'Level of Responsiveness (AVPU)' for http://loinc.org#11454-6. Valid display is one of 3 choices: 'Responsiveness assessment at First encounter' (en-US), 'Responsiveness assessment at First encounter' 
+   ERR: Wrong Display Name 'Patient Status' for http://loinc.org#77941-3. Valid display is one of 3 choices: 'Final patient acuity NEMSIS' (en-US), 'Final patient acuity NEMSIS' (en-US) or 'Final patient acuity NEMSIS' (en-US) ( @ Bundle.entry[17].resource/*Observation/priorita-paziente*/.code.coding[0].displa
+   DISP[error]: Wrong Display Name 'Patient Status' for http://loinc.org#77941-3. Valid display is one of 3 choices: 'Final patient acuity NEMSIS' (en-US), 'Final patient acuity NEMSIS' (en-US) or 'Final patient acuity NEMSIS' (en-US) (
+ALLDONE
