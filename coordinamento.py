@@ -214,7 +214,7 @@ def metriche(board: List[Dict], now: Optional[datetime] = None) -> Dict:
     lat: List[float] = []
     alt = ric = esiti_n = 0
     esiti: Dict[str, int] = {}
-    over = under = conf = 0
+    over = under = conf = con_criteri = 0
     tempi: List[float] = []
     for r in board:
         pa = r.get("prealert") or {}
@@ -237,6 +237,8 @@ def metriche(board: List[Dict], now: Optional[datetime] = None) -> Dict:
         if ultimi:
             e = ultimi[-1]
             indicato = (pa.get("criteri_prealert_2025") or {}).get("pre_alert_indicato")
+            if indicato is not None:
+                con_criteri += 1
             if indicato is True and e["esito"] == "percorso_non_necessario":
                 over += 1
             if indicato is False and e["esito"] == "percorso_confermato":
@@ -263,10 +265,12 @@ def metriche(board: List[Dict], now: Optional[datetime] = None) -> Dict:
         "risposte_alternative": alt, "quota_risposte_alternative": (round(alt / ric, 3) if ric else None),
         "esiti": esiti, "esiti_registrati": esiti_n,
         "tempo_porta_intervento_min": ({"mediana": statistics.median(tempi), "n": len(tempi)} if tempi else None),
-        "over_triage_proxy": over, "under_triage_proxy": under, "percorsi_confermati": conf,
+        "over_triage_proxy": (over if con_criteri else None), "under_triage_proxy": (under if con_criteri else None),
+        "percorsi_confermati": conf,
         "nota": ("proxy: over = pre-alert indicato dai criteri 2025 ma percorso poi non necessario; under = non indicato ma "
                  "percorso confermato. NON misurano un errore dell'equipaggio: il pre-alert nasce da un sospetto e un "
-                 "esito diverso è fisiologico; sono conteggi sulla bacheca in memoria, non un audit clinico"),
+                 "esito diverso è fisiologico; sono conteggi sulla bacheca in memoria, non un audit clinico"
+                 + ("" if con_criteri else "; NON_CALCOLATI: nessun pre-alert con esito porta i criteri 2025 (profilo comunicazione)")),
     }
 
 
@@ -314,9 +318,20 @@ def riepilogo_incidente(incidente: Dict, board: List[Dict]) -> Dict:
         if r.get("triage_start"):
             start[r["triage_start"]] = start.get(r["triage_start"], 0) + 1
     return {**incidente, "pazienti": len(pre), "per_priorita": conte, "per_triage_start": start,
-            "pre_alert": [{"id": r["id"], "priorita": (r.get("prealert") or {}).get("priorita"),
-                           "tipi": (r.get("tipo_paziente") or {}).get("tipi"), "triage_start": r.get("triage_start"),
-                           "eta_arrivo_min": r.get("eta_corrente", (r.get("prealert") or {}).get("eta_arrivo_stimato_min"))} for r in pre]}
+            "pre_alert": [_riga_incidente(r) for r in pre]}
+
+
+def _riga_incidente(r: Dict) -> Dict:
+    """Una riga per pre-alert nel riepilogo: nel profilo comunicazione NESSUNA chiave decisionale, nemmeno a None
+    (review Opus 18/09 r2: «priorita: None» è ancora la chiave di un punteggio); i valori calcolati solo in punteggi."""
+    pa = r.get("prealert") or {}
+    riga = {"id": r["id"], "triage_start": r.get("triage_start"),
+            "eta_arrivo_min": r.get("eta_corrente", pa.get("eta_arrivo_stimato_min"))}
+    if pa.get("profilo") == "comunicazione":
+        riga["profilo"] = "comunicazione"
+    else:
+        riga["priorita"] = _priorita_o_stato(r); riga["tipi"] = (r.get("tipo_paziente") or {}).get("tipi")
+    return riga
 
 
 # ── banco che SA FALLIRE ────────────────────────────────────────────────────────────────

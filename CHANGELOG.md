@@ -4,8 +4,8 @@
 
 - **Breaking, on purpose (author's decision after the whole-product judgement):** the server's default `OMEGA_PROFILO` is now
   `comunicazione`. A standard installation computes and shows no score, priority, recommendation, pathway, drug warning or
-  patient type; it validates inputs, shows vitals as sent, records who sent what and when in the signed ledger and renders
-  the CH EMS document. Scores return only with `OMEGA_PROFILO=punteggi`, written in the organisation's configuration: activating
+  patient type; it validates inputs, shows vitals as sent and records who sent what and when in the signed ledger (the CH EMS
+  document is a library function, `fhir_chems.prealert_to_chems_document`, in both profiles). Scores return only with `OMEGA_PROFILO=punteggi`, written in the organisation's configuration: activating
   an uncertified decision-support function (EU MDR Annex VIII Rule 11 / MepV exposure) is an explicit act, never a default.
   0.7.1 deployments that relied on scores must set the variable. The CLI and the library are unchanged (they compute when
   called). Tests of the `punteggi` path set the profile in `setUpModule` and restore it in `tearDownModule` (explicit
@@ -14,12 +14,25 @@
   every file before running any — measured: with a module-level set plus restore, `test_coordinamento` ran under the default
   and failed). CI now also runs the suite collected in one process. The profile tests cover the default: the end-to-end test now posts an adult, a 3-year-old
   and a known drug interaction, then scans the board, metrics, incidents, page, FHIR export, ATMIST and CH EMS document for
-  every decisional key, for `tipo_paziente` and for the nitrate warning (positive control: an injected key in `/metriche` is
-  caught); the journal restore test restarts with the variable absent. Under this profile the paediatric gate has nothing to
+  every decisional key (each `avvisi` occurrence must be empty, `tipo_paziente` null at any depth, no nitrate text). Positive
+  controls: the scanner self-checks in code on an injected key and an injected warning, and by hand a `"priorita"` added
+  to the comunicazione pre-alert and a nested `trauma_team` added to `/metriche` were both caught before the code was
+  restored; the journal restore test restarts with the variable absent. Under this profile the paediatric gate has nothing to
   guard (no adult score is ever computed) and a child's vitals are validated like any other input. Review of the diff by
-  Gemini Pro, Opus 5, Sonnet 5 and Haiku 4.5: three findings were false against the code (journal restore and `tipo_paziente`
-  were already gated, the engine branch precedes the engine call, CI runs each test file in its own process) and are recorded
-  as such; the true ones are in this entry.
+  Gemini Pro, Opus 5, Sonnet 5 and Haiku 4.5, two rounds: five round-1 findings were false against the code (journal restore
+  and `tipo_paziente` were already gated, the engine branch precedes the engine call, `/prealert` recomputes, CI runs each
+  test file in its own process) and are recorded as such; the true ones are in this entry.
+- **Round 2 (Opus 5) under the default, all measured and fixed:** the incident summary (`/incidenti`, `/incidente/<id>`)
+  emitted `"priorita": None` and `"tipi": None` per pre-alert — a decisional key even if empty; now a comunicazione record
+  carries neither (only `profilo`). The input contract of the comunicazione validator was stricter than the engine's
+  (`eta` integer 0–120, `eta_mesi` 0–24 without coherence check, 20 drugs of 80 characters): a 0.7.1 client sending
+  `eta: 67.0` would have got a new 400; now the four limits are the engine's (number 0–130, months 0–11 only under one
+  year, 100 drugs of 120 characters). Clinical inputs of the criteria engine (`clinica`, `fast_segni`, `condizioni`,
+  `sepsi`) were dropped silently; they are now listed in `campi_ignorati`. `/metriche` reported over/under-triage proxies
+  of 0 that could never be computed; they are `null` with a `NON_CALCOLATI` note when no pre-alert carries the 2025
+  criteria. Board page footer, expired-card header (`NEWS2 —`) and the ATMIST I segment (`vedi percorsi`) were profile-blind;
+  fixed and asserted. The end-to-end test now also creates an incident with a linked patient, posts an outcome, and builds
+  the CH EMS document from every case.
 
 ## 0.7.1 — 2026-09-18 — after Gemini Pro's whole-product judgement (8 dossiers + synthesis, 7/10)
 

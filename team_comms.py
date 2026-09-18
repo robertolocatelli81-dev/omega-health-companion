@@ -117,22 +117,34 @@ def prealert_comunicazione(body: dict) -> dict:
     vit = body.get("vitali")
     problemi = B.valida_vitali(vit)
     eta, eta_mesi, arrivo = body.get("eta"), body.get("eta_mesi"), body.get("eta_arrivo_min", 0)
-    if eta is not None and (isinstance(eta, bool) or not isinstance(eta, int) or not (0 <= eta <= 120)):
-        problemi.append(f"eta non valida: {eta!r} (atteso intero 0-120)")
-    if eta_mesi is not None and (isinstance(eta_mesi, bool) or not isinstance(eta_mesi, int) or not (0 <= eta_mesi <= 24)):
-        problemi.append(f"eta_mesi non valida: {eta_mesi!r} (atteso intero 0-24)")
+    # stessi limiti del motore (ambulanza_intelligente.valuta_paziente): un client di 0.7.1 che manda eta 67.0 o 90 farmaci
+    # non deve vedere un 400 nuovo solo perché il default è cambiato (review Opus 18/09 r2)
+    def _num(x):
+        return not isinstance(x, bool) and isinstance(x, (int, float)) and x == x
+    if eta is not None and not (_num(eta) and 0 <= eta <= 130):
+        problemi.append(f"eta non valida: {eta!r} (atteso numero fra 0 e 130)")
+    if eta_mesi is not None and not (_num(eta_mesi) and 0 <= eta_mesi <= 11):
+        problemi.append(f"eta_mesi non valida: {eta_mesi!r} (atteso numero 0-11, solo sotto l'anno)")
+    elif eta_mesi is not None and _num(eta) and eta >= 1:
+        problemi.append(f"eta_mesi={eta_mesi!r} incoerente con eta={eta!r} (i mesi valgono solo sotto l'anno)")
     if eta is None and eta_mesi is None:
         problemi.append("eta o eta_mesi richiesta")
-    if isinstance(arrivo, bool) or not isinstance(arrivo, (int, float)) or arrivo != arrivo or not (0 <= arrivo <= 600):
-        problemi.append(f"eta_arrivo_min non valido: {arrivo!r} (atteso numero 0-600)")
+    if not (_num(arrivo) and 0 <= arrivo <= 600):
+        problemi.append(f"eta_arrivo_min non valido: {arrivo!r} (atteso numero 0-600 minuti)")
     farmaci = body.get("farmaci") or []
-    if not isinstance(farmaci, list) or any(not isinstance(f, str) or not f.strip() or len(f) > 80 for f in farmaci) or len(farmaci) > 20:
-        problemi.append("farmaci: attesa lista di stringhe (max 20, ≤80 caratteri)")
+    if not isinstance(farmaci, list) or not all(isinstance(f, str) for f in farmaci):
+        problemi.append("farmaci deve essere una lista di stringhe")
+    elif len(farmaci) > 100 or any(len(f) > 120 for f in farmaci):
+        problemi.append("farmaci: lista troppo lunga o voce troppo lunga (max 100 voci, 120 caratteri)")
     if problemi:
         raise ValueError("; ".join(problemi))
+    # input clinici del motore (segni FAST, condizioni, sepsi, clinica) che qui NON vengono né valutati né mostrati: dichiarati,
+    # non scartati in silenzio (review Opus 18/09 r2)
+    ignorati = [k for k in ("clinica", "fast_segni", "condizioni", "sepsi") if k in body]
     return {"vitali": dict(vit), "eta_paziente": eta, "eta_mesi": eta_mesi, "eta_arrivo_stimato_min": arrivo,
-            "farmaci_in_uso": [f.strip() for f in farmaci], "avvisi": [],
+            "farmaci_in_uso": [f.strip() for f in farmaci if isinstance(f, str)], "avvisi": [],
             "profilo": "comunicazione", "campi_non_calcolati": list(CAMPI_DECISIONALI) + ["tipo_paziente"],
+            "campi_ignorati": ignorati,
             "nota_profilo": "profilo comunicazione: motore dei punteggi NON eseguito; vitali come inviati; la valutazione è del clinico"}
 
 
@@ -307,7 +319,7 @@ def _pagina() -> str:
         board = list(BOARD)
     righe = []
     for r in reversed(board):
-        pa = r["prealert"] or {"priorita": "SCADUTO", "azione_raccomandata":
+        pa = r["prealert"] or {"priorita": "SCADUTO", "profilo": profilo(), "azione_raccomandata":
                                f"dati clinici rimossi dalla bacheca dopo {BOARD_TTL_H:g} h (ritenzione)"}
         pr = pa.get("priorita", "—")
         perc = "".join(f"<li>{html.escape(p)}</li>" for p in pa.get("percorsi_attivare", [])) or "<li>—</li>"
@@ -320,7 +332,7 @@ def _pagina() -> str:
         righe.append(f"""
         <div class=card style="border-left:8px solid {_COL.get(pr,'#777')}">
           <div class=hdr><b>#{r['id']}</b> · <span class=pri style="background:{_COL.get(pr,'#777')}">{html.escape(str(pr))}</span>
-             · {("vitali come inviati: " + html.escape(", ".join(f"{k} {v}" for k, v in (pa.get('vitali') or {}).items()))) if pa.get('profilo') == 'comunicazione' else ("NEWS2 " + html.escape(str(pa.get('NEWS2','—'))))} · arrivo {html.escape(str(pa.get('eta_arrivo_stimato_min','?')))} min</div>
+             · {("dati clinici rimossi" if pa.get('priorita') == 'SCADUTO' else ("vitali come inviati: " + html.escape(", ".join(f"{k} {v}" for k, v in (pa.get('vitali') or {}).items()))) if pa.get('profilo') == 'comunicazione' else ("NEWS2 " + html.escape(str(pa.get('NEWS2','—')))))} · arrivo {html.escape(str(pa.get('eta_arrivo_stimato_min','?')))} min</div>
           <div class=az>{html.escape(str(pa.get('nota_profilo') if pa.get('profilo') == 'comunicazione' else pa.get('azione_raccomandata','')))}</div>
           <ul>{perc}{avv}</ul>
           <div class=meta>conferme: {conf} · <a href="/fhir/{r['id']}">FHIR</a> · <a href="/atmist/{r['id']}">ATMIST</a></div>
@@ -347,7 +359,12 @@ button{{background:#0f3460;color:#fff;border:0;border-radius:4px;cursor:pointer}
 </style><h1>🚑 OMEGA · Bacheca Pronto Soccorso — pre-alert in arrivo (auto-refresh 5s)</h1>
 {''.join(righe) or '<div class=card>Nessun pre-alert attivo.</div>'}
 <div style="margin:18px;font-size:11px;color:#667">software di supporto alla comunicazione —
-NON un dispositivo medico; gli score sono standard validati, la decisione è del medico</div>"""
+NON un dispositivo medico; {_nota_piede()}; la decisione è del medico</div>"""
+
+
+def _nota_piede() -> str:
+    return ("profilo comunicazione: nessun punteggio calcolato, i vitali sono quelli inviati dall'equipaggio" if profilo() == "comunicazione"
+            else "profilo punteggi (opt-in): gli score sono standard pubblicati, non certificati qui")
 
 
 def _evento_su_record(rid: int, lista: str, azione: str, dettaglio: dict, operatore: str, elemento: dict):
@@ -621,8 +638,8 @@ class H(BaseHTTPRequestHandler):
         if r.get("prealert") is None:
             return self._json(410, {"ok": False, "error": f"pre-alert {rid} scaduto: dati clinici rimossi dopo {BOARD_TTL_H:g} h"})
         at = FX.atmist(r["prealert"].get("eta_paziente"), r["ts"][11:16],
-                       "vedi pre-alert", "vedi percorsi", r["prealert"],
-                       trattamenti=[])
+                       "vedi pre-alert", ("vedi pre-alert" if r["prealert"].get("profilo") == "comunicazione" else "vedi percorsi"),
+                       r["prealert"], trattamenti=[])      # nessun «vedi percorsi» dove i percorsi non esistono (review Opus r2)
         return self._send(200, at["testo_consegna"], "text/plain; charset=utf-8")
 
     def do_POST(self):

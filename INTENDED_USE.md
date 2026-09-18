@@ -9,9 +9,12 @@ Zweckbestimmung»). It states what the software is for, what it is not for, and 
 ## 1. Two run profiles (declared at start-up, `OMEGA_PROFILO`; default `comunicazione` since 0.7.2)
 
 ### `comunicazione` — communication and evidence only (DEFAULT)
-The server receives the vital signs and mission data *as sent by the crew*, shows them to the emergency
-department (board page, `/api/board`, FHIR and ATMIST), records who sent what and when in a signed hash-chained ledger, and renders the pre-alert as a
-CH EMS document. **It computes and shows no score, no priority, no recommendation, no pathway.** The scoring
+The server receives the vital signs, age, ETA and drug list *as sent by the crew*, shows them to the emergency
+department (board page, `/api/board`, FHIR and ATMIST), and records who sent what and when in a signed hash-chained ledger;
+the pre-alert can be rendered as a CH EMS document by the library (`fhir_chems.prealert_to_chems_document`, no server endpoint:
+the mission data comes from the caller). The clinical inputs of the criteria engine (`clinica`, `fast_segni`, `condizioni`,
+`sepsi`) are accepted but neither evaluated nor shown in this profile; the response names them in `campi_ignorati`.
+**It computes and shows no score, no priority, no recommendation, no pathway.** The scoring
 engine is not executed: the pre-alert is rebuilt from the validated inputs only, any decisional field sent by a
 client (for example a score computed by the CLI) is ignored, and the fields that would carry them are listed in
 every response as not computed (`campi_non_calcolati`). A record written by an earlier `punteggi` run and restored

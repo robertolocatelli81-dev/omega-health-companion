@@ -127,12 +127,16 @@ class TestE2EProfilo(unittest.TestCase):
             # Un adulto, un bambino (3 anni) e un caso di interazione nota (sildenafil + nitrato): sotto il DEFAULT nessuna
             # uscita del server — bacheca, metriche, incidenti, pagina, FHIR, ATMIST, documento CH EMS — porta una chiave
             # decisionale né tipo_paziente né la raccomandazione sui nitrati (review Opus/Haiku 18/09: prima si guardava solo /valuta)
+            st, inc = self._req("POST", "/incidente", {"descrizione": "tamponamento A4", "operatore": "co118"}); self.assertEqual(st, 200, inc)
+            iid = inc["incidente"]["id"]
             casi = [dict(VIT, eta=3, vitali={"hr": 150, "rr": 35, "spo2": 94, "sbp": 85, "temp": 39.2, "su_ossigeno": False, "alert_coscienza": True}),
-                    dict(VIT, eta=64, farmaci=["sildenafil", "nitroglicerina"])]
-            ids = [out["id"]]
+                    dict(VIT, eta=64.0, farmaci=["sildenafil", "nitroglicerina"], incidente_id=iid)]   # 64.0: contratto del motore (review Opus r2)
+            ids = [out["id"]]; prealerts = [p]
             for c in casi:
-                st, o = self._req("POST", "/valuta", c); self.assertEqual(st, 200, o); ids.append(o["id"])
+                st, o = self._req("POST", "/valuta", c); self.assertEqual(st, 200, o); ids.append(o["id"]); prealerts.append(o["prealert"])
                 self.assertIsNone(o.get("tipo_paziente")); self.assertEqual(o["prealert"]["avvisi"], [])
+                self.assertEqual(o["prealert"]["campi_ignorati"], ["clinica"])   # dolore_toracico: input del motore, qui dichiarato ignorato
+            st, es = self._req("POST", "/esito", {"id": ids[-1], "operatore_ps": "dr-z", "esito": "percorso_confermato"}); self.assertEqual(st, 200, es)
             def _chiavi(x, acc):
                 if isinstance(x, dict):
                     acc.update(x.keys()); [_chiavi(v, acc) for v in x.values()]
@@ -140,18 +144,33 @@ class TestE2EProfilo(unittest.TestCase):
                     [_chiavi(v, acc) for v in x]
                 return acc
             uscite = {"/api/board": self._req("GET", "/api/board")[1], "/metriche": self._req("GET", "/metriche")[1],
-                      "/incidenti": self._req("GET", "/incidenti")[1]}
+                      "/incidenti": self._req("GET", "/incidenti")[1], f"/incidente/{iid}": self._req("GET", f"/incidente/{iid}")[1]}
+            self.assertEqual(uscite[f"/incidente/{iid}"]["pazienti"], 1)          # l'incidente ha davvero un paziente: la scansione non è a vuoto
+            self.assertIsNone(uscite["/metriche"]["over_triage_proxy"])         # proxy NON_CALCOLATI, non zeri strutturali (review Opus r2)
+            self.assertIn("NON_CALCOLATI", uscite["/metriche"]["nota"])
             for i in ids:
                 uscite[f"/fhir/{i}"] = self._req("GET", f"/fhir/{i}")[1]
-            vietate = set(T.CAMPI_DECISIONALI) - {"avvisi"}     # avvisi resta come chiave (vuota): lo controlla la riga sopra
+            for n, pp in enumerate(prealerts):                                    # documento CH EMS costruito da OGNI caso (libreria)
+                uscite[f"chems/{n}"] = C.prealert_to_chems_document(pp, pp["vitali"], "2026-09-18T10:40:00+02:00", SAMPLE_MISSION)
+            vietate = set(T.CAMPI_DECISIONALI) - {"avvisi"}     # avvisi resta come chiave, e ogni sua occorrenza deve essere [] (sotto)
+            def _valori(x, chiave, acc):                          # ogni valore di `chiave` a qualunque profondità (review Sonnet r2: avvisi non
+                if isinstance(x, dict):                           # è solo «NITRATI», è il campo delle raccomandazioni calcolate)
+                    [acc.append(v) for k, v in x.items() if k == chiave]; [_valori(v, chiave, acc) for v in x.values()]
+                elif isinstance(x, list):
+                    [_valori(v, chiave, acc) for v in x]
+                return acc
+            # controllo positivo DEL BANCO, in codice: lo scanner deve vedere una chiave iniettata e un avviso iniettato
+            finto = {"a": [{"b": {"NEWS2": 5}}], "c": {"avvisi": ["x"]}}
+            self.assertTrue(_chiavi(finto, set()) & vietate); self.assertEqual(_valori(finto, "avvisi", []), [["x"]])
             for nome, u in uscite.items():
                 chiavi = _chiavi(u, set())
                 self.assertFalse(chiavi & vietate, f"{nome}: {chiavi & vietate}")
+                for av in _valori(u, "avvisi", []):
+                    self.assertEqual(av, [], f"{nome}: avvisi non vuoto {av!r}")
                 testo = json.dumps(u, ensure_ascii=False)
-                self.assertNotIn("NITRATI", testo, nome); self.assertNotIn('"tipo_paziente": "', testo, nome)
-                for r in (u if isinstance(u, list) else []):
-                    if isinstance(r, dict) and "tipo_paziente" in r:
-                        self.assertIsNone(r["tipo_paziente"], nome)
+                self.assertNotIn("NITRATI", testo, nome)
+                for tp in _valori(u, "tipo_paziente", []):
+                    self.assertIsNone(tp, f"{nome}: tipo_paziente {tp!r}")
             for i in ids:
                 req = urllib.request.Request(self.base + f"/atmist/{i}", headers={"X-Omega-Token": self.token})
                 atm = urllib.request.urlopen(req, timeout=30).read().decode("utf-8")
@@ -160,6 +179,14 @@ class TestE2EProfilo(unittest.TestCase):
                 self.assertNotIn("NITRATI", atm)
             st, page = self._req_text("GET", "/?token=" + self.token)
             self.assertNotIn("NITRATI", page); self.assertNotIn("pediatrico", page.lower()); self.assertNotIn("NEWS2 ", page)
+            self.assertIn("nessun punteggio calcolato", page)                     # piè di pagina del profilo, non «gli score sono standard validati»
+            self.assertNotIn("gli score sono", page)
+            atm = urllib.request.urlopen(urllib.request.Request(self.base + f"/atmist/{ids[0]}", headers={"X-Omega-Token": self.token}), timeout=30).read().decode()
+            self.assertNotIn("vedi percorsi", atm)
+            with T._LOCK:                                                          # un pre-alert scaduto: la scheda non deve tornare a «NEWS2 —»
+                T.BOARD[0]["prealert"] = None
+            st, page = self._req_text("GET", "/?token=" + self.token)
+            self.assertNotIn("NEWS2", page); self.assertIn("dati clinici rimossi", page)
         # nel ledger firmato non c'è comunque mai un punteggio (digest-only): controllo che regge in entrambi i profili
         self.assertNotIn('"NEWS2":', open(AB.FALLBACK_LEDGER).read())
 
