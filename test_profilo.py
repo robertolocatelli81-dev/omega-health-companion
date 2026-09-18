@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import threading
 import unittest
+import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 from unittest import mock
@@ -123,6 +124,11 @@ class TestProfilo(unittest.TestCase):
             for tell in ('"NEWS2":', '"priorita":', "GRAVE", "ALTO", "azione_raccomandata", "NITRATI", "⛔"):   # nessun VALORE decisionale, nemmeno annidato
                 self.assertNotIn(tell, json.dumps(senza_elenco), tell)
             self.assertEqual(p["avvisi"], [])
+            # forma ESATTA di un record del motore ripristinato sotto il default (review Gemini+Opus r6): sottoinsieme del contratto
+            # (eta_mesi manca in un adulto) più problemi_dati; un ipotetico tipo_paziente dentro il pre-alert viene tolto
+            self.assertTrue(set(p) <= CONTRATTO_COMUNICAZIONE | {"problemi_dati"}, set(p) - CONTRATTO_COMUNICAZIONE)
+            self.assertEqual(p["campi_ignorati"], []); self.assertEqual(p["nota_profilo"], T.NOTA_PROFILO)
+            self.assertNotIn("tipo_paziente", T.applica_profilo({**out, "tipo_paziente": {"tipi": ["sepsi"]}}))
         with mock.patch.dict(os.environ, {T.PROFILO_ENV: "punteggi"}):
             self.assertEqual(T.applica_profilo(dict(out)), out)
         with mock.patch.dict(os.environ, {T.PROFILO_ENV: "diagnosi"}):
@@ -152,6 +158,12 @@ class TestE2EProfilo(unittest.TestCase):
         req = urllib.request.Request(self.base + path, method=method, headers={"X-Omega-Token": self.token})
         with urllib.request.urlopen(req, timeout=30) as r:
             return r.status, r.read().decode("utf-8")
+
+    def _req_err(self, method, path, obj=None):
+        try:
+            return self._req(method, path, obj)
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read() or b"{}")
 
     def _req(self, method, path, obj=None):
         req = urllib.request.Request(self.base + path, data=json.dumps(obj).encode() if obj is not None else None, method=method,
@@ -225,6 +237,15 @@ class TestE2EProfilo(unittest.TestCase):
             for nome in ("/api/board", "/metriche", "/incidenti", f"/incidente/{iid}", "/audit", *[f"/fhir/{i}" for i in ids]):
                 st, u = self._req("GET", nome); self.assertEqual(st, 200, nome); uscite[nome] = u    # stato asserito: mai scansione di un corpo d'errore
             self.assertEqual(len(uscite["/api/board"]), 5)
+            # /audit qui è il riepilogo del trail (livello «base» senza il motore Part 11: nessun record dentro): la sostanza da
+            # scandire è il ledger locale FIRMATO, che deve avere una riga per POST e nessun token decisionale (review Opus r6)
+            self.assertEqual(uscite["/audit"]["livello"], "base")
+            ledger = open(AB.FALLBACK_LEDGER, encoding="utf-8").read(); self.assertGreaterEqual(len(ledger.strip().splitlines()), 5)
+            for k in (set(T.CAMPI_DECISIONALI) - {"avvisi"}) | {"NITRATI"}:
+                self.assertFalse(_token_presente(k, ledger), f"ledger: {k}")
+            # un nome di chiave malformato DENTRO vitali: 400, e il testo non finisce nel trail firmato
+            st, err = self._req_err("POST", "/valuta", dict(VIT, vitali={**VIT["vitali"], "priorita ALTA: NITRATI": 1})); self.assertEqual(st, 400)
+            self.assertNotIn("NITRATI", json.dumps(self._req("GET", "/audit")[1]))
             for i in ids:
                 self.assertEqual(uscite[f"/fhir/{i}"]["resourceType"], "Bundle"); self.assertTrue(uscite[f"/fhir/{i}"]["entry"])
             self.assertEqual(uscite[f"/incidente/{iid}"]["pazienti"], 1)          # l'incidente ha davvero un paziente: la scansione non è a vuoto

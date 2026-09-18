@@ -223,7 +223,7 @@ as not computed in every pre-alert record) and `punteggi` (opt-in, `OMEGA_PROFIL
 information; regulatory exposure declared, no conformity assessment done). The library (`ambulanza_intelligente.py`)
 computes scores whenever it is called directly, regardless of the profile; the CLI (`ambulanza_cli.py`) computes
 nothing — it is a client of `/valuta` and shows what the server's profile returns (under the default: the vitals and
-the note "scoring engine not executed"). The profile governs the server, which under `comunicazione` rebuilds every
+the profile note saying the scoring engine was not executed). The profile governs the server, which under `comunicazione` rebuilds every
 pre-alert from the validated inputs and names, in `campi_ignorati`, any other key a client sends with a value (a
 client-computed `NEWS2` included; at most 20 such keys, identifier names of 1–40 characters, otherwise 400 — this guard
 exists only in the default profile, `punteggi` drops unknown keys silently as before; `/prealert` is routed to `/valuta`

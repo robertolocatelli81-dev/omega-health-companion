@@ -156,7 +156,7 @@ def prealert_comunicazione(body: dict) -> dict:
 # sparire in silenzio (review Opus 18/09 r2-r3)
 CAMPI_LETTI_COMUNICAZIONE = frozenset({"vitali", "eta", "eta_mesi", "eta_arrivo_min", "farmaci", "operatore", "triage_start", "incidente_id"})
 NON_CALCOLATI = [c for c in CAMPI_DECISIONALI if c != "avvisi"] + ["tipo_paziente"]   # avvisi resta come chiave, vuota
-_NOME_CAMPO = re.compile(r"[A-Za-z0-9_]{1,40}")
+_NOME_CAMPO = re.compile(r"\A[A-Za-z0-9_]{1,40}\Z")      # ancorato anche sotto match/search; \Z non accetta il newline finale (review Opus r6)
 NOTA_PROFILO = "profilo comunicazione: motore dei punteggi NON eseguito; vitali come inviati; avvisi sempre vuoto; la valutazione è del clinico"
 
 
@@ -164,8 +164,8 @@ def applica_profilo(prealert: dict) -> dict:
     """Profilo 'comunicazione': toglie ogni campo decisionale dal pre-alert e lo DICHIARA; 'punteggi': invariato."""
     if profilo() != "comunicazione" or prealert.get("profilo") == "comunicazione":   # già in profilo: intatto (review Opus r2)
         return prealert
-    out = {k: v for k, v in prealert.items() if k not in CAMPI_DECISIONALI}
-    out["avvisi"] = []                                  # il campo resta (la pagina lo legge), vuoto
+    out = {k: v for k, v in prealert.items() if k not in CAMPI_DECISIONALI and k != "tipo_paziente"}   # tipo_paziente vive nel RECORD,
+    out["avvisi"] = []                                  # il campo resta (la pagina lo legge), vuoto        # non nel pre-alert; tolto comunque (r6)
     out["profilo"] = "comunicazione"
     out["campi_non_calcolati"] = list(NON_CALCOLATI)    # stesso elenco e stessa nota di un record fresco (review Opus r4-r5)
     out.setdefault("campi_ignorati", [])                # un record ripristinato non sa cosa fu ignorato: elenco vuoto, chiave presente

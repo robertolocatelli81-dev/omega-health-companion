@@ -48,9 +48,9 @@
   issues): the CLI now prints the profile and the note under the default instead of silent nulls, and no longer sends
   top-level null keys; `campi_ignorati` counts only keys with a value and refuses malformed or more than 20 unknown key
   names (the name is echoed into the record and the journal: never free text; round 5: `fullmatch`, so a trailing newline
-  does not pass either); the comunicazione pre-alert lists the same `campi_non_calcolati`, the same note and a
+  does not pass either; round 6: `\A…\Z` anchors, `tipo_paziente` stripped from a restored pre-alert too although the engine never puts it there — it lives in the board record, where restore nulls it — and the restored shape is asserted against the allowlist; `/audit` (trail summary; level `base` in the test sandbox) plus the local signed ledger text scanned, one record per POST; a malformed key name inside `vitali` gives 400 and its text is measured absent from the signed trail); the comunicazione pre-alert lists the same `campi_non_calcolati`, the same note and a
   `campi_ignorati` key whether fresh or restored; unknown keys *inside* `vitali` were already refused by name (measured,
-  now guarded by a test); `/audit` and the CLI's own record are in the scan;
+  now guarded by a test); the local signed ledger and the CLI's own record are in the scan;
   the scanner's positive controls are discriminating (a value-encoded score is invisible to the key scan and visible to
   the token scan; a histogram and the listing fields are not flagged); the end-to-end test also posts client-computed
   scores and runs the real CLI against the default server; the engine drift guard covers the invalid-data branch.
