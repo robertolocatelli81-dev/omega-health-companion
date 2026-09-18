@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 os.environ.setdefault("OMEGA_PACKAGE_DIR", "/nonexistent")
+os.environ.setdefault("OMEGA_PROFILO", "punteggi")   # questi test esercitano il profilo punteggi (default = comunicazione dal 0.7.2)
 import audit_bridge as AB
 import bacheca_store as BS
 import team_comms as TC

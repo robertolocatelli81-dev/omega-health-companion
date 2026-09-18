@@ -5,6 +5,7 @@ Sandbox totale (ledger, chiavi, token, bacheca); controlli negativi prima dei po
 from __future__ import annotations
 import json
 import os
+os.environ.setdefault("OMEGA_PROFILO", "punteggi")   # questi test esercitano il profilo punteggi (default = comunicazione dal 0.7.2)
 import sys
 import tempfile
 import threading

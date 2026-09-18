@@ -6,9 +6,9 @@ as a medical device is decided by the *intended use the manufacturer defines* (S
 BW630_30_007, v3.0, 21.04.2026, §4: «Massgeblich für die Qualifizierung ist also die vom Hersteller definierte
 Zweckbestimmung»). It states what the software is for, what it is not for, and the two profiles it can run in.
 
-## 1. Two run profiles (declared at start-up, `OMEGA_PROFILO`)
+## 1. Two run profiles (declared at start-up, `OMEGA_PROFILO`; default `comunicazione` since 0.7.2)
 
-### `comunicazione` — communication and evidence only
+### `comunicazione` — communication and evidence only (DEFAULT)
 The server receives the vital signs and mission data *as sent by the crew*, shows them to the emergency
 department (board page, `/api/board`, FHIR and ATMIST), records who sent what and when in a signed hash-chained ledger, and renders the pre-alert as a
 CH EMS document. **It computes and shows no score, no priority, no recommendation, no pathway.** The fields that
@@ -21,7 +21,7 @@ communication and search of the data as entered. This is the same intended-use l
 publishes for its platform. We state it as our reading of the Merkblatt, not as a Swissmedic decision: only a
 qualification by the manufacturer under the ordinance, or an authority's ruling, settles it.
 
-### `punteggi` — scores shown (default)
+### `punteggi` — scores shown (opt-in: `OMEGA_PROFILO=punteggi`, written by the organisation that wants it)
 The server additionally computes NEWS2, qSOFA, BE-FAST, the RCEM/AACE 2025 pre-alert criteria, the paediatric
 gate and the drug-interaction flags from the inputs, and shows them to the department with the inputs they came
 from. Intended use: **information to organise the reception of a pre-announced patient; the clinical decision is
@@ -32,7 +32,9 @@ des Anhangs VIII EU-MDR, die sowohl für eigenständige als auch für in Medizin
 Medizinprodukte-Software gilt, schränkt die Funktionalitäten für Software der Klasse I zwar stark ein, …»). Expected class: IIa (or higher, depending on the seriousness of the decisions the
 information may lead to). **No conformity assessment has been done.** An EMS service or hospital that runs this
 profile with real patients does so as a *pilot under its own clinical governance*, not on the basis of a
-certification we do not have.
+certification we do not have. That is why, since 0.7.2, this profile is never the default: activating an uncertified
+decision-support function is an explicit act of the organisation (`OMEGA_PROFILO=punteggi`), recorded in its
+configuration, never something a standard installation does on its own.
 
 ## 2. What the software is not for (both profiles)
 - Not for diagnosis, not for treatment decisions, not for monitoring a patient, not a replacement of the

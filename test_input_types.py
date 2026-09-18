@@ -14,6 +14,7 @@ NOMINATO: mai uno score da un tipo sbagliato, mai un'eccezione.
 """
 import json
 import os
+os.environ.setdefault("OMEGA_PROFILO", "punteggi")   # questi test esercitano il profilo punteggi (default = comunicazione dal 0.7.2)
 import sys
 import tempfile
 import threading

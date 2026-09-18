@@ -33,6 +33,13 @@ class TestProfilo(unittest.TestCase):
             with self.assertRaises(ValueError):
                 T.prealert_comunicazione(bad)
 
+    def test_default_e_comunicazione(self):
+        """Dal 0.7.2 il profilo di DEFAULT è comunicazione: senza OMEGA_PROFILO il motore non gira; punteggi è opt-in scritto."""
+        with mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != T.PROFILO_ENV}, clear=True):
+            self.assertEqual(T.profilo(), "comunicazione")
+        with mock.patch.dict(os.environ, {T.PROFILO_ENV: "punteggi"}):
+            self.assertEqual(T.profilo(), "punteggi")
+
     def test_applica_profilo(self):
         out = A.valuta_paziente(VIT["vitali"], VIT["farmaci"], 67, 8, clinica=VIT["clinica"])["PRE_ALERT_INTEGRATO"]
         self.assertTrue(out["avvisi"], "il caso di test deve produrre un avviso (sildenafil + dolore toracico)")
@@ -84,7 +91,7 @@ class TestE2EProfilo(unittest.TestCase):
             return r.status, json.loads(r.read())
 
     def test_comunicazione_end_to_end(self):
-        with mock.patch.dict(os.environ, {T.PROFILO_ENV: "comunicazione"}):
+        with mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != T.PROFILO_ENV}, clear=True):   # DEFAULT, non impostato
             st, out = self._req("POST", "/valuta", VIT)
             self.assertEqual(st, 200); p = out["prealert"]
             self.assertEqual(p["profilo"], "comunicazione"); self.assertNotIn("NEWS2", p); self.assertNotIn("priorita", p)

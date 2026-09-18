@@ -89,20 +89,20 @@ def _token() -> str:
 BOARD_TTL_H = float(os.environ.get("OMEGA_BOARD_TTL_H", "24"))
 
 # ── Profilo d'uso (0.7.0, INTENDED_USE.md) ─────────────────────────────────────────────────────────────────────
-# "punteggi" (default): il server calcola NEWS2/qSOFA/BE-FAST/criteri 2025 dai vitali (uso previsto: supporto informativo
-#   all'organizzazione del pre-alert, decisione del medico). Esposizione regolatoria dichiarata: EU MDR regola 11 / CH MepV.
-# "comunicazione": il server NON calcola né mostra alcun punteggio o raccomandazione — solo vitali come inviati, tempi,
-#   identità, evidenza firmata (la strada che Pulsara dichiara «fuori dalla definizione di dispositivo medico»). Chi lo
-#   sceglie lo sceglie per iscritto: OMEGA_PROFILO=comunicazione. I campi tolti sono ELENCATI nella risposta.
+# "comunicazione" (DEFAULT dal 0.7.2, decisione dell'autore 18/09 dopo il giudizio Gemini Pro): il server NON esegue il motore
+#   dei punteggi — solo vitali come inviati, tempi, identità, evidenza firmata. I campi non calcolati sono ELENCATI.
+# "punteggi": il server calcola NEWS2/qSOFA/BE-FAST/criteri 2025 dai vitali (supporto informativo, decisione del medico).
+#   Esposizione regolatoria dichiarata: EU MDR regola 11 / CH MepV. Chi lo vuole lo chiede PER ISCRITTO: OMEGA_PROFILO=punteggi,
+#   così l'attivazione di un supporto decisionale non certificato è un atto esplicito dell'organizzazione, mai un default.
 PROFILO_ENV = "OMEGA_PROFILO"
-PROFILI = ("punteggi", "comunicazione")
+PROFILI = ("comunicazione", "punteggi")
 CAMPI_DECISIONALI = ("NEWS2", "qSOFA", "BE_FAST", "priorita", "azione_raccomandata", "percorsi_attivare", "criteri_prealert_2025",
                      "sepsi_jrcalc", "cardio", "trauma_team", "flag_farmacologico", "interazioni_note", "arresto", "arresto_respiratorio",
                      "avvisi")      # anche gli avvisi: sono raccomandazioni calcolate (review Opus 18/09: «NON somministrare NITRATI»)
 
 
 def profilo() -> str:
-    p = os.environ.get(PROFILO_ENV, "punteggi")
+    p = os.environ.get(PROFILO_ENV, "comunicazione")
     if p not in PROFILI:
         raise SystemExit(f"{PROFILO_ENV}={p!r} non ammesso: {' | '.join(PROFILI)}")
     return p

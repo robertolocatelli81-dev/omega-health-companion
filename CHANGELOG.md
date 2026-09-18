@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.2 — 2026-09-18 — default profile is `comunicazione`
+
+- **Breaking, on purpose (author's decision after the whole-product judgement):** the server's default `OMEGA_PROFILO` is now
+  `comunicazione`. A standard installation computes and shows no score, priority, recommendation, pathway, drug warning or
+  patient type; it validates inputs, shows vitals as sent, records who sent what and when in the signed ledger and renders
+  the CH EMS document. Scores return only with `OMEGA_PROFILO=punteggi`, written in the organisation's configuration: activating
+  an uncertified decision-support function (EU MDR Annex VIII Rule 11 / MepV exposure) is an explicit act, never a default.
+  0.7.1 deployments that relied on scores must set the variable. The CLI and the library are unchanged (they compute when
+  called). Tests of the `punteggi` path declare the profile at the top of their files; the profile tests cover the default.
+
 ## 0.7.1 — 2026-09-18 — after Gemini Pro's whole-product judgement (8 dossiers + synthesis, 7/10)
 
 - **Reverse proxy no longer leaks the admin token.** The board page injected the server token for "loopback" clients; behind
@@ -12,8 +22,8 @@
 - `team_token.txt` with permissions wider than 0600 is refused (named `PermissionError`), like the registry and the journal key.
 - README: the heading "Legal-grade evidence" is gone; the section is "Evidence of the pre-alert: signed, hash-chained,
   verifiable offline". Same facts; server-generated keys are not legal-grade non-repudiation and the text below already said so.
-- Judged, NOT changed (decisions for the author, recorded in gtm/health_070_20260918/judge): default profile `punteggi` vs
-  `comunicazione`; the declared NEWS2 deviation (single parameter 3 → MEDIUM, conservative direction) and the "lower bound"
+- Judged, NOT changed in 0.7.1 (decisions for the author, recorded in gtm/health_070_20260918/judge; the default profile was
+  then changed in 0.7.2): the declared NEWS2 deviation (single parameter 3 → MEDIUM, conservative direction) and the "lower bound"
   NEWS2 without an oxygen observation; per-operator keys on the server vs SSO/IdP identity; the seed drug-interaction table.
 
 ## 0.7.0 — 2026-09-18 — the gaps of the 18/09 maturity assessment, without changing what the product is
