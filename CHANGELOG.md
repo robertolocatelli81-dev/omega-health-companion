@@ -50,13 +50,12 @@
   names (the name is echoed into the record and the journal: never free text; round 5: `fullmatch`, so a trailing newline
   does not pass either; round 6: `\A…\Z` anchors, `tipo_paziente` stripped from a restored pre-alert too although the engine never puts it there — it lives in the board record, where restore nulls it — and the restored shape is asserted against the allowlist; `/audit` is only the trail summary (level `base` in the test sandbox), so the two local ledgers are asserted structurally per record — every `emissione` carries exactly the pre-alert digest (64 hex) and the identity vocabulary word, every chain record has exactly its six keys with `payload: digest`, one record per anchoring POST, and the same read sees a further valid POST; positive controls by hand: an extra `priorita` field in the emission record and a non-hex value in the digest slot each made the test fail — and re-read after a refused request to prove nothing was anchored (round 7: a token scan of a digest-only ledger was a null test and is gone); a malformed key name inside `vitali` gives 400 and both ledgers are byte-identical before and after); the comunicazione pre-alert lists the same `campi_non_calcolati`, the same note and a
   `campi_ignorati` key whether fresh or restored; unknown keys *inside* `vitali` were already refused by name (measured,
-  now guarded by a test); the CLI's own record is in the output scan and the local ledgers are asserted structurally (below);
+  now guarded by a test); the CLI's own record is in the output scan and the local ledgers are asserted structurally (round 6 above);
   the scanner's positive controls are discriminating (a value-encoded score is invisible to the key scan and visible to
   the token scan; a histogram and the listing fields are not flagged); the end-to-end test also posts client-computed
   scores and runs the real CLI against the default server; the engine drift guard covers the invalid-data branch.
   200 tests. One flaky test fixed on the way: `test_bacheca_store` asserted that the 2-byte marker `H2` was absent from
-  the encrypted journal file; a 2-byte sequence appears by chance in random ciphertext (1 red in 30 runs, measured) — the
-  markers are now 20+ bytes (0 red in 40 runs). The encryption was never at fault.
+  the encrypted journal file; a 2-byte sequence appears by chance in random ciphertext (1 red in 30 runs, measured) — the markers are now 18 to 33 bytes (0 red in 40 runs), and two persisted values are asserted absent from the raw file as the actual encryption control. The encryption was never at fault.
 - **"Compared with the field" table re-read from primary sources (2026-09-18, quotes and digests in
   `gtm/health_070_20260918/competitors/` of the OMEGA repository, summarised here):** "Evidentiary record: none documented" was
   too strong — corpuls documents delegations «dreifach rechtssicher dokumentiert» plus audit logging of accesses, Pulsara a

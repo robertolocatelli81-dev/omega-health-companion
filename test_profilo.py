@@ -259,7 +259,9 @@ class TestE2EProfilo(unittest.TestCase):
             dopo = (open(AB.FALLBACK_LEDGER, encoding="utf-8").read(), open(S.LEDGER, encoding="utf-8").read())
             self.assertEqual(prima, dopo); self.assertNotIn("NITRATI", dopo[0] + dopo[1])
             st, o = self._req("POST", "/valuta", VIT); self.assertEqual(st, 200)      # e la stessa lettura VEDE una scrittura vera (controllo positivo)
-            self.assertEqual(len(_emissioni()[0]), len(ids) + 1)                    # (id non aggiunto a `ids`: le uscite sono già state raccolte)
+            self.assertEqual(set(o["prealert"]), CONTRATTO_COMUNICAZIONE); self.assertFalse(_chiavi(o, set()) & (set(T.CAMPI_DECISIONALI) - {"avvisi"}))   # anche questa uscita è scandita
+            self.assertEqual(len(_emissioni()[0]), len(ids) + 1)
+            self.assertEqual(len([l for l in open(S.LEDGER, encoding="utf-8").read().splitlines() if l.strip()]), len(catena) + 1)
             for i in ids:
                 self.assertEqual(uscite[f"/fhir/{i}"]["resourceType"], "Bundle"); self.assertTrue(uscite[f"/fhir/{i}"]["entry"])
             self.assertEqual(uscite[f"/incidente/{iid}"]["pazienti"], 1)          # l'incidente ha davvero un paziente: la scansione non è a vuoto
