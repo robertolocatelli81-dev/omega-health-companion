@@ -108,22 +108,27 @@ closed-vocabulary or a digest: no free text and no health data in the ledgers (t
 ## Compared with the field (read online on 2026-09-13, re-read from primary sources on 2026-09-18)
 
 The competitor column is what the vendors *state* (quotes and page digests in the release notes of 0.7.2); the OMEGA column is
-*measured* on the running 0.7.2 server in both profiles. Rows marked **(punteggi)** exist only with `OMEGA_PROFILO=punteggi`;
-a standard installation (default `comunicazione`) returns them as not computed.
+*measured* on the running 0.7.2 server in both profiles. The competitors are end-to-end products (mobile app for the crew,
+web app for the department, vendor operations); OMEGA is a server with HTTP endpoints, a board web page for the department and
+a CLI for the crew — no mobile app. "yes" in the OMEGA column therefore means "the endpoint exists and was exercised", not
+"a deployed product feature". Rows marked **(punteggi)** exist only with `OMEGA_PROFILO=punteggi`; a standard installation
+(default `comunicazione`) returns them as not computed.
 
 | Capability | Pulsara / TigerConnect (ex Twiage) / corpuls / NIDA | OMEGA Health Companion |
 |---|---|---|
-| Pre-arrival notification with vitals, ETA | yes | yes (`/valuta`); the **national 2025 criteria** saying *why* **(punteggi)** |
+| Pre-arrival notification with vitals, ETA | yes | endpoint `/valuta` + board page; the **national 2025 criteria** saying *why* **(punteggi)** |
+| Mobile / web app for end users | yes (Pulsara, TigerConnect: mobile apps; corpuls, NIDA: device + clinic clients) | **not done**: board web page for the department, CLI/API for the crew |
+| Dispatch (CAD / Leitstelle) integration | NIDA: «Für die Alarmierung wird der Datensatz von der Leitstelle entgegengenommen»; others: not stated on the pages read | **not done** |
 | Patient types → team | Pulsara: 12 patient types (incl. General) | `tipo_paziente` / `team_da_allertare`, derived, closed vocabulary **(punteggi)** |
 | ECG / photo / document sharing | yes | `POST /allegato/<id>` — bytes in memory (TTL), digest in the signed ledger, magic bytes checked |
 | GPS / ETA updates en route | yes | `POST /posizione` — exact position in memory, only ETA + a **salted commitment** (HMAC-SHA256, salt in memory) of the position in the ledger: a bare digest of coordinates was enumerable |
-| Two-way secure chat | yes | `POST /messaggio` — text in memory, salted commitment signed; provable only while the board record (and its salt) lives |
+| Two-way secure chat | yes | endpoint `POST /messaggio` — text in memory, salted commitment signed; provable only while the board record (and its salt) lives; no chat UI |
 | Outcome feedback ("close the loop") | Pulsara | `POST /esito` — closed vocabulary, signed |
 | QA/QI performance data | Pulsara (NEMSIS-formatted database integration), corpuls ANALYSE | `GET /metriche` — aggregates, no identifiers; over/under-triage proxies **(punteggi)**, `null` otherwise |
 | Mass-casualty / multi-patient | Pulsara | `POST /incidente`, `GET /incidente/<id>`, START tags per patient (`POST /triage`, signed, re-triage allowed) |
 | ED status / divert | Pulsara (ED Availability); TigerConnect: not stated | `POST /stato_ps` — accetta / saturo / dirotta, signed, returned with every pre-alert |
-| Escalation when nobody takes the call | not documented as a product feature by any vendor; a regional EMS advisory using Pulsara tells crews to phone after 60 s without acknowledgement | `da_escalare` in `GET /metriche` (no receipt after 120 s) |
-| **Evidentiary record of the pre-alert** (who said what, who answered, chain, timestamp) | corpuls: delegations «dreifach rechtssicher dokumentiert» (device data, LIVE mission report, paper print) and audit logging of privacy-relevant accesses; Pulsara: «time-stamped source of truth for each case»; none documents a record **verifiable by a third party offline** (registered keys, hash chain, independent verifiers) | `GET /verbale/<id>` + four offline verifiers (Python, JS, Go, Rust); a tampered ledger fails in all — this is the difference |
+| Escalation when nobody takes the call | not described on the public pages read (a regional EMS advisory using Pulsara tells crews to phone after 60 s without acknowledgement); absence on a marketing page is not absence in the product | `da_escalare` in `GET /metriche` (no receipt after 120 s) |
+| **Evidentiary record of the pre-alert** (who said what, who answered, chain, timestamp) | corpuls: delegations «dreifach rechtssicher dokumentiert» (device data, LIVE mission report, paper print) and audit logging of privacy-relevant accesses; Pulsara: «time-stamped source of truth for each case»; these are legally usable, centralised records (the reader trusts the vendor's system); none documents a record **verifiable by a third party offline** (registered keys, hash chain, independent verifiers) | `GET /verbale/<id>` + four offline verifiers (Python, JS, Go, Rust); a tampered ledger fails in all — a trustless record is the difference, not the only valid one |
 | Audio/video calls, live 12-lead telemetry | yes | **not done**: infrastructure, not evidence; integrate with those tools instead |
 | Patient identity lookup / pre-registration | TigerConnect («registered before arrival») | **not done by design**: PII-free |
 | NEMSIS export | US products | **not done**: FHIR R4 is the European road |

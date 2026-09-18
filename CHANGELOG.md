@@ -51,7 +51,10 @@
   offline). "Escalation — Pulsara" was not a documented product feature (a regional advisory tells crews to phone after 60 s);
   "ED status — Twiage" is not stated on the TigerConnect page; rows that exist only in `punteggi` are marked. Every OMEGA cell
   was measured on the running 0.7.2 server in both profiles, and the CH EMS document built from a default-profile pre-alert
-  validates with 0 errors (validator_cli 6.10.4).
+  validates with 0 errors (validator_cli 6.10.4). An adversarial pass by Gemini Pro on the comparison itself added what
+  weighs against OMEGA: the competitors are end-to-end products with mobile apps and dispatch integration, OMEGA is a server
+  with a board page and a CLI (two rows added, both "not done"); the competitors' records are legally usable, centralised
+  records — ours is the offline-verifiable one, not the only valid one.
 
 ## 0.7.1 — 2026-09-18 — after Gemini Pro's whole-product judgement (8 dossiers + synthesis, 7/10)
 
