@@ -16,7 +16,7 @@ the mission data comes from the caller). The clinical inputs of the criteria eng
 `sepsi`) are accepted but neither evaluated nor shown in this profile; the response names them in `campi_ignorati`.
 **It computes and shows no score, no priority, no recommendation, no pathway.** The scoring
 engine is not executed: the pre-alert is rebuilt from the validated inputs only, any decisional field sent by a
-client (for example a score computed by a third-party ePCR or by the library) is ignored and named in `campi_ignorati`, and the fields that would carry
+client with a value (for example a score computed by a third-party ePCR or by the library) is ignored and named in `campi_ignorati` (at most 20 such keys, identifier names of 1–40 characters, otherwise the request is refused with 400; `punteggi` keeps dropping unknown keys silently), and the fields that would carry
 them are listed in every pre-alert record as not computed (`campi_non_calcolati`; `avvisi` stays as a key, always empty). A record written by an earlier `punteggi` run and restored
 from the board journal is served the same way: the live profile governs what is served, not the one active when the
 record was written.

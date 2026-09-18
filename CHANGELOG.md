@@ -45,9 +45,12 @@
   `comunicazione` and as `punteggi`. The token scan found one real collision: the CH EMS observation carrying the crew's
   START colour had the id `priorita-paziente` — an input, not a score — renamed `stato-paziente` (samples regenerated,
   validator_cli 6.10.4: 0 errors, `examples/chems_conformance/EVIDENCE.md`). Round 4 (Opus 5; Gemini Pro: no material
-  issues): the CLI now prints the profile and the note under the default instead of silent nulls, and no longer sends null
-  keys; `campi_ignorati` counts only keys with a value and refuses malformed or more than 20 unknown key names (the name is
-  echoed into the record and the journal: never free text); the comunicazione pre-alert has one shape, fresh or restored;
+  issues): the CLI now prints the profile and the note under the default instead of silent nulls, and no longer sends
+  top-level null keys; `campi_ignorati` counts only keys with a value and refuses malformed or more than 20 unknown key
+  names (the name is echoed into the record and the journal: never free text; round 5: `fullmatch`, so a trailing newline
+  does not pass either); the comunicazione pre-alert lists the same `campi_non_calcolati`, the same note and a
+  `campi_ignorati` key whether fresh or restored; unknown keys *inside* `vitali` were already refused by name (measured,
+  now guarded by a test); `/audit` and the CLI's own record are in the scan;
   the scanner's positive controls are discriminating (a value-encoded score is invisible to the key scan and visible to
   the token scan; a histogram and the listing fields are not flagged); the end-to-end test also posts client-computed
   scores and runs the real CLI against the default server; the engine drift guard covers the invalid-data branch.

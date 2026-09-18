@@ -77,7 +77,8 @@ class TestProfilo(unittest.TestCase):
         self.assertEqual(set(T.prealert_comunicazione(VIT)), CONTRATTO_COMUNICAZIONE)
         self.assertEqual(T.prealert_comunicazione({**VIT, "NEWS2": 9, "priorita": "ALTO"})["campi_ignorati"], ["NEWS2", "clinica", "priorita"])
         self.assertEqual(T.prealert_comunicazione({**VIT, "clinica": None, "fast_segni": None})["campi_ignorati"], [])   # null = assente (la CLI)
-        for bad in ({**VIT, "priorita ALTA: NITRATI": 1}, {**VIT, **{f"k{i}": 1 for i in range(21)}}, {**VIT, "x" * 41: 1}):
+        for bad in ({**VIT, "priorita ALTA: NITRATI": 1}, {**VIT, **{f"k{i}": 1 for i in range(21)}}, {**VIT, "x" * 41: 1}, {**VIT, "NEWS2\n": 1},
+                    {**VIT, "vitali": {**VIT["vitali"], "NEWS2": 9}}):    # chiave ignota DENTRO vitali: rifiutata per nome (misurato r5)
             with self.assertRaises(ValueError):       # il NOME di una chiave ignota torna nella risposta: mai testo libero (review Opus r4)
                 T.prealert_comunicazione(bad)
 
@@ -209,12 +210,21 @@ class TestE2EProfilo(unittest.TestCase):
             st, o = self._req("POST", "/valuta", dict(VIT, NEWS2=9, priorita="ALTO", azione_raccomandata="cath lab")); self.assertEqual(st, 200, o)
             ids.append(o["id"]); prealerts.append(o["prealert"])
             self.assertEqual(o["prealert"]["campi_ignorati"], ["NEWS2", "azione_raccomandata", "clinica", "priorita"])
+            # la CLI dell'ambulanza è un client di /valuta: contro il server di default stampa il profilo e la nota, non null muti
+            import ambulanza_cli, contextlib, io
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = ambulanza_cli.main(["--rr", "28", "--spo2", "89", "--o2", "--sbp", "85", "--hr", "135", "--non-alert", "--temp", "39.4",
+                                         "--eta", "67", "--arrivo", "8", "--farmaci", "warfarin", "--server", self.base, f"--token={self.token}"])
+            self.assertEqual(rc, 0); cli = json.loads(buf.getvalue())
+            self.assertEqual(cli["profilo"], "comunicazione"); self.assertIn("NON eseguito", cli["nota"] or ""); self.assertNotIn("NEWS2", cli)
+            ids.append(cli["id"]); st, o = self._req("GET", "/api/board"); prealerts.append(next(r for r in o if r["id"] == cli["id"])["prealert"])
             for pp in prealerts:
                 self.assertEqual(set(pp), CONTRATTO_COMUNICAZIONE)                # allowlist esatta, non blacklist (review Opus r3)
             uscite = {}
-            for nome in ("/api/board", "/metriche", "/incidenti", f"/incidente/{iid}", *[f"/fhir/{i}" for i in ids]):
+            for nome in ("/api/board", "/metriche", "/incidenti", f"/incidente/{iid}", "/audit", *[f"/fhir/{i}" for i in ids]):
                 st, u = self._req("GET", nome); self.assertEqual(st, 200, nome); uscite[nome] = u    # stato asserito: mai scansione di un corpo d'errore
-            self.assertEqual(len(uscite["/api/board"]), 4)
+            self.assertEqual(len(uscite["/api/board"]), 5)
             for i in ids:
                 self.assertEqual(uscite[f"/fhir/{i}"]["resourceType"], "Bundle"); self.assertTrue(uscite[f"/fhir/{i}"]["entry"])
             self.assertEqual(uscite[f"/incidente/{iid}"]["pazienti"], 1)          # l'incidente ha davvero un paziente: la scansione non è a vuoto
@@ -250,15 +260,7 @@ class TestE2EProfilo(unittest.TestCase):
                 for k in vietate:
                     self.assertNotIn(k, atm, f"atmist {i}: {k}")
                 self.assertNotIn("NITRATI", atm)
-            # la CLI dell'ambulanza è un client di /valuta: contro il server di default stampa il profilo e la nota, non null muti
-            import ambulanza_cli, contextlib, io
-            buf = io.StringIO()
-            with contextlib.redirect_stdout(buf):
-                rc = ambulanza_cli.main(["--rr", "28", "--spo2", "89", "--o2", "--sbp", "85", "--hr", "135", "--non-alert", "--temp", "39.4",
-                                         "--eta", "67", "--arrivo", "8", "--farmaci", "warfarin", "--server", self.base, f"--token={self.token}"])
-            self.assertEqual(rc, 0); cli = json.loads(buf.getvalue())
-            self.assertEqual(cli["profilo"], "comunicazione"); self.assertIn("NON eseguito", cli["nota"] or ""); self.assertNotIn("NEWS2", cli)
-            self.assertFalse(_chiavi(cli, set()) & vietate); ids.append(cli["id"])
+            self.assertFalse(_chiavi(cli, set()) & vietate)
             st, page = self._req_text("GET", "/?token=" + self.token)
             self.assertNotIn("nitrat", page.lower()); self.assertNotIn("pediatrico", page.lower()); self.assertNotIn("NEWS2", page)
             self.assertIn("nessun punteggio calcolato", page)                     # piè di pagina del profilo, non «gli score sono standard validati»

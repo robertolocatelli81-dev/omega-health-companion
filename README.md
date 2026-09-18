@@ -83,7 +83,7 @@ python3 test_coordinamento.py           #  4 tests — patient types, incidents,
 # HEALTH_TSA_URL=https://freetsa.org/tsr HEALTH_TSA_CAFILE=cacert.pem python3 test_prealert_2025.py   # + 2 opt-in network tests: real RFC 3161 timestamp, trust chain, wrong CA refused
 python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/ — default profile: comunicazione (no scores)
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \
-        --temp 39.4 --eta 67 --arrivo 8 --farmaci warfarin aspirina      # prints the vitals + "scoring engine not executed"
+        --temp 39.4 --eta 67 --arrivo 8 --farmaci warfarin aspirina      # prints the vitals + the note (Italian: "motore dei punteggi NON eseguito")
 # OMEGA_PROFILO=punteggi python3 team_comms.py 8097   # opt-in: the same CLI call then prints priority, NEWS2, pathways
 ```
 
@@ -224,8 +224,10 @@ information; regulatory exposure declared, no conformity assessment done). The l
 computes scores whenever it is called directly, regardless of the profile; the CLI (`ambulanza_cli.py`) computes
 nothing — it is a client of `/valuta` and shows what the server's profile returns (under the default: the vitals and
 the note "scoring engine not executed"). The profile governs the server, which under `comunicazione` rebuilds every
-pre-alert from the validated inputs and names, in `campi_ignorati`, any other key a client sends (a client-computed
-`NEWS2` included; `/prealert` is routed to `/valuta` for the same reason). The active profile is printed at start-up. Also new in 0.7.0:
+pre-alert from the validated inputs and names, in `campi_ignorati`, any other key a client sends with a value (a
+client-computed `NEWS2` included; at most 20 such keys, identifier names of 1–40 characters, otherwise 400 — this guard
+exists only in the default profile, `punteggi` drops unknown keys silently as before; `/prealert` is routed to `/valuta`
+for the same reason). The active profile is printed at start-up. Also new in 0.7.0:
 per-operator tokens (`POST /operatori`, admin token only; `OMEGA_REQUIRE_OPERATOR=1` refuses clinical events
 without an authenticated operator), the optional AES-256-GCM board journal (`OMEGA_BOARD_STORE`), the receipt
 endpoint for third-party ePCRs (`POST /chems/ingest`, `POST /chems/verifica`), and Swissmedic-backed drug
