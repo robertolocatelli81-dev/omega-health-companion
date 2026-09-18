@@ -367,6 +367,11 @@ class TestFarmaciDocumento(unittest.TestCase):
         self.assertEqual(IF.riconosci_gtin("07680405580012"), ({"nitrati"}, "C01DA02"))   # GTIN-14 con zero iniziale
         self.assertIsNone(IF.riconosci_gtin("7680-4055-800")); self.assertIsNone(IF.riconosci_gtin("")); self.assertIsNone(IF.riconosci_gtin("00768040558001"))
         self.assertEqual(IF.classe_da_atc("N03AE01"), {"benzodiazepine"})       # Rivotril (review Opus r2)
+        self.assertEqual(IF.classe_da_atc("N02AJ13"), {"oppioidi", "tramadolo-serotoninergico"})   # Zaldiar (review Opus r3)
+        self.assertEqual(IF.classe_da_atc("N07BC02"), {"oppioidi"}); self.assertEqual(IF.classe_da_atc("R05DA04"), {"oppioidi"})
+        # Composition con subject/encounter di forma ostile: nessun crash, nessun farmaco attribuito
+        doc = self._ig1(); doc["composition"]["subject"] = ["x"]; doc["composition"]["encounter"] = 5
+        self.assertEqual(I.estrai_farmaci(doc)["farmaci"], []); I.estrai_vitali(doc)
         self.assertEqual(IF.classe_da_atc("C10BA02"), {"statine"}); self.assertEqual(IF.classe_da_atc("C03EA01"), {"diuretici-risparmiatori-k"})
         # JSON ostile in subject/context non crasha la valutazione (review Opus r2)
         doc = self._con_farmaci(["Nitrolingual"]); b = doc["bundle"]

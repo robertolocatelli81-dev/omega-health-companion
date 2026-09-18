@@ -282,7 +282,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
                                "qualitativeRisk": {"coding": [{"system": CS_LOCALE, "code": str(p.get("priorita")).lower()}]}}],
                "note": [{"text": a} for a in ([p.get("azione_raccomandata")] + list(p.get("percorsi_attivare") or [])) if a]}
     flags = [{"resourceType": "Flag", "id": f"avviso-{i}", "status": "active", "code": {"text": a}, "subject": ref("anon"),
-              "encounter": ref("missione")} for i, a in enumerate(p.get("avvisi") or [])]
+              "encounter": ref("missione")} for i, a in enumerate([] if comunicazione else (p.get("avvisi") or []))]   # nessun Flag in comunicazione
     prov = attester = None
     if provenienza_omega and provenienza_omega.get("firma_b64") is not None and not provenienza_omega.get("ancorato"):
         raise ValueError("CH EMS: a signature without an anchored ledger entry (ancorato=True, self_hash) is refused, not ignored")

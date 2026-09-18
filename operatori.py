@@ -113,6 +113,8 @@ def crea(slug: str, ruolo: str, riemetti: bool = False, adotta_chiave: bool = Fa
         raise ValueError(f"slug riservato al sistema: {slug!r}")
     import audit_bridge as AB
     token = secrets.token_urlsafe(32)
+    while token.startswith("-"):                    # mai un '-' iniziale: `--token <tok>` lo leggerebbe come opzione
+        token = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     with _LOCK, _FileLock(REGISTRO):
         reg = _load()
@@ -128,14 +130,18 @@ def crea(slug: str, ruolo: str, riemetti: bool = False, adotta_chiave: bool = Fa
             raise ValueError(f"per {slug!r} esiste già una chiave di firma dell'era dichiarata: passare adotta_chiave=true per adottarla")
         if prev is None:
             evento = "creazione_operatore" + ("_con_chiave_preesistente" if chiave_preesistente(slug) else ""); ruolo_eff = ruolo
-        else:
-            ruolo_eff = prev["ruolo"]                   # la riemissione NON cambia il ruolo (review Gemini r2): revoca e ricrea per cambiarlo
+        elif prev.get("attivo"):
+            ruolo_eff = prev["ruolo"]                   # ATTIVO: la riemissione NON cambia il ruolo (review Gemini r2)
             if ruolo != ruolo_eff:
-                raise ValueError(f"operatore {slug!r} ha ruolo {ruolo_eff!r}: la riemissione non lo cambia (revoca e ricrea)")
-            evento = "riattivazione_operatore" if not prev.get("attivo") else "riemissione_token"   # nominato (review Opus r2)
+                raise ValueError(f"operatore {slug!r} è attivo con ruolo {ruolo_eff!r}: la riemissione non lo cambia (revoca, poi riemetti col nuovo ruolo)")
+            evento = "riemissione_token"
+        else:
+            ruolo_eff = ruolo                           # REVOCATO: riattivazione, anche con un altro ruolo, evento nominato (review Opus r3)
+            evento = "riattivazione_operatore" if ruolo == prev["ruolo"] else "riattivazione_operatore_con_cambio_ruolo"
         storia = list((prev or {}).get("storia") or [])
         if prev is not None:
-            storia.append({"evento": evento, "ts": now, **({"revocato_il": prev["revocato"]} if prev.get("revocato") else {})})
+            storia.append({"evento": evento, "ts": now, **({"revocato_il": prev["revocato"]} if prev.get("revocato") else {}),
+                           **({"ruolo_precedente": prev["ruolo"]} if ruolo_eff != prev["ruolo"] else {})})
         reg[slug] = {"token_sha256": _h(token), "ruolo": ruolo_eff, "attivo": True,
                      "creato": (prev or {}).get("creato") or now, **({"storia": storia} if storia else {})}
         _save(reg)

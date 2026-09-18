@@ -67,14 +67,16 @@ class Store:
             raise SystemExit(f"{STORE_ENV}: {path} è già aperto da un altro processo (un solo processo per journal)")
         try:
             self._key = self._load_or_create_key()
-        except Exception:
-            os.close(self._lock_fd); raise
-        self._cipher = _aesgcm()(self._key)               # fail-closed all'apertura; UN solo key schedule (review Gemini 18/09)
+            self._cipher = _aesgcm()(self._key)
+            self._apri_db(path)
+        except BaseException:                           # anche SystemExit: il lock di processo non deve restare in mano a un
+            os.close(self._lock_fd); raise              # oggetto fallito (review Sonnet r3)
+
+    def _apri_db(self, path: str) -> None:               # fail-closed all'apertura; UN solo key schedule (review Gemini 18/09)
         if not os.path.exists(path):                          # il file nasce GIÀ 0600 (review Gemini r2: prima sqlite lo creava con
             os.close(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))   # l'umask e il chmod arrivava dopo)
         st_db = os.stat(path)
         if st_db.st_mode & 0o077:                             # anche un journal preesistente con permessi larghi è rifiutato (review Opus r2)
-            os.close(self._lock_fd)                           # rilascia il lock di processo prima di uscire
             raise PermissionError(f"{path}: permessi troppo larghi ({oct(st_db.st_mode & 0o777)}); attesi 0600")
         self._db = sqlite3.connect(path, check_same_thread=False)
         self._db.execute("CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, nonce BLOB NOT NULL, blob BLOB NOT NULL)")

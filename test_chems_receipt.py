@@ -140,6 +140,7 @@ class TestE2EChems(unittest.TestCase):
         st, v = self._post("/chems/verifica", json.dumps({"ricevuta": out["ricevuta"], "documento_b64": base64.b64encode(doc).decode()}).encode(),
                            headers={"Content-Type": "application/json"})
         self.assertEqual(st, 200); self.assertEqual(v["stato"], "OK", v); self.assertEqual(v["operatore"], "nida-demo")
+        self.assertEqual(v["identita"], "dichiarata"); self.assertEqual(out["ricevuta"]["record"]["dettaglio"]["identita"], "dichiarata")   # nel record FIRMATO
         # ricevuta ostile via HTTP: risposta a tre stati, mai una connessione caduta
         st, v = self._post("/chems/verifica", json.dumps({"ricevuta": {**out["ricevuta"], "record": [1, 2]}, "documento_b64": base64.b64encode(doc).decode()}).encode(),
                            headers={"Content-Type": "application/json"})

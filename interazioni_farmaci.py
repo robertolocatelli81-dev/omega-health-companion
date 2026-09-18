@@ -99,7 +99,8 @@ COMMERCIALI_CH = {
 ATC_CLASSE = [
     ("C01DA", "nitrati"),
     ("G04BE03", "inibitori-pde5"), ("G04BE08", "inibitori-pde5"), ("G04BE09", "inibitori-pde5"), ("G04BE11", "inibitori-pde5"),
-    ("N01AH", "oppioidi"), ("N02A", "oppioidi"), ("N02AX02", "tramadolo"),
+    ("N01AH", "oppioidi"), ("N02A", "oppioidi"), ("N02AX02", "tramadolo"), ("N02AJ13", "tramadolo"), ("N02AJ14", "tramadolo"),   # Zaldiar & co. (review Opus r3)
+    ("N07BC", "oppioidi"), ("R05DA04", "oppioidi"),   # metadone/buprenorfina (N07BC), codeina (R05DA04): coppia oppioide×benzodiazepina
     ("N05BA", "benzodiazepine"), ("N05CD", "benzodiazepine"), ("N03AE", "benzodiazepine"),   # N03AE01 clonazepam/Rivotril (review Opus r2)
     ("B01AA", "warfarin"), ("B01AE07", "doac"), ("B01AF", "doac"),
     ("M01AB", "fans"), ("M01AC", "fans"), ("M01AE", "fans"), ("M01AG", "fans"), ("M01AH", "fans"), ("N02BA", "fans"), ("B01AC06", "fans"),

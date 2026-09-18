@@ -45,13 +45,13 @@ def emettibile() -> Optional[str]:
     return None
 
 
-def emetti_ricevuta(doc_bytes: bytes, operatore: str, validazione: Optional[Dict] = None) -> Dict[str, Any]:
+def emetti_ricevuta(doc_bytes: bytes, operatore: str, validazione: Optional[Dict] = None, identita: str = "dichiarata") -> Dict[str, Any]:
     """Ancora il documento (audit firmato) e restituisce la ricevuta autosufficiente, costruita dalla riga appena
     scritta (nessuna rilettura del ledger: niente O(N), niente gara fra ingest concorrenti)."""
     motivo = emettibile()
     if motivo:
         return {"ok": False, "motivo": motivo}
-    res = I.ancora_documento(doc_bytes, operatore, validazione)
+    res = I.ancora_documento(doc_bytes, operatore, validazione, identita=identita)
     audit = res["audit"]
     riga = audit.get("riga") if audit.get("livello") == "firma-locale" else None
     if not isinstance(riga, dict) or riga.get("record_sha256") != audit.get("record_sha256"):
@@ -79,8 +79,8 @@ def verifica_ricevuta(ricevuta: Dict[str, Any], doc_bytes: bytes, keys_dir: Opti
         problemi.append("target della ricevuta ≠ target del record")
     if not OPERATORE_RE.match(rec["operatore"]):
         problemi.append("operatore con caratteri non ammessi")
-    if ricevuta.get("digest_di") != "bytes":
-        problemi.append(f"la ricevuta lega {ricevuta.get('digest_di')!r}, non i byte esatti: verificabile solo dai byte")
+    if rec["dettaglio"].get("digest_di") != "bytes":          # il campo FIRMATO, non quello libero della ricevuta (review Opus r3)
+        problemi.append(f"il record lega {rec['dettaglio'].get('digest_di')!r}, non i byte esatti: verificabile solo dai byte")
     if digest != ricevuta.get("doc_sha256"):
         problemi.append("doc_sha256 dichiarato ≠ sha256 dei byte forniti")
     if rec["dettaglio"].get("doc_sha256") != digest:
@@ -116,7 +116,8 @@ def verifica_ricevuta(ricevuta: Dict[str, Any], doc_bytes: bytes, keys_dir: Opti
             registrata = f.read().strip()
         if registrata == rec["pubkey_b64"]:
             return {"stato": "OK", "doc_sha256": digest, "operatore": rec["operatore"], "ts": rec["ts"], "record_sha256": rsha,
-                    "chiave": "registrata"}
+                    "chiave": "registrata", "identita": rec["dettaglio"].get("identita", "non dichiarata (record precedente a 0.7.0)")}
         return {"stato": "NON_VERIFICATA", "problemi": ["la chiave nella ricevuta non è quella registrata per l'operatore"], "doc_sha256": digest}
     return {"stato": "INCONCLUSIVA", "doc_sha256": digest, "operatore": rec["operatore"], "ts": rec["ts"], "record_sha256": rsha,
-            "chiave": "non registrata: firma valida, operatore non ancorato a una chiave nota"}
+            "chiave": "non registrata: firma valida, operatore non ancorato a una chiave nota",
+            "identita": rec["dettaglio"].get("identita", "non dichiarata (record precedente a 0.7.0)")}

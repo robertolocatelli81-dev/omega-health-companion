@@ -79,7 +79,7 @@ python3 test_input_types.py             # 31 tests — hostile input types (red-
 python3 test_news2_certificate.py       #  4 tests — NEWS2 certificate
 python3 test_prealert_2025.py           # 49 tests — RCEM/AACE 2025 criteria at the boundaries, ED receipt, verbale, tamper/re-sign/deletion detection
 python3 test_coordinamento.py           #  4 tests — patient types, incidents, ETA/position, messages, attachments, outcomes, metrics, expiry (end-to-end)
-# 126 tests in these six files; CI runs ALL fifteen test_*.py files (194 tests, counted 2026-09-18 by loading every test_*.py with unittest) on every push, with and without `cryptography`, never with the private engine
+# 126 tests in these six files; CI runs ALL fifteen test_*.py files (195 tests, counted 2026-09-18 by loading every test_*.py with unittest) on every push, with and without `cryptography`, never with the private engine
 # HEALTH_TSA_URL=https://freetsa.org/tsr HEALTH_TSA_CAFILE=cacert.pem python3 test_prealert_2025.py   # + 2 opt-in network tests: real RFC 3161 timestamp, trust chain, wrong CA refused
 python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \
@@ -103,7 +103,7 @@ timestamp on its digest when `HEALTH_TSA_URL` is set (token CMS signature verifi
 certificate; `verified` is True **only** when the chain to the CA in `HEALTH_TSA_CAFILE` also holds,
 None without a CA, False with a wrong one; the stamped bytes are persisted under `verbali/`;
 level declared — not an eIDAS *qualified* timestamp unless the TSA is a QTSP). Every field is
-closed-vocabulary or a digest: no free text and no health data on disk.
+closed-vocabulary or a digest: no free text and no health data in the ledgers (the optional board journal of 0.7.0 is encrypted at rest, see PRIVACY.md and INTENDED_USE.md).
 
 ## Compared with the field (read online on 2026-09-13)
 
@@ -141,7 +141,8 @@ interaction flags and the OMEGA Provenance. **Not in the IG, exported on purpose
 multi-patient event id as an additional Encounter identifier typed by an OMEGA code system (CH EMS issue #56,
 open — our proposal, not an IG element).
 
-Evidence semantics: the ledger anchor is a Provenance *entity* (a digest is never labelled a signature); a real
+Evidence semantics (CH EMS document): the ledger anchor is a Provenance *entity* (a digest is never labelled a
+signature; the plain R4 export of `fhir_export.py` keeps its legacy `Provenance.signature` carrier for 0.6.x consumers); a real
 record-bound Ed25519 signature (the OMEGA audit record, FORMAT.md) travels as entities too — record digest,
 signature, verifying key — never as a FHIR `Signature`, which by definition covers the Provenance targets and would
 falsely claim to cover this JSON; it adds `Composition.attester` — the step the eCH-0207 use cases describe as the crew "signing the document".

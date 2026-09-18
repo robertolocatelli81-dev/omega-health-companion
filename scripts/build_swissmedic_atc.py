@@ -66,6 +66,8 @@ def main() -> int:
         if g in out and out[g] != a:                    # stesso GTIN derivato, ATC diverso: la chiave AMBIGUA esce dal dizionario
             conflitti.append((g, out[g], a)); ambigui.add(g); continue   # (review Sonnet r2: né first- né last-wins)
         out[g] = a                                      # solo l'ATC: il nome resta quello scritto nel documento
+    for g in ambigui:                                     # PRIMA di contare: n = chiavi davvero pubblicate (review Opus r3)
+        out.pop(g, None)
     doc = {"_provenienza": {"fonte": "Swissmedic, Zugelassene Packungen (Humanarzneimittel)", "url": URL,
                             "origine": "download diretto" if src == URL else "file locale (stesso contenuto: vedi sha256)",
                             "sha256_xlsx": hashlib.sha256(raw).hexdigest(), "stand": stand,
@@ -74,8 +76,6 @@ def main() -> int:
                             "n": len(out), "n_righe_scartate_senza_atc_o_packungscode": scartate,
                             "conflitti_gtin": conflitti[:50], "n_conflitti": len(conflitti)},
            "gtin": out}
-    for g in ambigui:
-        out.pop(g, None)
     if len(out) < 10000:                                  # la lista ufficiale ha ~17-18k confezioni: un numero molto più basso = parsing rotto
         raise SystemExit(f"solo {len(out)} GTIN derivati: parsing sospetto, file non scritto")
     with open(OUT, "w", encoding="utf-8") as f:

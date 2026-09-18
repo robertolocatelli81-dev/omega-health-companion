@@ -44,8 +44,8 @@ certification we do not have.
   Roles (`equipaggio`, `centrale`, `ps`, `admin`) are recorded; in pilot mode (`OMEGA_REQUIRE_OPERATOR=1`) the
   emergency-department acts (`/ricezione`, `/stato_ps`, `/esito`) require the `ps` role (or the operator role
   `admin`, which carries no administrative rights: operators are managed only with the server token); other routes
-  accept any authenticated operator. In pilot mode the board page carries no token and its confirmation form is
-  inactive: confirmations go through the API with an operator token. Revoking an operator blocks the token; the per-operator signing key stays on disk and is
+  accept any authenticated operator. In pilot mode the board page carries no admin token; its confirmation form asks for the
+  operator token, typed per request and never embedded in the page. Revoking an operator blocks the token; the per-operator signing key stays on disk and is
   reused if the same slug is re-issued, so pre- and post-revocation signatures are told apart by the ledger's
   timestamps and the registry's `storia` (events `riemissione_token` / `riattivazione_operatore` with `revocato_il`),
   not by the key. If the signing key itself may have been exposed, do not re-issue: revoke and create a new slug.
@@ -53,7 +53,9 @@ certification we do not have.
   of a 0.6.x deployment already holds. Whoever has it can create operators, so `identita: autenticata` is proof
   against the body of a request, not against an insider who holds the server token. A pilot that wants the
   distinction must hand the server token to the administrator only and give every terminal an operator token
-  (`OMEGA_REQUIRE_OPERATOR=1`).
+  (`OMEGA_REQUIRE_OPERATOR=1`). Procedure: `POST /operatori {"slug": "<name>", "ruolo": "equipaggio|centrale|ps|admin"}`
+  with the server token (the operator token is returned once); a wrong role is fixed with `POST /operatori/revoca` and
+  a new `POST /operatori {..., "riemetti": true}` with the right role.
 - Without an operator token (default mode) the shared server token plus a declared name is still accepted, exactly
   as in 0.6.x; the response says `identita: dichiarata`, and a declared name that matches a registered operator is
   refused. Impersonation between *unregistered* names with the shared token is not prevented in default mode: that
@@ -65,7 +67,8 @@ certification we do not have.
 - **Legal-binding archiving of the signed protocol:** eCH-0207 Beilage 1 (use cases) has the crew sign the final
   protocol, which is «rechtsverbindlich archiviert». The IG carries `Composition.attester` but profiles no
   byte-binding signature; our receipt (`chems_receipt.py`, `POST /chems/ingest`) anchors the exact bytes in the
-  Ed25519-signed, hash-chained local ledger. The receipt is verified offline with `chems_receipt.verifica_ricevuta`
+  Ed25519-signed, hash-chained local ledger, together with whether the operator was authenticated (operator token) or
+  declared (`identita` in the signed record, echoed by the verification). The receipt is verified offline with `chems_receipt.verifica_ricevuta`
   (Python); the ledger row it points to is additionally checkable by the four independent ledger verifiers
   (Python, JavaScript, Go, Rust). No RFC 3161 timestamp is attached to receipts today (the timestamp exists for the
   pre-alert verbale only).
@@ -73,8 +76,10 @@ certification we do not have.
   with the official Swissmedic «Zugelassene Packungen» list (provenance and hash in `swissmedic_gtin_atc.py`);
   interactions are checked only on recognised drugs and the unrecognised ones are listed, never guessed.
 - **Data protection (nDSG, SR 235.1, in force since 1.9.2023; health data = besonders schützenswerte
-  Personendaten):** in the ledgers no free text, no identifiers and no vitals at rest — digests plus closed-vocabulary
-  codes (triage colour, outcome code, ED state, receipt codes); the optional board journal is
+  Personendaten):** in the ledgers no free text and no vitals at rest — digests plus closed-vocabulary codes (triage
+  colour, outcome code, ED state, receipt codes) and two declared exceptions: the administrative reason typed when a
+  note is removed (in clear, must not contain patient data — PRIVACY.md) and the sanitised mission identifier of an
+  ingested CH EMS document (an operational quasi-identifier towards the ePCR, never a person); the optional board journal is
   AES-256-GCM encrypted and never stores free text (messages, confirmation notes, incident descriptions, the
   free-text alternative destination), attachments or coordinates; free text lives in process memory with a TTL.
   Threat model of the journal: with the default key location (next to the file) it protects only a copy of the

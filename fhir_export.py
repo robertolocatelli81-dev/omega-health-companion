@@ -128,7 +128,7 @@ def prealert_to_fhir(prealert_integrato: Dict, vitali: Dict, ts: str,
                                               list(p.get("percorsi_attivare") or [])) if a]}
     if rischio is not None:
         entries.append({"resource": rischio})
-    for i, avviso in enumerate(p.get("avvisi") or []):
+    for i, avviso in enumerate([] if solo_comunicazione else (p.get("avvisi") or [])):   # nessun Flag calcolato in comunicazione (difesa in profondità)
         entries.append({"resource": {"resourceType": "Flag", "id": f"avviso-{i}",
                                      "status": "active",
                                      "code": {"text": avviso},
@@ -170,7 +170,8 @@ def atmist(eta: Optional[int], orario_evento: str, meccanismo_o_esordio: str,
           "M_meccanismo_esordio": meccanismo_o_esordio,
           "I_lesioni_problema": lesioni_o_problema,
           "S_segni": segni, "T_trattamenti": trattamenti,
-          "avvisi": p.get("avvisi") or [], "percorsi": p.get("percorsi_attivare") or []}
+          "avvisi": [] if p.get("profilo") == "comunicazione" else (p.get("avvisi") or []),
+          "percorsi": [] if p.get("profilo") == "comunicazione" else (p.get("percorsi_attivare") or [])}
     testo = (f"ATMIST — A: {eta} anni · T: {orario_evento} · M: {meccanismo_o_esordio} · "
              f"I: {lesioni_o_problema} · S: {segni} · T: {', '.join(trattamenti) or 'nessuno'}")
     return {"ATMIST": st, "testo_consegna": testo}

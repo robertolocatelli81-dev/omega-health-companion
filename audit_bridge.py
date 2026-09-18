@@ -146,18 +146,22 @@ def fb_pubkey_registrata(operatore: str) -> Optional[str]:
 
 
 def ultimo_id(prefisso: str) -> int:
-    """Highest N of a `<prefisso>-N` target in the signed local ledger (0 if none): an in-memory counter must
-    continue from here after a restart, or a new record would reuse an old id in the signed history.
-    Prefixes in use: `prealert` (board) and `incidente` (multi-patient incidents, since 0.6.1)."""
-    if not os.path.exists(FALLBACK_LEDGER):
-        return 0
+    """Highest N of a `<prefisso>-N` target in the signed ledgers (0 if none): an in-memory counter must continue
+    from here after a restart, or a new record would reuse an old id in the signed history. Both ledgers are scanned:
+    the local one (`"target"`) and the Part 11 trail (`"target_record_id"`), which the engine path writes instead
+    (review Opus r3: with the engine present the counter restarted at 1). Prefixes: `prealert`, `incidente`."""
+    import re as _re
     best = 0
-    rx = __import__("re").compile(r'"target":\s*"' + __import__("re").escape(prefisso) + r'-(\d+)')
-    with open(FALLBACK_LEDGER, encoding="utf-8") as f:
-        for line in f:
-            m = rx.search(line)
-            if m:
-                best = max(best, int(m.group(1)))
+    esc = _re.escape(prefisso)
+    for path, rx in ((FALLBACK_LEDGER, _re.compile(r'"target":\s*"' + esc + r'-(\d+)')),
+                     (TRAIL_PATH if MOTORE_DISPONIBILE else None, _re.compile(r'"target_record_id":\s*"' + esc + r'-(\d+)'))):
+        if not path or not os.path.exists(path):        # il trail conta solo quando è il motore a scrivere
+            continue
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                m = rx.search(line)
+                if m:
+                    best = max(best, int(m.group(1)))
     return best
 
 

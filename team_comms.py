@@ -66,11 +66,20 @@ _STORE: list = [None]        # journal cifrato OPT-IN (OMEGA_BOARD_STORE, 0.7.0)
 _BOARD_SEQ = [0]             # id MONOTONO dei pre-alert (i record oltre 2×TTL vengono rimossi: len()+1 collideva)   # posizioni: taglio a 200 dopo append   # tetti per record (RAM)
 
 
+def _nuovo_token() -> str:
+    """Token casuale (256 bit) che NON inizia con '-': `--token <tok>` in una CLI lo leggerebbe come opzione
+    (banco 18/09: `token_urlsafe` produce '-' iniziale circa 1 volta su 64)."""
+    while True:
+        t = secrets.token_urlsafe(32)
+        if not t.startswith("-"):
+            return t
+
+
 def _token() -> str:
     if not os.path.exists(TOKEN_FILE):
         fd = os.open(TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w") as f:
-            f.write(secrets.token_urlsafe(32))
+            f.write(_nuovo_token())
     with open(TOKEN_FILE) as f:
         return f.read().strip()
 
@@ -468,8 +477,8 @@ class H(BaseHTTPRequestHandler):
         if OP.richiesto():
             raise OperatoreRichiesto()
         nome = str((body or {}).get(campo) or default).strip()[:60] or default
-        if nome and (nome in ("admin", "anonimo", "sistema") or not AB._slug(nome)):   # nomi di sistema o non riducibili a una chiave:
-            raise NomeRiservato(nome)                                                   # mai dichiarati (un nome vuoto lo valida il handler)
+        if nome and (AB._slug(nome) in ("admin", "anonimo", "sistema") or not AB._slug(nome)):   # confronto sullo SLUG (chiave): «Admin»
+            raise NomeRiservato(nome)                                                              # non aggira (review Opus r3)
         try:
             riservato = OP.esiste(nome)              # review Opus 18/09: un nome DICHIARATO uguale a uno slug registrato
         except PermissionError as e:                 # firmerebbe con la chiave di quell'operatore: rifiutato
@@ -494,9 +503,9 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/" or self.path.startswith("/?"):
             if not (self._is_loopback() or self._authed()):
                 return self._send(401, "token richiesto")
-            # in modalità pilota il token admin NON viene messo nella pagina (creerebbe operatori) e il form di conferma
-            # non ha un campo per il token operatore: si usa l'API (review Opus r2)
-            if OP.richiesto():                       # modalità pilota: campo visibile per il token OPERATORE, mai il token admin
+            # in modalità pilota il token admin NON viene messo nella pagina (creerebbe operatori): il form di conferma
+            # chiede il token OPERATORE, digitato per richiesta (review Opus r2/r3)
+            if OP.richiesto():
                 campo = '<input name=token placeholder="token operatore" type=password>'
             else:
                 campo = f'<input type=hidden name=token value="{_token() if self._is_loopback() else ""}">'
@@ -615,6 +624,8 @@ class H(BaseHTTPRequestHandler):
         except RegistroNonLeggibile as e:
             return self._json(503, {"ok": False, "error": f"registro operatori non leggibile: {e}"})
         except NomeRiservato as e:               # 0.7.0: il nome di un operatore registrato non si dichiara, si autentica
+            if AB._slug(str(e)) in ("admin", "anonimo", "sistema") or not AB._slug(str(e)):
+                return self._json(403, {"ok": False, "error": f"'{e}': nome riservato al sistema, non dichiarabile"})
             return self._json(403, {"ok": False, "error": f"'{e}' è un operatore registrato: usa il suo token (X-Omega-Operatore-Token)"})
         except OperatoreRichiesto:               # 0.7.0, modalità pilota: nessun evento clinico a nome dichiarato
             return self._json(403, {"ok": False, "error": f"{OP.REQUIRE_ENV}=1: serve un token operatore (X-Omega-Operatore-Token), "
@@ -757,7 +768,7 @@ class H(BaseHTTPRequestHandler):
                 return self._json(422, {"ok": False, "error": f"documento rifiutato: {e}"})
             except Exception:                                    # noqa: BLE001 — input dalla rete
                 return self._json(422, {"ok": False, "error": "documento rifiutato: non leggibile come CH EMS"})
-            ric = CR.emetti_ricevuta(bytes(raw), operatore)
+            ric = CR.emetti_ricevuta(bytes(raw), operatore, identita=self._identita())
             if not ric.get("ok"):
                 return self._json(503, {"ok": False, "error": ric.get("motivo")})
             return self._json(200, {"ok": True, "ricevuta": ric,
@@ -969,8 +980,7 @@ class H(BaseHTTPRequestHandler):
             # Anti self-bricking (fix Pro 06/09): il file è scritto PRIMA della
             # risposta; se la risposta si perde, il nuovo token è recuperabile
             # dall'amministratore sul server (team_token.txt) — dichiarato qui.
-            import secrets as _sec
-            nuovo = _sec.token_urlsafe(32)
+            nuovo = _nuovo_token()
             tmp = TOKEN_FILE + ".tmp"          # atomic: a reader never sees an empty token file (council 15/09, Gemini)
             fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w") as f:

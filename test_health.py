@@ -90,6 +90,22 @@ class TestFirmaLocaleFallback(unittest.TestCase):
         finally:
             AB.FIRMA_LOCALE_DISPONIBILE = orig
 
+    def test_ultimo_id_legge_anche_il_trail_part11(self):
+        """Col motore Part 11 il ledger locale non viene scritto: il contatore deve leggere anche il trail (review Opus r3)."""
+        import tempfile
+        d = tempfile.mkdtemp(); orig = (AB.FALLBACK_LEDGER, AB.TRAIL_PATH, AB.MOTORE_DISPONIBILE)
+        try:
+            AB.FALLBACK_LEDGER = os.path.join(d, "fb.jsonl"); AB.TRAIL_PATH = os.path.join(d, "trail.jsonl"); AB.MOTORE_DISPONIBILE = True
+            self.assertEqual(AB.ultimo_id("prealert"), 0)
+            with open(AB.TRAIL_PATH, "w") as f:
+                f.write('{"kind":"part11","target_record_id":"prealert-41/emissione","action":"CREATE"}\n{"target_record_id":"incidente-3","x":1}\n')
+            with open(AB.FALLBACK_LEDGER, "w") as f:
+                f.write('{"target":"prealert-7/emissione","azione":"emissione"}\n')
+            self.assertEqual(AB.ultimo_id("prealert"), 41); self.assertEqual(AB.ultimo_id("incidente"), 3)
+            AB.MOTORE_DISPONIBILE = False; self.assertEqual(AB.ultimo_id("prealert"), 7)   # senza motore il trail non conta
+        finally:
+            AB.FALLBACK_LEDGER, AB.TRAIL_PATH, AB.MOTORE_DISPONIBILE = orig
+
     def test_fail_closed_su_tutte_le_registrazioni_e_all_avvio(self):
         """Tutte e cinque le registra_* alzano senza firma né opt-in; esigi_firma_o_optin (usato da team_comms.serve
         e da chems_ingest --anchor) esce con SystemExit nominato; con opt-in non esce. Vale in ENTRAMBE le
@@ -391,7 +407,7 @@ class TestE2E(unittest.TestCase):
                                      "--sbp", "85", "--hr", "135", "--non-alert",
                                      "--temp", "39.4", "--eta", "67", "--arrivo", "8",
                                      "--farmaci", "warfarin", "aspirina",
-                                     "--server", self.base, "--token", self.token])
+                                     "--server", self.base, f"--token={self.token}"])   # forma =: robusta anche a token che iniziano con '-'
         self.assertEqual(rc, 0)
         out = json.loads(buf.getvalue())
         self.assertEqual(out["priorita"], "ALTO")

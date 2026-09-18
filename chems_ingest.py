@@ -195,8 +195,8 @@ def estrai_vitali(doc: Dict[str, Any]) -> Dict[str, Any]:
     by_url = doc["_by_url"]; comp = doc["composition"]
     problemi: List[str] = []; assunzioni: List[str] = []
     comp_url = next(u for u, r in by_url.items() if r is comp)
-    pat_ref = (comp.get("subject") or {}).get("reference")
-    pat_url = C.risolvi_riferimento(pat_ref, comp_url, by_url) if pat_ref else None
+    subj = comp.get("subject"); pat_ref = subj.get("reference") if isinstance(subj, dict) else None   # forma ostile: nessun crash
+    pat_url = C.risolvi_riferimento(pat_ref, comp_url, by_url) if isinstance(pat_ref, str) else None
     patient = by_url.get(pat_url) if pat_url else None
     if patient is None or patient.get("resourceType") != "Patient":
         problemi.append("Composition.subject non risolve a un Patient del Bundle (contained o assente): nessuna osservazione attribuibile")
@@ -301,8 +301,8 @@ def estrai_vitali(doc: Dict[str, Any]) -> Dict[str, Any]:
     if "alert_coscienza" not in vit and gcs is not None:
         vit["alert_coscienza"] = gcs == 15; assunzioni.append("coscienza derivata dal GCS (15 = Alert): AVPU assente")
     enc = None
-    enc_ref = (comp.get("encounter") or {}).get("reference")
-    if enc_ref:                           # Composition.encounter given: it must resolve to an Encounter, no fallback (council r8)
+    enco = comp.get("encounter"); enc_ref = enco.get("reference") if isinstance(enco, dict) else None   # forma ostile: nessun crash
+    if isinstance(enc_ref, str) and enc_ref:   # Composition.encounter given: it must resolve to an Encounter, no fallback (council r8)
         enc_url = C.risolvi_riferimento(enc_ref, comp_url, by_url)
         target = by_url.get(enc_url) if enc_url else None
         if target is not None and target.get("resourceType") == "Encounter":
@@ -358,9 +358,9 @@ def estrai_farmaci(doc: Dict[str, Any]) -> Dict[str, Any]:
     import interazioni_farmaci as IF
     by_url, comp = doc["_by_url"], doc["composition"]
     comp_url = next(u for u, r in by_url.items() if r is comp)
-    pat_ref = (comp.get("subject") or {}).get("reference")
-    pat_url = C.risolvi_riferimento(pat_ref, comp_url, by_url) if pat_ref else None
-    enc_ref = (comp.get("encounter") or {}).get("reference")
+    subj = comp.get("subject"); pat_ref = subj.get("reference") if isinstance(subj, dict) else None
+    pat_url = C.risolvi_riferimento(pat_ref, comp_url, by_url) if isinstance(pat_ref, str) else None
+    enco = comp.get("encounter"); enc_ref = enco.get("reference") if isinstance(enco, dict) else None
     enc_url = C.risolvi_riferimento(enc_ref, comp_url, by_url) if isinstance(enc_ref, str) else None
     out: List[Dict[str, Any]] = []; scartati: List[Dict[str, str]] = []
     for u, r in by_url.items():
@@ -428,6 +428,7 @@ def interazioni_documento(doc: Dict[str, Any]) -> Dict[str, Any]:
     res = IF.controlla_classi([(x["nome"], set(x["classi"])) for x in f["riconosciuti"]]) if len(f["riconosciuti"]) >= 2 else \
         {"n_farmaci": len(f["riconosciuti"]), "interazioni_note_trovate": [], "nessun_allarme": True, "honest_scope": IF._DISCLAIMER}
     res.pop("privacy", None)                              # frase scritta per l'input libero, non per questo percorso (review Opus r2)
+    err = (IF._gtin_atc().get("_provenienza") or {}).get("errore")
     if not f["farmaci"] and f["scartati"]:
         nota = f"nessun farmaco valutato: {len(f['scartati'])} risorse scartate (vedi scartati)"
     elif not f["farmaci"]:
@@ -437,7 +438,10 @@ def interazioni_documento(doc: Dict[str, Any]) -> Dict[str, Any]:
                 f"{len(f['non_riconosciuti'])} non riconosciuti NON sono stati valutati")
     else:
         nota = "tutti i farmaci letti sono stati valutati (GTIN ufficiale Swissmedic o nome commerciale)"
-    return {**res, "farmaci_letti": f["farmaci"], "non_riconosciuti": f["non_riconosciuti"], "scartati": f["scartati"], "nota": nota}
+    if err:                                                # modulo dati Swissmedic non caricato: detto, non taciuto (review Opus r3)
+        nota += f"; ATTENZIONE: tabella GTIN Swissmedic non caricata ({err}): riconoscimento solo per nome"
+    return {**res, "farmaci_letti": f["farmaci"], "non_riconosciuti": f["non_riconosciuti"], "scartati": f["scartati"], "nota": nota,
+            **({"fonte_gtin_errore": err} if err else {})}
 
 
 def valuta_documento(doc: Dict[str, Any], eta_arrivo_min: int = 0, eta: Optional[int] = None) -> Dict[str, Any]:
@@ -482,7 +486,7 @@ def valuta_documento(doc: Dict[str, Any], eta_arrivo_min: int = 0, eta: Optional
 
 
 # ── 4. evidence ──────────────────────────────────────────────────────────────────────────────────────────────────
-def ancora_documento(src, operatore: str, validazione: Optional[Dict] = None) -> Dict[str, Any]:
+def ancora_documento(src, operatore: str, validazione: Optional[Dict] = None, identita: str = "dichiarata") -> Dict[str, Any]:
     """Signed, hash-chained audit record of the document's SHA-256 (exact bytes when `src` is a path/bytes; the
     canonical ASCII JSON otherwise). Never patient data: digest, mission number, IG version, validator counts."""
     import audit_bridge as AB
@@ -501,7 +505,8 @@ def ancora_documento(src, operatore: str, validazione: Optional[Dict] = None) ->
     stato_doc = ex["stato_documento"] if ex["stato_documento"] in STATI else "non-valido"   # solo il value set FHIR nel ledger (review Opus r2)
     dettaglio: Dict[str, Any] = {"doc_sha256": digest, "digest_di": base, "ig": f"ch.fhir.ig.ch-ems#{C.IG_VERSION}",
                                  "stato_documento": stato_doc, "missione_numero": (f"{num}-{suff}" if num else ""),   # forma sanificata, mai la stringa grezza (review Opus r2)
-                                 "entries": sum(doc["per_tipo"].values())}
+                                 "entries": sum(doc["per_tipo"].values()),
+                                 "identita": identita}       # autenticata (token operatore) o dichiarata: nel record FIRMATO (review Opus r3)
     if validazione and validazione.get("ran"):
         dettaglio["validator_errori"] = int(len(validazione.get("errors", [])))
         dettaglio["validator_warning"] = int(len(validazione.get("warnings", [])))

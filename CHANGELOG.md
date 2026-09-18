@@ -19,6 +19,10 @@ signed evidence and the CH EMS format are untouched.
   used*, and a declared name matching a registered operator is refused (403). The pre-alert response (`/valuta`) carries
   `identita: autenticata | dichiarata`. Pilot mode `OMEGA_REQUIRE_OPERATOR=1`: clinical events without an authenticated
   operator get a named 403. Declared limit: service-level identity, not legal non-repudiation (eID/QTSP not done).
+  Declared names that slug to `admin`, `anonimo` or `sistema` are refused (403 "nome riservato al sistema"): they are
+  the system signers. The `ingest_chems` ledger rows changed shape: `target` is now `chems/<sanitised mission id>-<8 hex
+  of its sha256>` and `missione_numero` carries the same sanitised form, never the raw third-party string (0.6.2 rows
+  keep their old shape).
   **Upgrade note:** the server token of a 0.6.x deployment is on every terminal; in 0.7.0 that token creates operators.
   Before enabling pilot mode rotate it (`POST /ruota-token`), keep the new one with the administrator only and give each
   terminal an operator token.
@@ -35,7 +39,8 @@ signed evidence and the CH EMS format are untouched.
   class (or the Swiss trade name, `COMMERCIALI_CH`), runs the interaction check on recognised drugs only and lists the
   unrecognised ones (with their ATC when known) and the discarded resources (status, other subject, other encounter)
   instead of ignoring them. The ATC→class table covers the pairs in `INTERAZIONI` only (e.g. no ARBs, no
-  amiloride/triamterene, no metformin combinations): those are reported as "fuori dalla tabella", not checked. Bundle-1: Fentanyl (N01AH01), Nitrolingual
+  amiloride/triamterene, no metformin combinations, no opioid ATCs outside N01AH/N02A/N07BC/R05DA04): those are reported
+  as "fuori dalla tabella", not checked. Tramadol combinations (N02AJ13/14) carry the serotonergic class like tramadol. Bundle-1: Fentanyl (N01AH01), Nitrolingual
   (C01DA02), Aspirin Cardio — no severe pair in the table; positive control Nitrolingual + Viagra by GTIN → GRAVE.
 - **Intended use and run profiles** (`INTENDED_USE.md`, `OMEGA_PROFILO`): in `comunicazione` the scoring engine is
   NOT executed (inputs are validated only) and no decisional field exists in the pre-alert (scores, priority,
@@ -43,13 +48,16 @@ signed evidence and the CH EMS format are untouched.
   vitals as sent and no RiskAssessment (found by the new tests: they used to emit "priorità None · NEWS2 None"); `punteggi`
   (default) is unchanged and its EU MDR Rule 11 / MepV exposure is stated, with the Swissmedic Merkblatt
   BW630_30_007 v3.0 quoted for the "storage, archiving, communication" boundary.
-- Four-mind review (Gemini Pro, Claude Opus, Sonnet, Haiku) on the diff, findings fixed before the tag: an operator token
+- Server and operator tokens never start with `-` (a `token_urlsafe` value did, about once in 64, and `--token <tok>`
+  on the CLI read it as an option: the e2e CLI test failed on that draw). With the private Part 11 engine the pre-alert
+  and incident counters now continue from the engine trail after a restart (they restarted at 1).
+- Four-mind review (Gemini Pro, Claude Opus, Sonnet, Haiku), three rounds on the diff, findings fixed before the tag: an operator token
   could rotate the admin token; the admin's own rotation self-locked in pilot mode; the confirmation form and the
   attachment upload bypassed pilot mode; drug warnings leaked into the communication profile; the journal kept outcomes
   after expiry and the free-text alternative destination; a journal write error dropped the connection after a signed
   publish; restored records ignored a changed profile; `/atmist` and the CH EMS document were profile-blind; receipts
   were looked up by document digest (spurious 503 on concurrent ingest); non-ASCII tokens raised.
-- Tests: 194 across 15 files (new: test_bacheca_store, test_chems_receipt, test_operatori, test_profilo; test_chems_ingest
+- Tests: 195 across 15 files (new: test_bacheca_store, test_chems_receipt, test_operatori, test_profilo; test_chems_ingest
   +5), green in both CI configurations; the journal, receipt, operator-identity and profile end-to-end tests need the signed local
   ledger and are skipped (declared) in the bare-stdlib configuration.
 

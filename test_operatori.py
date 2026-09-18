@@ -97,6 +97,8 @@ class TestE2EOperatori(unittest.TestCase):
         # un nome DICHIARATO uguale a uno slug registrato è rifiutato (firmerebbe con la chiave di eq-7)
         st, out = self._post("/valuta", {**VIT, "operatore": "eq-7"}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 403); self.assertIn("registrato", out["error"])
         st, out = self._post("/valuta", {**VIT, "operatore": "EQ.7"}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 403)   # collassa sullo stesso slug
+        for nome in ("admin", "Admin", "ADMIN ", "sistema", "anonimo"):                         # nomi di sistema: mai dichiarati, anche cambiando caso (review Opus r3)
+            st, out = self._post("/valuta", {**VIT, "operatore": nome}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 403, nome)
         # un token operatore NON ruota il token di amministrazione (review Opus 18/09)
         st, out = self._post("/ruota-token", {}, {"X-Omega-Operatore-Token": tok}); self.assertEqual(st, 403)
         self.assertEqual(T._token(), self.admin)
@@ -109,9 +111,14 @@ class TestE2EOperatori(unittest.TestCase):
         st, _ = self._post("/operatori", {"slug": "eq-8", "ruolo": "ps"}, {"X-Omega-Operatore-Token": tok}); self.assertEqual(st, 403)
         st, _ = self._post("/operatori/revoca", {"slug": "eq-7"}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 200)
         st, _ = self._post("/valuta", VIT, {"X-Omega-Operatore-Token": tok}); self.assertEqual(st, 401)
-        st, out = self._post("/operatori", {"slug": "eq-7", "ruolo": "equipaggio", "riemetti": True}, {"X-Omega-Token": self.admin})
+        st, out = self._post("/operatori", {"slug": "eq-7", "ruolo": "ps", "riemetti": True}, {"X-Omega-Token": self.admin})
+        self.assertEqual(out["evento"], "riattivazione_operatore_con_cambio_ruolo"); self.assertEqual(out["ruolo"], "ps")   # da revocato il ruolo può cambiare (review Opus r3)
+        self.assertEqual(OP.elenco()["eq-7"]["storia"][-1]["ruolo_precedente"], "equipaggio")
+        st, _ = self._post("/operatori/revoca", {"slug": "eq-7"}, {"X-Omega-Token": self.admin})
+        st, out = self._post("/operatori", {"slug": "eq-7", "ruolo": "ps", "riemetti": True}, {"X-Omega-Token": self.admin})
         self.assertEqual(out["evento"], "riattivazione_operatore")                            # riattivare un revocato è un evento NOMINATO
         self.assertEqual(OP.elenco()["eq-7"]["storia"][-1]["evento"], "riattivazione_operatore"); self.assertIn("revocato_il", OP.elenco()["eq-7"]["storia"][-1])
+        tok = out["token"]
         st, _ = self._post("/valuta", VIT, {"X-Omega-Operatore-Token": "x" * 43}); self.assertEqual(st, 401)
 
     def test_registro_non_leggibile_nominato(self):

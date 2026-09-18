@@ -38,6 +38,12 @@ meet its own obligations.
   **Exception, by design:** the *administrative reason* an operator types when removing a note
   (`/rimuovi-nota`) is stored in clear — it is the justification 21 CFR Part 11 requires for a
   deletion, and it must not contain patient data (the removed note itself is bound by digest).
+- **Board journal, opt-in (`OMEGA_BOARD_STORE`, 0.7.0):** when enabled, the live pre-alerts of the board are at rest
+  for the board TTL — vital signs, age, triage colour, outcome and receipt codes, ED state — AES-256-GCM per entry,
+  key in a 0600 file next to the journal by default (or elsewhere with `OMEGA_BOARD_STORE_KEY`: the key's location
+  decides who can read it, see INTENDED_USE.md). Never free text, confirmation notes, attachments, coordinates or
+  incident descriptions. Erasure: TTL expiry (the entry is rewritten without vitals, then deleted after 2×TTL) or
+  deletion of the journal file. Without the variable (default) nothing of this exists.
 - The ED board is in memory only; a record's clinical payload is dropped after `OMEGA_BOARD_TTL_H`
   hours (default 24), on every read.
 - Operator signing keys (`.audit_keys/`, mode 0600) are local secrets, not health data.
