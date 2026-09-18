@@ -362,9 +362,12 @@ class TestE2ERicezione(unittest.TestCase):
         self.assertEqual(v["risposte_alternative"], 1)
         self.assertEqual(len(v["digest_verbale_sha256"]), 64)
         self.assertNotIn("sbp", json.dumps(v))
-        # marca senza TSA configurata: dichiarato, nessuna rete
-        os.environ.pop("HEALTH_TSA_URL", None)
-        st, v = self._req("GET", f"/verbale/{rid}?marca=1", token=self.token)
+        # marca senza TSA configurata: dichiarato, nessuna rete — la variabile è tolta SOLO dentro il blocco (18/09: un
+        # pop senza ripristino faceva fallire i due test di rete opt-in eseguiti dopo, nello stesso processo)
+        from unittest import mock
+        env_no_tsa = {k: v for k, v in os.environ.items() if k != "HEALTH_TSA_URL"}
+        with mock.patch.dict(os.environ, env_no_tsa, clear=True):
+            st, v = self._req("GET", f"/verbale/{rid}?marca=1", token=self.token)
         self.assertFalse(v["marca_temporale"]["anchored"])
         self.assertEqual(self._req("GET", f"/verbale/{rid}")[0], 401)
 
