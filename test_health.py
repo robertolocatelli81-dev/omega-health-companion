@@ -90,6 +90,17 @@ class TestFirmaLocaleFallback(unittest.TestCase):
         finally:
             AB.FIRMA_LOCALE_DISPONIBILE = orig
 
+    def test_ultima_riga_dalla_coda(self):
+        """Lettura O(1) dell'ultima riga: uguale alla lettura completa su file piccoli, grandi, con righe vuote in coda,
+        con l'ultima riga più lunga del blocco di lettura."""
+        import tempfile
+        d = tempfile.mkdtemp(); p = os.path.join(d, "l.jsonl")
+        casi = ["", "a\n", "a\nb\n", "a\nb", "a\n\n\n", "\n".join(f"riga{i}" for i in range(20000)) + "\n", "x\n" + "y" * 200000 + "\n\n"]
+        for c in casi:
+            open(p, "w").write(c)
+            attesa = ([r for r in c.split("\n") if r.strip()] or [""])[-1]
+            self.assertEqual(AB._ultima_riga(p, blocco=4096), attesa)
+
     def test_ultimo_id_legge_anche_il_trail_part11(self):
         """Col motore Part 11 il ledger locale non viene scritto: il contatore deve leggere anche il trail (review Opus r3)."""
         import tempfile

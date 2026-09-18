@@ -80,6 +80,8 @@ def _token() -> str:
         fd = os.open(TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w") as f:
             f.write(_nuovo_token())
+    if os.stat(TOKEN_FILE).st_mode & 0o077:                 # un token leggibile da altri non è un segreto: rifiuto nominato
+        raise PermissionError(f"{TOKEN_FILE}: permessi troppo larghi ({oct(os.stat(TOKEN_FILE).st_mode & 0o777)}); attesi 0600")
     with open(TOKEN_FILE) as f:
         return f.read().strip()
 
@@ -491,7 +493,12 @@ class H(BaseHTTPRequestHandler):
         return "autenticata" if getattr(self, "_op", None) else "dichiarata"
 
     def _is_loopback(self) -> bool:
-        return self.client_address[0] in ("127.0.0.1", "::1")
+        """Loopback VERO: indirizzo locale E nessun header di inoltro. Dietro un reverse proxy (nginx, docker, ngrok) ogni
+        richiesta esterna arriva da 127.0.0.1: senza questo controllo il token admin finiva nella pagina di chiunque
+        (giudizio Gemini Pro 18/09)."""
+        if self.client_address[0] not in ("127.0.0.1", "::1"):
+            return False
+        return not any(self.headers.get(h) for h in ("X-Forwarded-For", "Forwarded", "X-Real-IP", "X-Forwarded-Host", "Via"))
 
     def do_GET(self):
         try:

@@ -172,10 +172,10 @@ def ancora_prealert(prealert: Dict, ts: str, payload: str = "digest") -> Dict:
 def _ancora_locked(prealert: Dict, ts: str, payload: str) -> Dict:
     prev = GENESIS
     if os.path.exists(LEDGER):
-        with open(LEDGER, encoding="utf-8") as f:
-            righe = [r for r in f if r.strip()]
-            if righe:
-                prev = json.loads(righe[-1])["self_hash"]
+        import audit_bridge as _AB
+        ultima = _AB._ultima_riga(LEDGER)      # dalla coda del file: O(1), non tutto il ledger a ogni scrittura (Gemini Pro 18/09)
+        if ultima:
+            prev = json.loads(ultima)["self_hash"]
     if payload == "full":
         corpo = {"prealert": prealert, "payload": "full"}
     else:

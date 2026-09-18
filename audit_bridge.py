@@ -182,15 +182,26 @@ def enrol_legacy_keys() -> Dict[str, int]:
     return {"registrate": n}
 
 
+def _ultima_riga(path: str, blocco: int = 65536) -> str:
+    """Ultima riga non vuota di un file di testo, leggendo a ritroso a blocchi dalla fine (il ledger è append-only e
+    cresce per anni: scandirlo tutto a ogni scrittura era O(N) in tempo e memoria)."""
+    with open(path, "rb") as f:
+        f.seek(0, os.SEEK_END); pos = f.tell(); buf = b""
+        while pos > 0:
+            step = min(blocco, pos); pos -= step
+            f.seek(pos); buf = f.read(step) + buf
+            righe = [r for r in buf.split(b"\n") if r.strip()]
+            if len(righe) >= 2 or (righe and pos == 0):
+                return righe[-1].decode("utf-8")
+        righe = [r for r in buf.split(b"\n") if r.strip()]
+        return righe[-1].decode("utf-8") if righe else ""
+
+
 def _fb_ultimo_sha256() -> str:
     """Ultimo record_sha256 del ledger locale (o GENESIS): l'anello per la catena prev_sha256."""
     if not os.path.exists(FALLBACK_LEDGER):
         return "GENESIS"
-    last = None
-    with open(FALLBACK_LEDGER, encoding="utf-8") as f:
-        for line in f:
-            if line.strip():
-                last = line
+    last = _ultima_riga(FALLBACK_LEDGER)          # letta dalla CODA del file: O(1), non O(N) a ogni scrittura (Gemini Pro 18/09)
     if not last:
         return "GENESIS"
     try:

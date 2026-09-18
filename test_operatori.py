@@ -160,6 +160,12 @@ class TestE2EOperatori(unittest.TestCase):
             except urllib.error.HTTPError as e:
                 self.assertEqual(e.code, 403)
             self.assertNotIn("dr-impostore", open(AB.FALLBACK_LEDGER).read())
+            # dietro un reverse proxy (header di inoltro) la pagina NON contiene mai il token admin (giudizio Gemini Pro 18/09)
+            with mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != OP.REQUIRE_ENV}, clear=True):
+                req = urllib.request.Request(self.base + "/", headers={"X-Forwarded-For": "203.0.113.9", "X-Omega-Token": self.admin})
+                self.assertNotIn(self.admin, urllib.request.urlopen(req, timeout=30).read().decode())
+                req = urllib.request.Request(self.base + "/", headers={"X-Omega-Token": self.admin})
+                self.assertIn(self.admin, urllib.request.urlopen(req, timeout=30).read().decode())   # loopback vero: sì (comodità locale)
             # in modalità pilota la pagina di loopback NON contiene il token admin e offre un campo per il token operatore
             req = urllib.request.Request(self.base + "/"); page = urllib.request.urlopen(req, timeout=30).read().decode()
             self.assertNotIn(self.admin, page); self.assertIn("token operatore", page)

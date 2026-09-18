@@ -79,7 +79,7 @@ python3 test_input_types.py             # 31 tests — hostile input types (red-
 python3 test_news2_certificate.py       #  4 tests — NEWS2 certificate
 python3 test_prealert_2025.py           # 49 tests — RCEM/AACE 2025 criteria at the boundaries, ED receipt, verbale, tamper/re-sign/deletion detection
 python3 test_coordinamento.py           #  4 tests — patient types, incidents, ETA/position, messages, attachments, outcomes, metrics, expiry (end-to-end)
-# 126 tests in these six files; CI runs ALL fifteen test_*.py files (195 tests, counted 2026-09-18 by loading every test_*.py with unittest) on every push, with and without `cryptography`, never with the private engine
+# 126 tests in these six files; CI runs ALL fifteen test_*.py files (196 tests, counted 2026-09-18 by loading every test_*.py with unittest) on every push, with and without `cryptography`, never with the private engine
 # HEALTH_TSA_URL=https://freetsa.org/tsr HEALTH_TSA_CAFILE=cacert.pem python3 test_prealert_2025.py   # + 2 opt-in network tests: real RFC 3161 timestamp, trust chain, wrong CA refused
 python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \
@@ -89,7 +89,7 @@ python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \
 A systemd user unit is provided in `deploy/` (loopback by default; put TLS in front
 before exposing beyond localhost).
 
-## Legal-grade evidence of the pre-alert (2026-09-13)
+## Evidence of the pre-alert: signed, hash-chained, verifiable offline (2026-09-13)
 
 The UK national pre-alert guideline (RCEM / AACE, July 2025) asks that pre-alert calls be made on a
 *recorded line*, be received by a senior clinician who can enact the response, and that an

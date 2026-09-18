@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.1 — 2026-09-18 — after Gemini Pro's whole-product judgement (8 dossiers + synthesis, 7/10)
+
+- **Reverse proxy no longer leaks the admin token.** The board page injected the server token for "loopback" clients; behind
+  nginx/docker/ngrok every external request is loopback. Now a request carrying any forwarding header (`X-Forwarded-For`,
+  `Forwarded`, `X-Real-IP`, `X-Forwarded-Host`, `Via`) is never loopback: the page requires a token like any other client
+  (tested).
+- **Ledgers no longer read in full on every write.** The previous hash (local audit ledger, pre-alert ledger) is read from the
+  tail of the file in O(1) (`audit_bridge._ultima_riga`, tested against the full read on 7 shapes including a 200 KB last line);
+  it was O(N) in time and memory per write, growing forever.
+- `team_token.txt` with permissions wider than 0600 is refused (named `PermissionError`), like the registry and the journal key.
+- README: the heading "Legal-grade evidence" is gone; the section is "Evidence of the pre-alert: signed, hash-chained,
+  verifiable offline". Same facts; server-generated keys are not legal-grade non-repudiation and the text below already said so.
+- Judged, NOT changed (decisions for the author, recorded in gtm/health_070_20260918/judge): default profile `punteggi` vs
+  `comunicazione`; the declared NEWS2 deviation (single parameter 3 → MEDIUM, conservative direction) and the "lower bound"
+  NEWS2 without an oxygen observation; per-operator keys on the server vs SSO/IdP identity; the seed drug-interaction table.
+
 ## 0.7.0 — 2026-09-18 — the gaps of the 18/09 maturity assessment, without changing what the product is
 
 Independent assessment (Gemini Pro, 18/09/2026, facts measured): overall L2 "verified prototype"; operational readiness
