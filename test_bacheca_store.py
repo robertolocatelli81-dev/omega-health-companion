@@ -58,7 +58,7 @@ class TestStore(unittest.TestCase):
         # i BYTE reali passati a encrypt: si intercetta ENCRYPT stesso, non il serializzatore (review Opus r11-r12: così la frase
         # «i byte consegnati a encrypt» è vera per costruzione e nessun'altra chiamata al serializzatore può alimentare la cattura)
         self._visto = []; cls = BS._aesgcm(); orig_encrypt = cls.encrypt
-        def _spia(cipher, nonce, data, ad):
+        def _spia(cipher, nonce, data, ad=None):
             self._visto.append(bytes(data)); return orig_encrypt(cipher, nonce, data, ad)
         with mock.patch.object(cls, "encrypt", new=_spia):
             self._round_trip_body()
