@@ -245,17 +245,21 @@ class TestE2EProfilo(unittest.TestCase):
                 return [r for r in recs if r.get("azione") == "emissione"], recs
             self.assertEqual(uscite["/audit"]["livello"], "base")
             em, tutti = _emissioni(); self.assertEqual(len(em), len(ids), [r.get("azione") for r in tutti])
-            for r in em:
-                self.assertEqual(set(r["dettaglio"]), {"prealert_sha256", "identita"}, r["dettaglio"])
+            for r in em:                                                          # chiavi ESATTE e anche i VALORI (review Opus r8): un digest
+                self.assertEqual(set(r["dettaglio"]), {"prealert_sha256", "identita"}, r["dettaglio"])   # è 64 hex, l'identità un vocabolo
+                self.assertRegex(r["dettaglio"]["prealert_sha256"], r"\A[0-9a-f]{64}\Z"); self.assertIn(r["dettaglio"]["identita"], ("dichiarata", "autenticata"))
             catena = [json.loads(l) for l in open(S.LEDGER, encoding="utf-8").read().splitlines() if l.strip()]
             self.assertEqual(len(catena), len(ids))
-            for r in catena:
-                self.assertEqual(r.get("payload"), "digest"); self.assertNotIn("prealert", r); self.assertNotIn("vitali", r)
+            for r in catena:                                                      # schema ESATTO del record di catena: nessun'altra chiave
+                self.assertEqual(set(r), {"payload", "prealert_sha256", "prev_hash", "privacy", "self_hash", "ts"}, set(r))
+                self.assertEqual(r["payload"], "digest"); self.assertRegex(r["prealert_sha256"], r"\A[0-9a-f]{64}\Z")
             # un nome di chiave malformato DENTRO vitali: 400, e i DUE ledger rilettI DOPO sono identici (una richiesta rifiutata non ancora nulla)
             prima = (open(AB.FALLBACK_LEDGER, encoding="utf-8").read(), open(S.LEDGER, encoding="utf-8").read())
             st, err = self._req_err("POST", "/valuta", dict(VIT, vitali={**VIT["vitali"], "priorita ALTA: NITRATI": 1})); self.assertEqual(st, 400, err)
             dopo = (open(AB.FALLBACK_LEDGER, encoding="utf-8").read(), open(S.LEDGER, encoding="utf-8").read())
             self.assertEqual(prima, dopo); self.assertNotIn("NITRATI", dopo[0] + dopo[1])
+            st, o = self._req("POST", "/valuta", VIT); self.assertEqual(st, 200)      # e la stessa lettura VEDE una scrittura vera (controllo positivo)
+            self.assertEqual(len(_emissioni()[0]), len(ids) + 1)                    # (id non aggiunto a `ids`: le uscite sono già state raccolte)
             for i in ids:
                 self.assertEqual(uscite[f"/fhir/{i}"]["resourceType"], "Bundle"); self.assertTrue(uscite[f"/fhir/{i}"]["entry"])
             self.assertEqual(uscite[f"/incidente/{iid}"]["pazienti"], 1)          # l'incidente ha davvero un paziente: la scansione non è a vuoto
