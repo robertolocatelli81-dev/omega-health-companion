@@ -55,7 +55,7 @@ class TestStore(unittest.TestCase):
 
     def test_round_trip_senza_i_campi_solo_memoria(self):
         st = BS.Store(self.path); st.salva_record(self._rec()); st.salva_incidente({"id": 3, "ts": datetime.now(timezone.utc).isoformat(), "descrizione": "VIA ROSSI 12 TARGA XY", "aperto_da": "centrale"})
-        st.salva_stato_ps({"stato": "saturo", "ts": "t", "operatore_ps": "dr", "destinazione_alternativa": "H2", "sale": "SALT"}); st.close()
+        st.salva_stato_ps({"stato": "saturo", "ts": "t", "operatore_ps": "dr", "destinazione_alternativa": "Ospedale Nord Trauma Center H2", "sale": "SALT"}); st.close()
         snap = BS.Store(self.path).ripristina()
         r = snap["board"][0]
         self.assertEqual(r["vitali"], {"hr": 135, "sbp": 85}); self.assertEqual(r["triage_start"], "rosso")
@@ -65,8 +65,10 @@ class TestStore(unittest.TestCase):
         i = snap["incidenti"][0]; self.assertNotIn("VIA ROSSI", i["descrizione"]); self.assertEqual(i["ripristinato_senza"], ["descrizione"])
         self.assertEqual(snap["stato_ps"]["stato"], "saturo"); self.assertIsNone(snap["stato_ps"]["sale"])   # chiave presente, valore None
         self.assertIsNone(snap["stato_ps"]["destinazione_alternativa"])      # testo libero: mai su disco (review Opus 18/09)
-        with open(self.path, "rb") as fh:
-            self.assertNotIn(b"H2", fh.read())
+        with open(self.path, "rb") as fh:                # marcatori LUNGHI: un marcatore di 2 byte compariva per caso nel ciphertext
+            raw = fh.read()                              # (1 rosso su 30, misurato 18/09: metro sbagliato, non cifratura rotta)
+            for m in (b"Ospedale Nord Trauma Center", b"VIA ROSSI 12 TARGA", b"SALT"):
+                self.assertNotIn(m, raw)
         self.assertEqual(oct(os.stat(self.path).st_mode & 0o777), "0o600")
 
     def test_sale_esiti_e_chiave_altrove(self):

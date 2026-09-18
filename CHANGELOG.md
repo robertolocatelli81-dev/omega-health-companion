@@ -54,7 +54,9 @@
   the scanner's positive controls are discriminating (a value-encoded score is invisible to the key scan and visible to
   the token scan; a histogram and the listing fields are not flagged); the end-to-end test also posts client-computed
   scores and runs the real CLI against the default server; the engine drift guard covers the invalid-data branch.
-  200 tests.
+  200 tests. One flaky test fixed on the way: `test_bacheca_store` asserted that the 2-byte marker `H2` was absent from
+  the encrypted journal file; a 2-byte sequence appears by chance in random ciphertext (1 red in 30 runs, measured) — the
+  markers are now 20+ bytes (0 red in 40 runs). The encryption was never at fault.
 - **"Compared with the field" table re-read from primary sources (2026-09-18, quotes and digests in
   `gtm/health_070_20260918/competitors/` of the OMEGA repository, summarised here):** "Evidentiary record: none documented" was
   too strong — corpuls documents delegations «dreifach rechtssicher dokumentiert» plus audit logging of accesses, Pulsara a
