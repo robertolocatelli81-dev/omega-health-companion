@@ -7,8 +7,9 @@
   patient type; it validates inputs, shows vitals as sent and records who sent what and when in the signed ledger (the CH EMS
   document is a library function, `fhir_chems.prealert_to_chems_document`, in both profiles). Scores return only with `OMEGA_PROFILO=punteggi`, written in the organisation's configuration: activating
   an uncertified decision-support function (EU MDR Annex VIII Rule 11 / MepV exposure) is an explicit act, never a default.
-  0.7.1 deployments that relied on scores must set the variable. The CLI and the library are unchanged (they compute when
-  called). Tests of the `punteggi` path set the profile in `setUpModule` and restore it in `tearDownModule` (explicit
+  0.7.1 deployments that relied on scores must set the variable. The library is unchanged (it computes when called); the
+  CLI is a client of `/valuta` and never computed anything — the earlier README sentence "the CLI keeps computing scores"
+  was false and is corrected in this release (found by Opus 5 in round 4, reading the CLI source instead of the README). Tests of the `punteggi` path set the profile in `setUpModule` and restore it in `tearDownModule` (explicit
   assignment, so an `OMEGA_PROFILO` exported in the environment cannot change what they test — measured: with `setdefault`
   and the variable exported to `comunicazione`, 5 files failed; and not at import time, because `unittest discover` imports
   every file before running any — measured: with a module-level set plus restore, `test_coordinamento` ran under the default
@@ -19,7 +20,7 @@
   to the comunicazione pre-alert and a nested `trauma_team` added to `/metriche` were both caught before the code was
   restored; the journal restore test restarts with the variable absent. Under this profile the paediatric gate has nothing to
   guard (no adult score is ever computed) and a child's vitals are validated like any other input. Review of the diff by
-  Gemini Pro, Opus 5, Sonnet 5 and Haiku 4.5, three rounds: five round-1 findings were false against the code (journal restore
+  Gemini Pro, Opus 5, Sonnet 5 and Haiku 4.5, four rounds: five round-1 findings were false against the code (journal restore
   and `tipo_paziente` were already gated, the engine branch precedes the engine call, `/prealert` recomputes, CI runs each
   test file in its own process) and are recorded as such; the true ones are in this entry.
 - **Round 2 (Opus 5) under the default, all measured and fixed:** the incident summary (`/incidenti`, `/incidente/<id>`)
@@ -43,7 +44,14 @@
   that the library computes regardless of the profile; CI also runs the suite with the variable exported as
   `comunicazione` and as `punteggi`. The token scan found one real collision: the CH EMS observation carrying the crew's
   START colour had the id `priorita-paziente` — an input, not a score — renamed `stato-paziente` (samples regenerated,
-  validator_cli 6.10.4: 0 errors, `examples/chems_conformance/EVIDENCE.md`). 200 tests.
+  validator_cli 6.10.4: 0 errors, `examples/chems_conformance/EVIDENCE.md`). Round 4 (Opus 5; Gemini Pro: no material
+  issues): the CLI now prints the profile and the note under the default instead of silent nulls, and no longer sends null
+  keys; `campi_ignorati` counts only keys with a value and refuses malformed or more than 20 unknown key names (the name is
+  echoed into the record and the journal: never free text); the comunicazione pre-alert has one shape, fresh or restored;
+  the scanner's positive controls are discriminating (a value-encoded score is invisible to the key scan and visible to
+  the token scan; a histogram and the listing fields are not flagged); the end-to-end test also posts client-computed
+  scores and runs the real CLI against the default server; the engine drift guard covers the invalid-data branch.
+  200 tests.
 - **"Compared with the field" table re-read from primary sources (2026-09-18, quotes and digests in
   `gtm/health_070_20260918/competitors/` of the OMEGA repository, summarised here):** "Evidentiary record: none documented" was
   too strong — corpuls documents delegations «dreifach rechtssicher dokumentiert» plus audit logging of accesses, Pulsara a

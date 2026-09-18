@@ -8,6 +8,9 @@ WorkingDirectory=%h/progetti/omega-health-companion
 ExecStart=/usr/bin/python3 %h/progetti/omega-health-companion/team_comms.py 8097
 Restart=on-failure
 RestartSec=5
+# profilo d'uso (INTENDED_USE.md): default = comunicazione (nessun punteggio). I punteggi sono un opt-in SCRITTO
+# dell'organizzazione (esposizione MDR regola 11 / MepV dichiarata): togliere il commento solo con quella decisione.
+# Environment=OMEGA_PROFILO=punteggi
 # loopback only di default; per esporlo fuori serve TLS davanti (reverse proxy)
 NoNewPrivileges=true
 PrivateTmp=true

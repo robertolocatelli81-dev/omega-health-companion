@@ -32,6 +32,7 @@ DIGEST vanno sul ledger.
 from __future__ import annotations
 import html
 import json
+import re
 import os
 import socket
 from typing import Optional
@@ -140,10 +141,13 @@ def prealert_comunicazione(body: dict) -> dict:
         raise ValueError("; ".join(problemi))
     # input clinici del motore (segni FAST, condizioni, sepsi, clinica) che qui NON vengono né valutati né mostrati: dichiarati,
     # non scartati in silenzio (review Opus 18/09 r2)
-    ignorati = sorted(set(body) - CAMPI_LETTI_COMUNICAZIONE)   # ogni chiave non letta QUI: input clinici del motore, punteggi di un client…
+    ignorati = sorted(k for k in body if k not in CAMPI_LETTI_COMUNICAZIONE and body[k] is not None)   # chiavi non lette QUI, con un valore
+    if len(ignorati) > 20 or any(not isinstance(k, str) or not _NOME_CAMPO.match(k) for k in ignorati):
+        problemi.append("chiavi non riconosciute: al massimo 20, nomi [A-Za-z0-9_] di 1-40 caratteri")   # il nome torna nella risposta e
+        raise ValueError("; ".join(problemi))                                                            # nel journal: mai testo libero (review Opus r4)
     return {"vitali": dict(vit), "eta_paziente": eta, "eta_mesi": eta_mesi, "eta_arrivo_stimato_min": arrivo,
             "farmaci_in_uso": [f.strip() for f in farmaci if isinstance(f, str) and f.strip()], "avvisi": [],
-            "profilo": "comunicazione", "campi_non_calcolati": NON_CALCOLATI,
+            "profilo": "comunicazione", "campi_non_calcolati": list(NON_CALCOLATI),
             "campi_ignorati": ignorati,
             "nota_profilo": "profilo comunicazione: motore dei punteggi NON eseguito; vitali come inviati; avvisi sempre vuoto; la valutazione è del clinico"}
 
@@ -153,17 +157,17 @@ def prealert_comunicazione(body: dict) -> dict:
 # sparire in silenzio (review Opus 18/09 r2-r3)
 CAMPI_LETTI_COMUNICAZIONE = frozenset({"vitali", "eta", "eta_mesi", "eta_arrivo_min", "farmaci", "operatore", "triage_start", "incidente_id"})
 NON_CALCOLATI = [c for c in CAMPI_DECISIONALI if c != "avvisi"] + ["tipo_paziente"]   # avvisi resta come chiave, vuota
+_NOME_CAMPO = re.compile(r"^[A-Za-z0-9_]{1,40}$")
 
 
 def applica_profilo(prealert: dict) -> dict:
     """Profilo 'comunicazione': toglie ogni campo decisionale dal pre-alert e lo DICHIARA; 'punteggi': invariato."""
     if profilo() != "comunicazione" or prealert.get("profilo") == "comunicazione":   # già in profilo: intatto (review Opus r2)
         return prealert
-    tolti = [k for k in CAMPI_DECISIONALI if k in prealert and k != "avvisi"]
     out = {k: v for k, v in prealert.items() if k not in CAMPI_DECISIONALI}
     out["avvisi"] = []                                  # il campo resta (la pagina lo legge), vuoto
     out["profilo"] = "comunicazione"
-    out["campi_non_calcolati"] = tolti + ["tipo_paziente"]
+    out["campi_non_calcolati"] = list(NON_CALCOLATI)    # una sola forma, fresca o ripristinata (review Opus r4)
     out["nota_profilo"] = "profilo comunicazione: nessun punteggio né raccomandazione calcolati; vitali come inviati; avvisi sempre vuoto; la valutazione è del clinico"
     return out
 

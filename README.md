@@ -60,7 +60,7 @@ with `OMEGA_HEALTH_ALLOW_UNSIGNED=1`) · **Author:** Roberto Locatelli, 2026
 | `team_comms.py` | Real self-hosted team app: server-side scoring (`POST /valuta`), token auth, ED board, confirmations, `GET /fhir/<id>`, `GET /atmist/<id>`, `GET /audit` |
 | `fhir_chems.py` · `chems_ingest.py` | Pre-alert → **CH EMS document** (Swiss mission protocol, 0 validator errors on two documents, see below); reader + scoring + evidence for CH EMS documents from any ePCR |
 | `fhir_export.py` | Pre-alert → **FHIR R4 Bundle** (LOINC-coded vitals conformant to the R4 vital-signs profiles — BP as the 85354-9 panel with diastolic `dataAbsentReason` when not measured, SpO2 as 2708-6 + 59408-5; 0 structural errors on both HAPI `$validate` and the HL7 `validator.fhir.org`, re-checked 2026-09-11 — RiskAssessment, Provenance carrying the ledger hash) — validated with **0 errors** against the public HAPI FHIR validator; ATMIST handover; ECG attachment by SHA-256 (never auto-interpreted) |
-| `ambulanza_cli.py` | Field CLI: raw vitals in, computed pre-alert back; honest fallback message if the server is unreachable |
+| `ambulanza_cli.py` | Field CLI: a thin client of `/valuta` — raw vitals in, whatever the server's profile returns back (vitals + note under the default, computed pre-alert under `punteggi`); it computes nothing itself; honest fallback message if the server is unreachable |
 | `audit_bridge.py` | Bridge to a 21 CFR Part 11-grade audit engine (signed audit trail, signatures bound to records with meaning; the engine is not part of this repository), with a built-in local Ed25519 signer (`cryptography`) when the engine is absent. **Fail-closed since 0.6.1:** with neither, it raises `FirmaNonDisponibile` and `team_comms` refuses to start; recording events at the declared unsigned "base" level is possible only behind the explicit opt-in `OMEGA_HEALTH_ALLOW_UNSIGNED=1` (a declared limitation of that mode: with no trail, pre-alert ids restart from 1 after a restart, so they are not stable identifiers) (`verifica_trail()` stays a read-only diagnostic and simply reports that the engine is absent) |
 | `companion_seed.py` | Citizen-facing claim verification seed (informative only) |
 | `mission_case.py` | **Mission case file**: declarative FSM (ALLERTA→VALUTAZIONE→TRASPORTO→CONSEGNATA→CHIUSA, +ANNULLATA), SHA-256 hash-chained append-only ledger under an exclusive file lock, digests-only (no PHI), monotonic-clock guard, tamper → pack refused. Optional private case-engine adds an independent double replay; degrades honestly to "fascicolo-locale" (verified: same 17 tests pass with and without the engine) |
@@ -81,9 +81,10 @@ python3 test_prealert_2025.py           # 49 tests — RCEM/AACE 2025 criteria a
 python3 test_coordinamento.py           #  4 tests — patient types, incidents, ETA/position, messages, attachments, outcomes, metrics, expiry (end-to-end)
 # 128 tests in these six files; CI runs ALL fifteen test_*.py files (200 tests, run green 2026-09-18 in six configurations: with and without `cryptography`, `OMEGA_PROFILO` absent / exported as `comunicazione` / exported as `punteggi`, each file alone and all collected in one process) on every push, never with the private engine
 # HEALTH_TSA_URL=https://freetsa.org/tsr HEALTH_TSA_CAFILE=cacert.pem python3 test_prealert_2025.py   # + 2 opt-in network tests: real RFC 3161 timestamp, trust chain, wrong CA refused
-python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/
+python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/ — default profile: comunicazione (no scores)
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \
-        --temp 39.4 --eta 67 --arrivo 8 --farmaci warfarin aspirina
+        --temp 39.4 --eta 67 --arrivo 8 --farmaci warfarin aspirina      # prints the vitals + "scoring engine not executed"
+# OMEGA_PROFILO=punteggi python3 team_comms.py 8097   # opt-in: the same CLI call then prints priority, NEWS2, pathways
 ```
 
 A systemd user unit is provided in `deploy/` (loopback by default; put TLS in front
@@ -219,10 +220,12 @@ software (BW630_30_007 v3.0) and EU MDR Rule 11 as references. Two profiles, cho
 `OMEGA_PROFILO`: `comunicazione` (**the default since 0.7.2**: vitals as sent, identity, signed evidence, CH EMS
 document via the library — **no score, no recommendation**, the scoring engine is not executed and the fields are listed
 as not computed in every pre-alert record) and `punteggi` (opt-in, `OMEGA_PROFILO=punteggi`: scores shown as supporting
-information; regulatory exposure declared, no conformity assessment done). The CLI (`ambulanza_cli.py`) and the
-library keep computing scores when called directly: the profile governs the server, which under `comunicazione`
-rebuilds every pre-alert from the validated inputs and ignores any decisional field a client sends (`/prealert`
-is routed to `/valuta` for the same reason). The active profile is printed at start-up. Also new in 0.7.0:
+information; regulatory exposure declared, no conformity assessment done). The library (`ambulanza_intelligente.py`)
+computes scores whenever it is called directly, regardless of the profile; the CLI (`ambulanza_cli.py`) computes
+nothing — it is a client of `/valuta` and shows what the server's profile returns (under the default: the vitals and
+the note "scoring engine not executed"). The profile governs the server, which under `comunicazione` rebuilds every
+pre-alert from the validated inputs and names, in `campi_ignorati`, any other key a client sends (a client-computed
+`NEWS2` included; `/prealert` is routed to `/valuta` for the same reason). The active profile is printed at start-up. Also new in 0.7.0:
 per-operator tokens (`POST /operatori`, admin token only; `OMEGA_REQUIRE_OPERATOR=1` refuses clinical events
 without an authenticated operator), the optional AES-256-GCM board journal (`OMEGA_BOARD_STORE`), the receipt
 endpoint for third-party ePCRs (`POST /chems/ingest`, `POST /chems/verifica`), and Swissmedic-backed drug

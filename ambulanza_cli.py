@@ -9,7 +9,9 @@ Uso (dal mezzo, qualunque device con Python):
       [--fast face,arm] [--clinica dolore_toracico] [--server http://127.0.0.1:8097]
 
 Il token è letto da team_token.txt accanto al server (stessa macchina) o da
-OMEGA_TEAM_TOKEN (device remoto). Stampa il pre-alert calcolato dal server.
+OMEGA_TEAM_TOKEN (device remoto). Stampa ciò che il server risponde: nel profilo di default (comunicazione,
+0.7.2) i vitali come inviati e la nota «nessun punteggio calcolato»; con OMEGA_PROFILO=punteggi il pre-alert calcolato.
+La CLI NON calcola nulla da sola.
 """
 from __future__ import annotations
 import argparse
@@ -71,6 +73,7 @@ def main(argv=None) -> int:
                           "alert_coscienza": not a.non_alert, "temp": a.temp},
                "farmaci": a.farmaci, "eta": a.eta, "eta_arrivo_min": a.arrivo,
                "fast_segni": fast, "clinica": clinica or None}
+    payload = {k: v for k, v in payload.items() if v is not None}   # chiavi assenti, non null: il server le dichiarerebbe «ignorate»
     req = urllib.request.Request(a.server.rstrip("/") + "/valuta",
                                  data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json",
@@ -82,13 +85,16 @@ def main(argv=None) -> int:
                           "fallback": "comunicazione VOCALE diretta col PS"}, ensure_ascii=False))
         return 1
     pre = r.get("prealert", {})
-    print(json.dumps({"ok": r.get("ok"), "id": r.get("id"),
-                      "priorita": pre.get("priorita"), "NEWS2": pre.get("NEWS2"),
-                      "azione": pre.get("azione_raccomandata"),
-                      "percorsi": pre.get("percorsi_attivare"),
-                      "avvisi": pre.get("avvisi"),
-                      "provenienza": (r.get("provenienza") or {}).get("self_hash", "")[:16]},
-                     ensure_ascii=False, indent=1))
+    out = {"ok": r.get("ok"), "id": r.get("id")}
+    if pre.get("profilo") == "comunicazione":       # 0.7.2: il server nel profilo di default NON calcola: lo dice, non stampa null muti
+        out.update({"profilo": "comunicazione", "nota": pre.get("nota_profilo"), "vitali": pre.get("vitali"),
+                    "campi_non_calcolati": pre.get("campi_non_calcolati")})
+    else:
+        out.update({"priorita": pre.get("priorita"), "NEWS2": pre.get("NEWS2"),
+                    "azione": pre.get("azione_raccomandata"), "percorsi": pre.get("percorsi_attivare"),
+                    "avvisi": pre.get("avvisi")})
+    out["provenienza"] = (r.get("provenienza") or {}).get("self_hash", "")[:16]
+    print(json.dumps(out, ensure_ascii=False, indent=1))
     return 0 if r.get("ok") else 1
 
 
