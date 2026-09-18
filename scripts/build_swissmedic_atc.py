@@ -47,32 +47,40 @@ def main() -> int:
     hdr = rows[hdr_i]
     col = {}
     for k, v in hdr.items():
-        t = " ".join(str(v).split())                     # le intestazioni hanno a capo interni
-        if t.startswith("Zulassungs-nummer"): col["zn"] = k        # non "Zulassungsinhaberin" (titolare)
-        elif t.startswith("Bezeichnung"): col["nome"] = k
-        elif t.startswith("ATC"): col["atc"] = k
-        elif t.startswith("Packungscode"): col["pc"] = k
-        elif t.startswith("Wirkstoff"): col["ws"] = k
+        t = "".join(str(v).split()).replace("-", "").lower()   # intestazioni con a capo/trattini interni, DE/FR nella stessa cella
+        if t.startswith("zulassungsnummer"): col["zn"] = k        # non "zulassungsinhaberin" (titolare)
+        elif t.startswith("bezeichnung"): col["nome"] = k
+        elif t.startswith("atccode"): col["atc"] = k
+        elif t.startswith("packungscode"): col["pc"] = k
+        elif t.startswith("wirkstoff"): col["ws"] = k
+    mancanti = [k for k in ("zn", "nome", "atc", "pc") if k not in col]
+    if mancanti:                                          # mai un dizionario vuoto in silenzio (review Haiku/Gemini 18/09)
+        raise SystemExit(f"intestazioni Swissmedic non riconosciute: manca {mancanti}; colonne viste: {[' '.join(str(v).split())[:30] for v in hdr.values()]}")
     stand = next((str(v) for r in rows[:hdr_i] for v in r.values() if "Stand" in str(v)), "")
-    out = {}
+    out = {}; conflitti = []; scartate = 0
     for r in rows[hdr_i + 1:]:
         zn, pc, atc = r.get(col["zn"]), r.get(col["pc"]), r.get(col["atc"])
         if not (zn and pc and atc) or not str(zn).isdigit() or not str(pc).isdigit():
-            continue
-        g = gtin_ch(str(zn), str(pc))
-        out[g] = str(atc).strip()                      # solo l'ATC: il nome resta quello scritto nel documento
+            scartate += 1 if r else 0; continue
+        g = gtin_ch(str(zn), str(pc)); a = str(atc).strip()
+        if g in out and out[g] != a:                    # stesso GTIN derivato, ATC diverso: conflitto dichiarato, non last-wins
+            conflitti.append((g, out[g], a)); continue
+        out[g] = a                                      # solo l'ATC: il nome resta quello scritto nel documento
     doc = {"_provenienza": {"fonte": "Swissmedic, Zugelassene Packungen (Humanarzneimittel)", "url": URL,
                             "origine": "download diretto" if src == URL else "file locale (stesso contenuto: vedi sha256)",
                             "sha256_xlsx": hashlib.sha256(raw).hexdigest(), "stand": stand,
                             "costruito": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                             "gtin_derivazione": "7680 + Zulassungsnummer(5) + Packungscode(3) + cifra GS1; verificata su 7680405580012 e 7680539870027 (esempi IG CH EMS)",
-                            "n": len(out)},
+                            "n": len(out), "n_righe_scartate_senza_atc_o_packungscode": scartate,
+                            "conflitti_gtin": conflitti[:50], "n_conflitti": len(conflitti)},
            "gtin": out}
+    if len(out) < 10000:                                  # la lista ufficiale ha ~17-18k confezioni: un numero molto più basso = parsing rotto
+        raise SystemExit(f"solo {len(out)} GTIN derivati: parsing sospetto, file non scritto")
     with open(OUT, "w", encoding="utf-8") as f:
         f.write('# -*- coding: utf-8 -*-\n"""GENERATO da scripts/build_swissmedic_atc.py — NON modificare a mano. GTIN svizzero -> codice ATC,\n'
                 'dalla lista ufficiale Swissmedic "Zugelassene Packungen" (provenienza sotto)."""\n')
-        f.write("PROVENIENZA = " + json.dumps(doc["_provenienza"], ensure_ascii=False, indent=1) + "\n")
-        f.write("GTIN_ATC = " + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + "\n")
+        f.write("PROVENIENZA = " + repr(doc["_provenienza"]) + "\n")      # repr, non JSON: null/true non esistono in Python
+        f.write("GTIN_ATC = " + repr(out) + "\n")
     print(json.dumps({"n": len(out), "stand": stand, "out": OUT, "size": os.path.getsize(OUT)}))
     return 0
 

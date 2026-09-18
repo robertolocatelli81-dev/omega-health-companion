@@ -50,10 +50,15 @@ class TestStore(unittest.TestCase):
         self.assertEqual(r["ripristinato_senza"], list(BS.NON_PERSISTITI))
         i = snap["incidenti"][0]; self.assertNotIn("VIA ROSSI", i["descrizione"]); self.assertEqual(i["ripristinato_senza"], ["descrizione"])
         self.assertEqual(snap["stato_ps"]["stato"], "saturo"); self.assertNotIn("sale", snap["stato_ps"])
+        self.assertIsNone(snap["stato_ps"]["destinazione_alternativa"])      # testo libero: mai su disco (review Opus 18/09)
+        with open(self.path, "rb") as fh:
+            self.assertNotIn(b"H2", fh.read())
+        self.assertEqual(oct(os.stat(self.path).st_mode & 0o777), "0o600")
 
     def test_niente_in_chiaro_sul_disco(self):
         st = BS.Store(self.path); st.salva_record(self._rec()); st.close()
-        raw = open(self.path, "rb").read()
+        with open(self.path, "rb") as fh:
+            raw = fh.read()
         for needle in (b"135", b"ALTO", b"sepsi", b"rosso", b"SEGRET", b"prealert", b"46.9"):
             self.assertNotIn(needle, raw, needle)
         rows = sqlite3.connect(self.path).execute("SELECT k, length(nonce), length(blob) FROM kv").fetchall()
@@ -74,6 +79,17 @@ class TestStore(unittest.TestCase):
         os.chmod(self.path + ".key", 0o644)
         with self.assertRaises(PermissionError):
             BS.Store(self.path)
+
+    def test_secondo_processo_rifiutato(self):
+        st = BS.Store(self.path)
+        import subprocess, sys
+        r = subprocess.run([sys.executable, "-c", f"import bacheca_store as BS; BS.Store({self.path!r})"], capture_output=True, text=True,
+                           cwd=os.path.dirname(os.path.abspath(BS.__file__)))
+        self.assertNotEqual(r.returncode, 0); self.assertIn("un altro processo", r.stderr)
+        st.close()
+        r = subprocess.run([sys.executable, "-c", f"import bacheca_store as BS; BS.Store({self.path!r}).close()"], capture_output=True, text=True,
+                           cwd=os.path.dirname(os.path.abspath(BS.__file__)))
+        self.assertEqual(r.returncode, 0, r.stderr)                     # rilasciato il lock, il file si riapre
 
     def test_senza_variabile_nessuno_store(self):
         with mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != BS.STORE_ENV}, clear=True):
@@ -122,6 +138,17 @@ class TestRipristinoBacheca(unittest.TestCase):
 
     def test_ttl_applicato_al_ripristino(self):
         rec = TC._pubblica({"priorita": "ALTO", "eta_paziente": 67}, {"hr": 135}, operatore="eq-1")
+        TC._evento_su_record(rec["id"], "esiti", "esito_clinico", {"diagnosi": "x"}, "ps-1", {"diagnosi_confermata": "STEMI", "operatore_ps": "ps-1"})
+        with TC._LOCK:
+            rec["ts"] = (datetime.now(timezone.utc) - timedelta(hours=TC.BOARD_TTL_H + 1)).isoformat(); TC._persisti_record(rec)
+            TC._scadenza_bacheca()                       # alla scadenza il journal dimentica ANCHE gli esiti (review Opus/Sonnet 18/09)
+            TC.BOARD.clear(); TC._BOARD_SEQ[0] = 0
+        TC._STORE[0].close(); TC._STORE[0] = None        # il lock di processo ammette UN solo Store aperto: chiudo prima di leggere
+        st = BS.Store(self.path); self.assertEqual(st.ripristina()["board"][0]["esiti"], []); st.close()
+        with open(self.path, "rb") as f:
+            self.assertNotIn(b"STEMI", f.read())          # (cifrato comunque, ma il dato non c'è più)
+        TC._ripristina_da_store()
+        rec = TC._pubblica({"priorita": "ALTO", "eta_paziente": 67}, {"hr": 135}, operatore="eq-1")
         with TC._LOCK:
             rec["ts"] = (datetime.now(timezone.utc) - timedelta(hours=TC.BOARD_TTL_H + 1)).isoformat()
             TC._persisti_record(rec); TC.BOARD.clear(); TC._BOARD_SEQ[0] = 0
@@ -129,8 +156,9 @@ class TestRipristinoBacheca(unittest.TestCase):
         rip = TC._ripristina_da_store()
         self.assertEqual(rip["scaduti_al_ripristino"], 1)
         r = TC.BOARD[0]; self.assertIsNone(r["vitali"]); self.assertIsNone(r["prealert"]); self.assertTrue(r["scaduto"])
-        # e il journal ha dimenticato i vitali: un secondo ripristino non li fa riapparire
-        raw = BS.Store(self.path).ripristina()["board"][0]; self.assertIsNone(raw["vitali"])
+        # e il journal ha dimenticato i vitali: un secondo ripristino non li fa riapparire (chiudo prima: un solo Store aperto)
+        TC._STORE[0].close(); TC._STORE[0] = None
+        st = BS.Store(self.path); self.assertIsNone(st.ripristina()["board"][0]["vitali"]); st.close()
 
 
 if __name__ == "__main__":

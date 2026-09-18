@@ -82,7 +82,7 @@ COMMERCIALI_CH = {
     "nitrolingual": "nitrati", "nitroglycerin": "nitrati", "isoket": "nitrati",
     "aspirin": "fans", "aspégic": "fans", "aspegic": "fans", "alcacyl": "fans",
     "fentanyl": "oppioidi", "morphin": "oppioidi", "morphine": "oppioidi", "oxynorm": "oppioidi", "targin": "oppioidi",
-    "tramal": "oppioidi", "temesta": "benzodiazepine", "dormicum": "benzodiazepine", "valium": "benzodiazepine",
+    "tramal": "tramadolo", "temesta": "benzodiazepine", "dormicum": "benzodiazepine", "valium": "benzodiazepine",
     "midazolam": "benzodiazepine", "marcoumar": "warfarin", "sintrom": "warfarin", "xarelto": "doac", "eliquis": "doac",
     "lixiana": "doac", "pradaxa": "doac", "viagra": "inibitori-pde5", "cialis": "inibitori-pde5",
     "sortis": "statine", "crestor": "statine", "zocor": "statine", "klacid": "macrolidi", "zithromax": "macrolidi",
@@ -92,21 +92,26 @@ COMMERCIALI_CH = {
 
 # ATC (WHO) → classe della tabella interazioni. Prefissi, dal più specifico: la prima corrispondenza vince.
 # Fonte del codice ATC per un farmaco svizzero: Swissmedic «Zugelassene Packungen» via GTIN (data/swissmedic_gtin_atc.json).
+# Prefissi STRETTI (review Opus 18/09): V08A = solo mezzi iodati (V08C gadolinio NON interagisce con metformina);
+# G04BE = solo i PDE5 veri (03 sildenafil, 08 tadalafil, 09 vardenafil, 11 avanafil; NON 01 alprostadil);
+# M01A per sottogruppo FANS (NON M01AX glucosamina/condroitina); B01AE07 = solo dabigatran (NON irudine/argatroban);
+# niente N05CF (z-drugs: non sono benzodiazepine, l'etichetta sarebbe falsa).
 ATC_CLASSE = [
-    ("C01DA", "nitrati"), ("G04BE", "inibitori-pde5"),
+    ("C01DA", "nitrati"),
+    ("G04BE03", "inibitori-pde5"), ("G04BE08", "inibitori-pde5"), ("G04BE09", "inibitori-pde5"), ("G04BE11", "inibitori-pde5"),
     ("N01AH", "oppioidi"), ("N02A", "oppioidi"), ("N02AX02", "tramadolo"),
-    ("N05BA", "benzodiazepine"), ("N05CD", "benzodiazepine"), ("N05CF", "benzodiazepine"),
-    ("B01AA", "warfarin"), ("B01AE", "doac"), ("B01AF", "doac"),
-    ("M01A", "fans"), ("N02BA", "fans"), ("B01AC06", "fans"),
+    ("N05BA", "benzodiazepine"), ("N05CD", "benzodiazepine"),
+    ("B01AA", "warfarin"), ("B01AE07", "doac"), ("B01AF", "doac"),
+    ("M01AB", "fans"), ("M01AC", "fans"), ("M01AE", "fans"), ("M01AG", "fans"), ("M01AH", "fans"), ("N02BA", "fans"), ("B01AC06", "fans"),
     ("C10AA", "statine"), ("J01FA", "macrolidi"), ("J01MA", "chinolonici"),
     ("C09A", "ace-inibitori"), ("C09B", "ace-inibitori"), ("C03DA", "diuretici-risparmiatori-k"),
     ("A10BA02", "metformina"), ("N06AB", "ssri"), ("N06AF", "imao"), ("N06AG", "imao"),
     ("J02AB", "azoli-antifungini"), ("J02AC", "azoli-antifungini"), ("A12BA", "potassio"),
-    ("V08", "mezzo-di-contrasto"),
+    ("V08A", "mezzo-di-contrasto"),
 ]
 
 _GTIN_ATC = None
-GTIN_SYSTEMS = ("urn:oid:2.51.1.1",)          # GS1 GTIN, come negli esempi dell'IG CH EMS
+GTIN_SYSTEMS = ("urn:oid:2.51.1.1", "https://www.gs1.org/gtin")   # GS1 GTIN: OID (esempi IG CH EMS) e URI HL7
 
 
 def _gtin_atc() -> dict:
@@ -115,8 +120,8 @@ def _gtin_atc() -> dict:
         try:
             import swissmedic_gtin_atc as D                    # modulo generato (scripts/build_swissmedic_atc.py)
             _GTIN_ATC = {"_provenienza": D.PROVENIENZA, "gtin": D.GTIN_ATC}
-        except ImportError:
-            _GTIN_ATC = {"_provenienza": None, "gtin": {}}    # senza il modulo: nessun GTIN riconosciuto, dichiarato
+        except Exception as e:  # noqa: BLE001 — anche SyntaxError/AttributeError di un modulo scritto a metà (review Sonnet 18/09)
+            _GTIN_ATC = {"_provenienza": {"errore": f"{type(e).__name__}: modulo dati non caricato"}, "gtin": {}}
     return _GTIN_ATC
 
 
@@ -129,8 +134,13 @@ def classe_da_atc(atc: str):
 
 
 def riconosci_gtin(gtin: str):
-    """GTIN svizzero → (classi, atc) via Swissmedic, o None. Dato ufficiale con provenienza nel file dati."""
-    atc = _gtin_atc()["gtin"].get(str(gtin).strip())
+    """GTIN svizzero → (classi, atc) via Swissmedic, o None. Dato ufficiale con provenienza nel file dati.
+    GTIN-14 con zeri iniziali (forma GS1) normalizzato a 13 cifre; solo cifre."""
+    g = str(gtin).strip()
+    if not g.isdigit():
+        return None
+    g = g.lstrip("0") if len(g) > 13 else g
+    atc = _gtin_atc()["gtin"].get(g)
     if not atc:
         return None
     cl = classe_da_atc(atc)
@@ -138,11 +148,17 @@ def riconosci_gtin(gtin: str):
 
 
 def riconosci_commerciale(nome: str):
-    """Nome commerciale/display di un documento CH EMS → classe, o None (dichiarato, non inferito)."""
+    """Nome commerciale/display di un documento CH EMS → INSIEME di classi (via MULTICLASSE: Tramal = oppioide E
+    serotoninergico, come dal GTIN — review Opus/Sonnet 18/09), o None (dichiarato, non inferito)."""
     if not isinstance(nome, str) or not nome.strip():
         return None
-    prima = nome.strip().lower().split()[0].strip(",.;()")
-    return COMMERCIALI_CH.get(prima)
+    prima = nome.strip().lower().split()[0].strip(",.;()®™")   # «Aspirin® protect» → aspirin (review Gemini 18/09)
+    if prima in MULTICLASSE:                                    # principio attivo (sertralina, tramadolo…) o nome commerciale CH
+        return set(MULTICLASSE[prima])
+    c = SINONIMI.get(prima) or COMMERCIALI_CH.get(prima)
+    if not c:
+        return None
+    return set(MULTICLASSE.get(c, {c}))
 
 
 def _classi(farmaco: str) -> set:
@@ -151,8 +167,7 @@ def _classi(farmaco: str) -> set:
         return set(MULTICLASSE[f])
     if f in SINONIMI:
         return {SINONIMI[f]}
-    c = riconosci_commerciale(f)
-    return {c} if c else {f}
+    return riconosci_commerciale(f) or {f}
 
 
 def _classe(farmaco: str) -> str:      # retro-compatibilità (prima classe)

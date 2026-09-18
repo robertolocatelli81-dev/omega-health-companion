@@ -273,7 +273,8 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
     if missione.get("destinazione"):
         destinazione = _org("destinazione", missione["destinazione"], "destinazione (receiving hospital)")
 
-    rischio = {"resourceType": "RiskAssessment", "id": "prealert", "status": "final", "subject": ref("anon"),
+    comunicazione = p.get("profilo") == "comunicazione"      # 0.7.0: nessun RiskAssessment senza punteggi calcolati (review Opus 18/09)
+    rischio = None if comunicazione else {"resourceType": "RiskAssessment", "id": "prealert", "status": "final", "subject": ref("anon"),
                "encounter": ref("missione"), "occurrenceDateTime": ts,
                "method": {"coding": [{"system": CS_LOCALE, "code": "news2", "display": "NEWS2 (RCP 2017) + percorsi tempo-dipendenti"}]},
                "basis": [ref(v) for v in vit_ids.values()],
@@ -290,7 +291,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
         if not re.fullmatch(r"[0-9a-f]{64}", sh):
             raise ValueError("CH EMS: provenienza_omega.self_hash must be the 64-hex ledger digest")
         # the ANCHOR is an entity (the ledger entry this pre-alert is chained to) — a digest is never a signature
-        prov = {"resourceType": "Provenance", "id": "omega-anchor", "target": [ref("composition"), ref("prealert")], "recorded": ts,
+        prov = {"resourceType": "Provenance", "id": "omega-anchor", "target": [ref("composition")] + ([ref("prealert")] if rischio else []), "recorded": ts,
                 "agent": [{"type": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/provenance-participant-type", "code": "author"}]},
                            "who": ref("soccorso")}],
                 "entity": [{"role": "source", "what": {"identifier": {"system": CS_LOCALE + "/ledger", "value": sh}}}]}
@@ -338,9 +339,10 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
     hand_ids = ([priority["id"]] if priority else []) + (["destinazione"] if destinazione else [])
     if hand_ids:
         sections.append(section("handover", X["handover"] + (" · " + X["dest"].format(dest=destinazione["name"]) if destinazione else ""), hand_ids))
-    ann_ids = ["prealert"] + [f["id"] for f in flags] + (["omega-anchor"] if prov else [])
+    ann_ids = ([] if rischio is None else ["prealert"]) + [f["id"] for f in flags] + (["omega-anchor"] if prov else [])
     sections.append({"title": T["annotation"], "code": {"coding": [{"system": LOINC_SYS, "code": "48767-8"}]},   # no display: tx.fhir.org has none per language (fr failed)
-                     "text": _xhtml(X["ann"].format(prio=p.get("priorita"), news=p.get("NEWS2"), avvisi="; ".join(p.get("avvisi") or []) or X["none"],
+                     "text": _xhtml(p.get("nota_profilo") if comunicazione else                       # comunicazione: nessun punteggio nel narrativo
+                                    X["ann"].format(prio=p.get("priorita"), news=p.get("NEWS2"), avvisi="; ".join(p.get("avvisi") or []) or X["none"],
                                                     percorsi=", ".join(p.get("percorsi_attivare") or []) or X["none"])),
                      "entry": [ref(i) for i in ann_ids]})
     # Composition.identifier is the VERSION-INDEPENDENT id (FHIR documents): same mission number + alarm time (normalised to
@@ -378,7 +380,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
     if attester:
         composition["attester"] = [attester]        # the eCH-0207 use case: the crew "unterzeichnet das Dokument"
 
-    for r in entries + [rischio] + flags:            # dom-6 narrative on every resource; observations name their performer
+    for r in entries + ([rischio] if rischio else []) + flags:   # dom-6 narrative on every resource; observations name their performer
         r.setdefault("text", _xhtml(f"{r['resourceType']} {r['id']} (OMEGA pre-alert, missione {mn.strip()})"))
         if r["resourceType"] == "Observation":
             r.setdefault("performer", [ref("soccorso")])
@@ -387,7 +389,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
         r.setdefault("text", _xhtml(f"{r['resourceType']} {r['id']} — missione {mn.strip()}"))
     if prov:
         prov.setdefault("text", _xhtml("OMEGA Provenance: hash-chain anchor" + (" + record-bound signature" if attester else "")))
-    ordered = [composition, patient, soccorso] + ([destinazione] if destinazione else []) + [encounter, richiesta] + entries + [rischio] + flags + ([prov] if prov else [])
+    ordered = [composition, patient, soccorso] + ([destinazione] if destinazione else []) + [encounter, richiesta] + entries + ([rischio] if rischio else []) + flags + ([prov] if prov else [])
     bundle_entries = [{"fullUrl": urn(r["id"]), "resource": r} for r in ordered]
     return {"resourceType": "Bundle", "id": "chems-" + str(uuid.uuid5(uuid.NAMESPACE_URL, "omega-prealert/" + ns)),
             "meta": {"profile": [PROFILE["document"]], "tag": [{"system": CS_LOCALE, "code": "prealert-ambulanza"}]},

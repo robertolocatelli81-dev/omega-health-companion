@@ -268,6 +268,7 @@ def _fb_registra_locked(target_id: str, azione: str, dettaglio: Dict, operatore:
         ok = False
     return {"livello": "firma-locale", "record_sha256": digest.hex(),
             "firma_verificata": ok, "firmatario": operatore,
+            "riga": entry,      # la riga scritta, per chi deve costruire una ricevuta senza rileggere il ledger (0.7.0)
             "nota": ("firma Ed25519 per-operatore legata al record (fallback aperto); "
                      "il motore Part 11 completo aggiunge i significati §11.50")}
 

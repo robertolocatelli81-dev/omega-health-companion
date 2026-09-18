@@ -10,8 +10,8 @@ La guida CH EMS ha Composition.attester ma non profila una firma che leghi i byt
                chiave pubblica dell'operatore, riga del verificatore }
 
 `verifica_ricevuta(ricevuta, doc_bytes)` ricalcola il digest DAI BYTE (mai fidarsi del digest dichiarato: audit
-content-binding 01/09), ricostruisce i byte canonici firmati dal record e verifica la firma con la chiave della
-ricevuta E, se disponibile, con quella del registro locale. Esiti a tre stati: OK / NON VERIFICATA / INCONCLUSIVA
+content-binding 01/09), ricostruisce i byte canonici firmati dal record, verifica la firma con la chiave incorporata
+nella ricevuta e poi controlla che quella chiave coincida con la chiave registrata per l'operatore. Esiti a tre stati: OK / NON VERIFICATA / INCONCLUSIVA
 (chiave non registrata: la firma è valida ma la chiave non è ancorata a un operatore noto).
 """
 from __future__ import annotations
@@ -19,12 +19,14 @@ import base64
 import hashlib
 import json
 import os
+import re
 from typing import Any, Dict, Optional
 
 import audit_bridge as AB
 import chems_ingest as I
 
 CAMPI_FIRMATI = ("kind", "target", "azione", "dettaglio", "operatore", "ts", "prev_sha256", "alg")
+OPERATORE_RE = re.compile(r"^[A-Za-z0-9 ._@-]{1,60}$")     # stesso charset all'emissione (server) e alla verifica
 
 
 def _canon(rec: Dict[str, Any]) -> bytes:
@@ -32,63 +34,67 @@ def _canon(rec: Dict[str, Any]) -> bytes:
                       ensure_ascii=True, allow_nan=False).encode()
 
 
-def _ultima_riga_per_digest(digest: str) -> Optional[Dict[str, Any]]:
-    """La riga del ledger locale il cui dettaglio porta questo doc_sha256 (l'ultima, se più d'una)."""
-    if not os.path.exists(AB.FALLBACK_LEDGER):
-        return None
-    found = None
-    with open(AB.FALLBACK_LEDGER, encoding="utf-8") as f:
-        for line in f:
-            try:
-                e = json.loads(line)
-            except ValueError:
-                continue
-            if e.get("azione") == "ingest_chems" and (e.get("dettaglio") or {}).get("doc_sha256") == digest:
-                found = e
-    return found
+def emettibile() -> Optional[str]:
+    """None se la ricevuta autosufficiente è emettibile (ledger locale firmato), altrimenti il motivo. Va controllato
+    PRIMA di ancorare: con il motore Part 11 il record ha un'altra forma e prima si scriveva l'ancora e poi si rifiutava
+    (review Opus 18/09: due righe di trail per ogni tentativo)."""
+    if AB.MOTORE_DISPONIBILE:
+        return "ricevuta autosufficiente non disponibile col motore Part 11 (record in altra forma): usare il verbale del motore"
+    if not AB.FIRMA_LOCALE_DISPONIBILE:
+        return "ricevuta non emettibile senza firma locale (cryptography assente)"
+    return None
 
 
 def emetti_ricevuta(doc_bytes: bytes, operatore: str, validazione: Optional[Dict] = None) -> Dict[str, Any]:
-    """Ancora il documento (audit firmato) e restituisce la ricevuta autosufficiente."""
+    """Ancora il documento (audit firmato) e restituisce la ricevuta autosufficiente, costruita dalla riga appena
+    scritta (nessuna rilettura del ledger: niente O(N), niente gara fra ingest concorrenti)."""
+    motivo = emettibile()
+    if motivo:
+        return {"ok": False, "motivo": motivo}
     res = I.ancora_documento(doc_bytes, operatore, validazione)
     audit = res["audit"]
-    if audit.get("livello") != "firma-locale":
-        # motore Part 11 o livello base: la ricevuta autosufficiente esiste solo col ledger locale firmato
-        return {"ok": False, "motivo": f"ricevuta non emettibile al livello {audit.get('livello')!r}: serve il ledger locale firmato",
-                "doc_sha256": res["doc_sha256"], "audit": audit}
-    riga = _ultima_riga_per_digest(res["doc_sha256"])
-    if not riga or riga.get("record_sha256") != audit.get("record_sha256"):
-        return {"ok": False, "motivo": "riga firmata non ritrovata nel ledger dopo l'ancoraggio", "doc_sha256": res["doc_sha256"]}
+    riga = audit.get("riga") if audit.get("livello") == "firma-locale" else None
+    if not isinstance(riga, dict) or riga.get("record_sha256") != audit.get("record_sha256"):
+        return {"ok": False, "motivo": "riga firmata non restituita dal bridge", "doc_sha256": res["doc_sha256"]}
     return {"ok": True, "formato": "omega-health-chems-receipt/1", "doc_sha256": res["doc_sha256"], "digest_di": res["digest_di"],
-            "target": res["target"], "record": riga,
-            "verifica": "chems_receipt.verifica_ricevuta(ricevuta, doc_bytes) — offline; o health_verify.py --audit sul ledger"}
+            "target": riga["target"], "record": riga,          # il target come scritto nel ledger (chems/<missione>/ingest_chems)
+            "verifica": "chems_receipt.verifica_ricevuta(ricevuta, doc_bytes) — offline; la riga è inoltre verificabile con health_verify.py --audit"}
 
 
 def verifica_ricevuta(ricevuta: Dict[str, Any], doc_bytes: bytes, keys_dir: Optional[str] = None) -> Dict[str, Any]:
     """Tre stati: OK (digest dai byte = dichiarato, firma valida, chiave registrata per l'operatore),
     INCONCLUSIVA (firma valida ma chiave non nel registro), NON_VERIFICATA (qualsiasi altra cosa, con il motivo)."""
     problemi = []
+    digest = hashlib.sha256(doc_bytes).hexdigest()          # 1) il digest si RICALCOLA dai byte, prima di tutto
     if not isinstance(ricevuta, dict) or ricevuta.get("formato") != "omega-health-chems-receipt/1":
-        return {"stato": "NON_VERIFICATA", "problemi": ["formato di ricevuta sconosciuto"]}
-    rec = ricevuta.get("record") or {}
-    # 1) il digest si RICALCOLA dai byte
-    digest = hashlib.sha256(doc_bytes).hexdigest()
+        return {"stato": "NON_VERIFICATA", "problemi": ["formato di ricevuta sconosciuto"], "doc_sha256": digest}
+    rec = ricevuta.get("record")
+    # tipi ostili (review Opus/Sonnet 18/09): la ricevuta arriva da terzi, ogni campo va controllato prima di usarlo
+    if not isinstance(rec, dict) or not isinstance(rec.get("dettaglio"), dict) or not isinstance(rec.get("operatore"), str) \
+            or not isinstance(rec.get("target"), str) or not all(isinstance(rec.get(k), str) for k in ("record_sha256", "firma_ed25519_b64", "pubkey_b64")):
+        return {"stato": "NON_VERIFICATA", "problemi": ["record malformato: attesi record/dettaglio oggetti, operatore/target/hash/firma/chiave stringhe"], "doc_sha256": digest}
+    if rec.get("azione") != "ingest_chems" or rec.get("kind") != "audit_locale":
+        problemi.append("il record non è un'ancora di documento CH EMS (azione/kind)")
+    if ricevuta.get("target") != rec.get("target"):
+        problemi.append("target della ricevuta ≠ target del record")
+    if not OPERATORE_RE.match(rec["operatore"]):
+        problemi.append("operatore con caratteri non ammessi")
     if ricevuta.get("digest_di") != "bytes":
         problemi.append(f"la ricevuta lega {ricevuta.get('digest_di')!r}, non i byte esatti: verificabile solo dai byte")
     if digest != ricevuta.get("doc_sha256"):
         problemi.append("doc_sha256 dichiarato ≠ sha256 dei byte forniti")
-    if (rec.get("dettaglio") or {}).get("doc_sha256") != digest:
+    if rec["dettaglio"].get("doc_sha256") != digest:
         problemi.append("il record firmato non porta il digest di questi byte")
     # 2) il record: hash canonico e firma
     try:
         canon = _canon(rec)
-    except KeyError as e:
-        return {"stato": "NON_VERIFICATA", "problemi": problemi + [f"record incompleto: manca {e}"]}
+    except (KeyError, ValueError, TypeError) as e:          # campo mancante, NaN, tipo non serializzabile
+        return {"stato": "NON_VERIFICATA", "problemi": problemi + [f"record non canonicalizzabile: {type(e).__name__} {e}"], "doc_sha256": digest}
     rsha = hashlib.sha256(canon).hexdigest()
     if rsha != rec.get("record_sha256"):
         problemi.append("record_sha256 ≠ sha256 dei campi firmati (record alterato)")
     if rec.get("alg") != "ed25519":
-        problemi.append(f"alg {rec.get('alg')!r} non supportato")
+        problemi.append(f"alg {rec.get('alg')!r} non supportato (atteso 'ed25519')" if rec.get("alg") is not None else "alg assente (atteso 'ed25519')")
     firma_ok = False
     try:
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -101,7 +107,8 @@ def verifica_ricevuta(ricevuta: Dict[str, Any], doc_bytes: bytes, keys_dir: Opti
         return {"stato": "NON_VERIFICATA", "problemi": problemi, "doc_sha256": digest}
     # 3) la chiave è di un operatore registrato?
     kd = keys_dir or AB.KEYS_DIR
-    slug = AB._slug(rec.get("operatore", "")) or "anonimo"
+    slug = AB._slug(rec["operatore"]) or "anonimo"         # _slug tiene solo [alnum - _]: nessun separatore di percorso
+    assert re.match(r"^[A-Za-z0-9_-]+$", slug)
     reg = os.path.join(kd, f"fb-{slug}.pub")
     if os.path.exists(reg):
         with open(reg, encoding="utf-8") as f:

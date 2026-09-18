@@ -4,11 +4,14 @@
 controlli nulli (byte diversi, record alterato, firma alterata, chiave non registrata, ricevuta di altro formato);
 end-to-end via HTTP (/chems/ingest, /chems/verifica) sui DOCUMENTI PUBBLICATI DALL'IG (copie nel repo)."""
 import base64
+import glob
 import json
 import os
+import shutil
 import tempfile
 import threading
 import unittest
+import unittest.mock
 import urllib.request
 from http.server import ThreadingHTTPServer
 
@@ -35,7 +38,29 @@ class TestRicevuta(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR = cls._orig
+        AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR = cls._orig; shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_tutti_e_quattro_gli_esempi_ig(self):
+        """Emissione + verifica su TUTTI i documenti pubblicati dall'IG (misurato, non dichiarato)."""
+        files = sorted(glob.glob(os.path.join(HERE, "examples", "chems_conformance", "ig-Bundle-*-Einsatzprotokoll.json")))
+        self.assertEqual(len(files), 4)
+        for f in files:
+            b = open(f, "rb").read(); r = CR.emetti_ricevuta(b, "epcr-nida-test"); self.assertTrue(r["ok"], f)
+            self.assertEqual(CR.verifica_ricevuta(r, b)["stato"], "OK", f)
+            self.assertEqual(CR.verifica_ricevuta(r, b + b" ")["stato"], "NON_VERIFICATA", f)
+
+    def test_tipi_ostili_e_motore_part11(self):
+        r = CR.emetti_ricevuta(self.doc, "epcr-nida-test")
+        for bad in ({**r, "record": "x"}, {**r, "record": [1, 2]}, {**r, "record": 5}, {**r, "record": {**r["record"], "dettaglio": float("nan")}},
+                    {**r, "record": {**r["record"], "operatore": 5}}, {**r, "record": {**r["record"], "operatore": "../../x"}},
+                    {**r, "record": {**r["record"], "azione": "conferma"}}, {**r, "target": "altro"}, {**r, "record": {k: v for k, v in r["record"].items() if k != "alg"}}):
+            v = CR.verifica_ricevuta(bad, self.doc)
+            self.assertEqual(v["stato"], "NON_VERIFICATA", bad)       # mai un'eccezione: tre stati, sempre
+        # con il motore Part 11 la ricevuta non è emettibile e NON si scrive nulla prima di dirlo
+        n0 = sum(1 for _ in open(AB.FALLBACK_LEDGER, encoding="utf-8"))
+        with unittest.mock.patch.object(AB, "MOTORE_DISPONIBILE", True):
+            self.assertFalse(CR.emetti_ricevuta(self.doc, "x")["ok"])
+        self.assertEqual(sum(1 for _ in open(AB.FALLBACK_LEDGER, encoding="utf-8")), n0)
 
     def test_emissione_e_verifica_ok(self):
         r = CR.emetti_ricevuta(self.doc, "epcr-nida-test")
@@ -96,6 +121,7 @@ class TestE2EChems(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.srv.shutdown(); S.LEDGER, T.TOKEN_FILE, AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR = cls._orig
+        shutil.rmtree(cls.tmp, ignore_errors=True)
 
     def _post(self, path, data, token=True, headers=None):
         h = {"Content-Type": "application/fhir+json", **({"X-Omega-Token": self.token} if token else {}), **(headers or {})}
@@ -114,6 +140,10 @@ class TestE2EChems(unittest.TestCase):
         st, v = self._post("/chems/verifica", json.dumps({"ricevuta": out["ricevuta"], "documento_b64": base64.b64encode(doc).decode()}).encode(),
                            headers={"Content-Type": "application/json"})
         self.assertEqual(st, 200); self.assertEqual(v["stato"], "OK", v); self.assertEqual(v["operatore"], "nida-demo")
+        # ricevuta ostile via HTTP: risposta a tre stati, mai una connessione caduta
+        st, v = self._post("/chems/verifica", json.dumps({"ricevuta": {**out["ricevuta"], "record": [1, 2]}, "documento_b64": base64.b64encode(doc).decode()}).encode(),
+                           headers={"Content-Type": "application/json"})
+        self.assertEqual(st, 200); self.assertEqual(v["stato"], "NON_VERIFICATA")
         # byte diversi → NON verificata
         st, v = self._post("/chems/verifica", json.dumps({"ricevuta": out["ricevuta"], "documento_b64": base64.b64encode(doc + b"\n").decode()}).encode(),
                            headers={"Content-Type": "application/json"})
@@ -125,6 +155,8 @@ class TestE2EChems(unittest.TestCase):
 
     def test_rifiuti(self):
         self.assertEqual(self._post("/chems/ingest", b"{}", token=False)[0], 401)
+        # operatore con caratteri fuori dal charset della ricevuta: 422 all'ingest, mai una ricevuta poi non verificabile
+        st, out = self._post("/chems/ingest", open(IG1, "rb").read(), headers={"X-Omega-Operatore": "José Müller"}); self.assertEqual(st, 422, out)
         st, out = self._post("/chems/ingest", b'{"resourceType":"Bundle","type":"collection","entry":[]}')
         self.assertEqual(st, 422, out)
         st, out = self._post("/chems/ingest", b"\xff\xfe not json")

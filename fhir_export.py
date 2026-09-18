@@ -138,7 +138,8 @@ def prealert_to_fhir(prealert_integrato: Dict, vitali: Dict, ts: str,
             "resourceType": "Provenance", "id": "omega-anchor",
             # l'ancora copre il pre-alert (RiskAssessment) quando c'è; nel profilo comunicazione copre le osservazioni
             "target": ([{"reference": _urn("prealert")}] if rischio is not None else
-                       [{"reference": e["resource"].get("_urn") or _urn(e["resource"]["id"])} for e in entries if e["resource"]["resourceType"] == "Observation"]),
+                       ([{"reference": _urn(e["resource"]["id"])} for e in entries if e["resource"]["resourceType"] == "Observation"]
+                        or [{"reference": _urn("anon")}])),        # Provenance.target è 1..*: mai vuoto
             "recorded": ts,
             "agent": [{"who": {"display": "OMEGA prealert ledger (hash-chained, append-only)"}}],
             "signature": [{"type": [{"system": CS_LOCALE, "code": "sha256-chain"}],
@@ -157,8 +158,13 @@ def atmist(eta: Optional[int], orario_evento: str, meccanismo_o_esordio: str,
     """Handover ATMIST — il formato standard di consegna pre-ospedaliera che i
     PS già conoscono (Age, Time, Mechanism, Injuries, Signs, Treatment)."""
     p = prealert_integrato
-    segni = (f"priorità {p.get('priorita')} · NEWS2 {p.get('NEWS2')} · "
-             f"qSOFA {p.get('qSOFA')} · BE-FAST {p.get('BE_FAST')}")
+    if p.get("profilo") == "comunicazione":     # nessun punteggio: il segmento S porta i vitali come inviati (review Opus 18/09)
+        v = p.get("vitali") or {}
+        segni = "vitali come inviati: " + ", ".join(f"{k} {v[k]}" for k in ("rr", "spo2", "sbp", "hr", "temp") if k in v) + \
+                (" · cosciente" if v.get("alert_coscienza") else " · non alert") + (" · O2" if v.get("su_ossigeno") else "")
+    else:
+        segni = (f"priorità {p.get('priorita')} · NEWS2 {p.get('NEWS2')} · "
+                 f"qSOFA {p.get('qSOFA')} · BE-FAST {p.get('BE_FAST')}")
     st = {"A_eta": eta, "T_orario_evento": orario_evento,
           "M_meccanismo_esordio": meccanismo_o_esordio,
           "I_lesioni_problema": lesioni_o_problema,

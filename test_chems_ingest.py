@@ -274,7 +274,7 @@ class TestFarmaciDocumento(unittest.TestCase):
         # i due GTIN dell'esempio IG sono risolti da Swissmedic (ATC ufficiale), l'aspirina dal nome (nessun GTIN nel testo)
         self.assertEqual([x["riconosciuto_da"] for x in f["farmaci"]], ["gtin-swissmedic", "gtin-swissmedic", "nome-commerciale"])
         self.assertEqual([x["atc"] for x in f["farmaci"]], ["N01AH01", "C01DA02", None])
-        self.assertEqual(f["non_riconosciuti"], []); self.assertIn("31.08.2026", f["fonte_gtin"])
+        self.assertEqual(f["non_riconosciuti"], []); self.assertRegex(f["fonte_gtin"] or "", r"\d{2}\.\d{2}\.\d{4}")
         r = I.interazioni_documento(self._ig1())
         self.assertEqual(r["interazioni_note_trovate"], [])          # oppioide+nitrato+FANS: nessuna coppia grave in tabella
         self.assertTrue(r["nessun_allarme"])
@@ -332,10 +332,49 @@ class TestFarmaciDocumento(unittest.TestCase):
         # una sottostringa NON basta: "Nitro-qualcosa" sconosciuto resta sconosciuto
         r = I.interazioni_documento(self._con_farmaci(["Nitroxyz", "Viagra"])); self.assertEqual(r["non_riconosciuti"], ["Nitroxyz"]); self.assertEqual(r["interazioni_note_trovate"], [])
 
+    def test_json_ostile_nei_farmaci_non_crasha(self):
+        """coding: null, elementi scalari, medicationReference non stringa, ® nel nome (review Gemini 18/09)."""
+        doc = self._con_farmaci(["Aspirin® protect 100"])
+        f = I.estrai_farmaci(doc); self.assertEqual(f["farmaci"][0]["classi"], ["fans"])
+        b = doc["bundle"]
+        for e in b["entry"]:
+            r = e["resource"]
+            if r["resourceType"] == "MedicationAdministration" and r["id"] == "x0":
+                r["contained"][0]["code"] = {"coding": None, "text": None}
+        self.assertEqual(I.estrai_farmaci(I.leggi_documento(json.dumps(b).encode()))["farmaci"], [])
+        for e in b["entry"]:
+            r = e["resource"]
+            if r["resourceType"] == "MedicationAdministration" and r["id"] == "x0":
+                r["contained"][0]["code"] = {"coding": ["stringa", 5, {"system": "urn:oid:2.51.1.1", "code": "7680405580012"}]}
+        f = I.estrai_farmaci(I.leggi_documento(json.dumps(b).encode())); self.assertEqual(f["farmaci"][0]["classi"], ["nitrati"])
+        for e in b["entry"]:
+            r = e["resource"]
+            if r["resourceType"] == "MedicationAdministration" and r["id"] == "x0":
+                r["medicationReference"] = {"reference": 12}; r.pop("contained", None)
+        self.assertEqual(len(I.estrai_farmaci(I.leggi_documento(json.dumps(b).encode()))["scartati"]), 1)
+
+    def test_mappa_atc_stretta_e_multiclasse(self):
+        import interazioni_farmaci as IF
+        self.assertIsNone(IF.classe_da_atc("V08CA01"))                 # gadolinio: NON mezzo iodato
+        self.assertEqual(IF.classe_da_atc("V08AB02"), {"mezzo-di-contrasto"})
+        self.assertIsNone(IF.classe_da_atc("G04BE01"))                 # alprostadil: NON PDE5
+        self.assertEqual(IF.classe_da_atc("G04BE03"), {"inibitori-pde5"})
+        self.assertIsNone(IF.classe_da_atc("M01AX05"))                 # glucosamina: NON FANS
+        self.assertEqual(IF.classe_da_atc("M01AE01"), {"fans"})
+        self.assertIsNone(IF.classe_da_atc("N05CF01")); self.assertIsNone(IF.classe_da_atc("B01AE03"))
+        self.assertEqual(IF.classe_da_atc("N02AX02"), {"oppioidi", "tramadolo-serotoninergico"})
+        self.assertEqual(IF.riconosci_commerciale("Tramal 50 mg"), {"oppioidi", "tramadolo-serotoninergico"})   # come dal GTIN
+        self.assertEqual(IF.riconosci_gtin("07680405580012"), ({"nitrati"}, "C01DA02"))   # GTIN-14 con zero iniziale
+        self.assertIsNone(IF.riconosci_gtin("7680-4055-800")); self.assertIsNone(IF.riconosci_gtin(""))
+        # Tramal + SSRI per nome: sindrome serotoninergica trovata (prima si perdeva)
+        r = I.interazioni_documento(self._con_farmaci(["Tramal 50", "Sertralina"], rt="MedicationStatement", status="active"))
+        self.assertTrue(any("serotoninergica" in x["effetto"] for x in r["interazioni_note_trovate"]))
+
     def test_null_controls_status_e_soggetto(self):
         # status non attivo/completato → non conta; altro paziente → non conta (e viene detto)
         self.assertEqual(I.estrai_farmaci(self._con_farmaci(["Nitrolingual", "Viagra"], status="entered-in-error"))["farmaci"], [])
-        f = I.estrai_farmaci(self._con_farmaci(["Nitrolingual", "Viagra"], altro_paziente=True)); self.assertEqual(f["farmaci"], []); self.assertEqual(f["scartati"], 2)
+        f = I.estrai_farmaci(self._con_farmaci(["Nitrolingual", "Viagra"], altro_paziente=True)); self.assertEqual(f["farmaci"], []); self.assertEqual(len(f["scartati"]), 2)
+        self.assertIn("soggetto", f["scartati"][0]["motivo"]); self.assertIn("nessun farmaco valutato", I.interazioni_documento(self._con_farmaci(["Viagra"], altro_paziente=True))["nota"])
         self.assertEqual(I.estrai_farmaci(self._con_farmaci(["Nitrolingual"], status="stopped", rt="MedicationStatement"))["farmaci"], [])
 
 

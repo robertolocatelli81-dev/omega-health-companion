@@ -360,41 +360,53 @@ def estrai_farmaci(doc: Dict[str, Any]) -> Dict[str, Any]:
     comp_url = next(u for u, r in by_url.items() if r is comp)
     pat_ref = (comp.get("subject") or {}).get("reference")
     pat_url = C.risolvi_riferimento(pat_ref, comp_url, by_url) if pat_ref else None
-    out: List[Dict[str, Any]] = []; scartati = 0
+    enc_ref = (comp.get("encounter") or {}).get("reference")
+    enc_url = C.risolvi_riferimento(enc_ref, comp_url, by_url) if isinstance(enc_ref, str) else None
+    out: List[Dict[str, Any]] = []; scartati: List[Dict[str, str]] = []
     for u, r in by_url.items():
         rt = r.get("resourceType")
         if rt not in ("MedicationStatement", "MedicationAdministration"):
             continue
+        rid = f"{rt}/{r.get('id')}"
         ok_status = (rt == "MedicationStatement" and r.get("status") == "active") or \
                     (rt == "MedicationAdministration" and r.get("status") in ("completed", "in-progress"))
         s_ref = (r.get("subject") or {}).get("reference")
-        if not ok_status or pat_url is None or not s_ref or C.risolvi_riferimento(s_ref, u, by_url) != pat_url:
-            scartati += 1; continue
+        if not ok_status:                                      # gli scarti sono NOMINATI, non solo contati (review Opus 18/09)
+            scartati.append({"risorsa": rid, "motivo": f"status {r.get('status')!r} non considerato"}); continue
+        if pat_url is None or not isinstance(s_ref, str) or C.risolvi_riferimento(s_ref, u, by_url) != pat_url:
+            scartati.append({"risorsa": rid, "motivo": "soggetto diverso dalla Composition o non risolvibile"}); continue
+        ctx = (r.get("context") or {}).get("reference") if rt == "MedicationAdministration" else None
+        if enc_url and isinstance(ctx, str) and C.risolvi_riferimento(ctx, u, by_url) != enc_url:
+            scartati.append({"risorsa": rid, "motivo": "somministrazione di un altro encounter"}); continue   # review Sonnet 18/09
         cc = r.get("medicationCodeableConcept")
-        if cc is None and isinstance(r.get("medicationReference"), dict):
+        if not isinstance(cc, dict) and isinstance(r.get("medicationReference"), dict):
             ref = r["medicationReference"].get("reference") or ""
             med = None
-            if ref.startswith("#"):
-                med = next((c for c in r.get("contained", []) if c.get("resourceType") == "Medication" and c.get("id") == ref[1:]), None)
-            else:
+            if isinstance(ref, str) and ref.startswith("#"):
+                med = next((c for c in (r.get("contained") or []) if isinstance(c, dict) and c.get("resourceType") == "Medication" and c.get("id") == ref[1:]), None)
+            elif isinstance(ref, str):
                 mu = C.risolvi_riferimento(ref, u, by_url); med = by_url.get(mu) if mu else None
-            cc = (med or {}).get("code")
+            else:
+                med = None
+            cc = (med or {}).get("code") if isinstance(med, dict) else None
         nome = None; gtin = None
-        if isinstance(cc, dict):
-            nome = next((c.get("display") for c in cc.get("coding", []) if c.get("display")), None) or cc.get("text")
-            gtin = next((c.get("code") for c in cc.get("coding", []) if c.get("system") in IF.GTIN_SYSTEMS and c.get("code")), None)
+        if isinstance(cc, dict):                          # JSON di terzi: coding può essere null o contenere scalari (review Gemini 18/09)
+            coding = [c for c in (cc.get("coding") or []) if isinstance(c, dict)] if isinstance(cc.get("coding"), list) else []
+            nome = next((c.get("display") for c in coding if isinstance(c.get("display"), str)), None) or (cc.get("text") if isinstance(cc.get("text"), str) else None)
+            gtin = next((c.get("code") for c in coding if c.get("system") in IF.GTIN_SYSTEMS and isinstance(c.get("code"), str)), None)
         if not nome and not gtin:
-            scartati += 1; continue
-        # 1) GTIN → ATC (Swissmedic, dato ufficiale) → classe; 2) altrimenti nome commerciale; 3) altrimenti dichiarato non riconosciuto
+            scartati.append({"risorsa": rid, "motivo": "medicinale senza nome né codice"}); continue
+        # 1) GTIN → ATC (Swissmedic, dato ufficiale) → classe; 2) se il GTIN è ignoto, nome commerciale; 3) altrimenti
+        # dichiarato non riconosciuto. Un ATC ufficiale «fuori tabella» NON viene scavalcato dal nome (review Opus 18/09).
         classi, atc, da = None, None, None
         if gtin:
             hit = IF.riconosci_gtin(gtin)
             if hit:
                 classi, atc = hit; da = "gtin-swissmedic" if classi else None
-        if not classi and nome:
+        if not classi and not atc and nome:
             c = IF.riconosci_commerciale(nome)
             if c:
-                classi, da = {c}, "nome-commerciale"
+                classi, da = c, "nome-commerciale"
         out.append({"nome": str(nome or gtin)[:80], "gtin": gtin, "atc": atc, "origine": rt,
                     "classi": sorted(classi) if classi else None, "riconosciuto_da": da})
     return {"farmaci": out, "riconosciuti": [f for f in out if f["classi"]],
@@ -410,10 +422,14 @@ def interazioni_documento(doc: Dict[str, Any]) -> Dict[str, Any]:
     f = estrai_farmaci(doc)
     res = IF.controlla_classi([(x["nome"], set(x["classi"])) for x in f["riconosciuti"]]) if len(f["riconosciuti"]) >= 2 else \
         {"n_farmaci": len(f["riconosciuti"]), "interazioni_note_trovate": [], "nessun_allarme": True, "honest_scope": IF._DISCLAIMER}
-    return {**res, "farmaci_letti": f["farmaci"], "non_riconosciuti": f["non_riconosciuti"], "scartati": f["scartati"],
-            "nota": ("controllo solo sui farmaci riconosciuti per nome commerciale/principio attivo; "
-                     f"{len(f['non_riconosciuti'])} non riconosciuti NON sono stati valutati") if f["non_riconosciuti"] else
-                    "tutti i farmaci letti sono stati valutati"}
+    if not f["farmaci"] and f["scartati"]:
+        nota = f"nessun farmaco valutato: {len(f['scartati'])} risorse scartate (vedi scartati)"
+    elif f["non_riconosciuti"]:
+        nota = ("controllo solo sui farmaci riconosciuti (GTIN ufficiale Swissmedic o nome commerciale); "
+                f"{len(f['non_riconosciuti'])} non riconosciuti NON sono stati valutati")
+    else:
+        nota = "tutti i farmaci letti sono stati valutati (GTIN ufficiale Swissmedic o nome commerciale)"
+    return {**res, "farmaci_letti": f["farmaci"], "non_riconosciuti": f["non_riconosciuti"], "scartati": f["scartati"], "nota": nota}
 
 
 def valuta_documento(doc: Dict[str, Any], eta_arrivo_min: int = 0, eta: Optional[int] = None) -> Dict[str, Any]:
@@ -470,12 +486,13 @@ def ancora_documento(src, operatore: str, validazione: Optional[Dict] = None) ->
         digest, base = hashlib.sha256(canon).hexdigest(), "canonical-ascii-json"
     ex = estrai_vitali(doc)
     dettaglio: Dict[str, Any] = {"doc_sha256": digest, "digest_di": base, "ig": f"ch.fhir.ig.ch-ems#{C.IG_VERSION}",
-                                 "stato_documento": str(ex["stato_documento"]), "missione_numero": str(ex["missione"].get("numero") or ""),
+                                 "stato_documento": str(ex["stato_documento"]), "missione_numero": str(ex["missione"].get("numero") or "")[:40],
                                  "entries": sum(doc["per_tipo"].values())}
     if validazione and validazione.get("ran"):
         dettaglio["validator_errori"] = int(len(validazione.get("errors", [])))
         dettaglio["validator_warning"] = int(len(validazione.get("warnings", [])))
-    target = f"chems/{ex['missione'].get('numero') or digest[:16]}"
+    num = re.sub(r"[^A-Za-z0-9._-]", "-", str(ex["missione"].get("numero") or ""))[:40]   # stringa di terzi: charset e lunghezza limitati
+    target = f"chems/{num or digest[:16]}"
     rec = AB.registra_evento_clinico(target, "ingest_chems", dettaglio, operatore)
     return {"doc_sha256": digest, "digest_di": base, "target": target, "audit": rec}
 

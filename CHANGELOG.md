@@ -8,13 +8,14 @@ signed evidence and the CH EMS format are untouched.
 
 - **Encrypted board journal, opt-in** (`bacheca_store.py`, `OMEGA_BOARD_STORE=<file.sqlite>`): pre-alerts, triage,
   receipts, outcomes, incidents and ED status survive a restart. AES-256-GCM per entry (key file 0600, refused if wider),
-  tamper = no data (AEAD). What today is promised "memory only" stays so: free text, confirmation notes, attachment
+  modified bytes = no data (AEAD; deletion or rollback of an entry is not detected — the signed ledger is the evidence). What today is promised "memory only" stays so: free text, confirmation notes, attachment
   bytes, exact coordinates, incident descriptions are NOT written and come back empty with `ripristinato_senza`
   listing them. TTL applies at restore; expired records lose vitals in the journal too. Without the variable: RAM only,
   exactly as before. Without `cryptography`: the store refuses to open.
 - **Per-operator identity** (`operatori.py`): `POST /operatori` (admin token = the server token) creates an operator
   with a token shown once (only its SHA-256 on disk, 0600); `POST /operatori/revoca`. With `X-Omega-Operatore-Token`
-  the name used for the Ed25519 signature is the registered slug: the body cannot impersonate. Responses carry
+  the name used for the Ed25519 signature is the registered slug: the body cannot impersonate *when an operator token is
+  used*, and a declared name matching a registered operator is refused (403). The pre-alert response (`/valuta`) carries
   `identita: autenticata | dichiarata`. Pilot mode `OMEGA_REQUIRE_OPERATOR=1`: clinical events without an authenticated
   operator get a named 403. Declared limit: service-level identity, not legal non-repudiation (eID/QTSP not done).
 - **Receipt for third-party ePCRs** (`chems_receipt.py`, `POST /chems/ingest`, `POST /chems/verifica`): any CH EMS
@@ -28,15 +29,25 @@ signed evidence and the CH EMS format are untouched.
   verified on the two GTINs of the IG examples). `chems_ingest` now reads MedicationStatement (active) and
   MedicationAdministration (completed/in-progress) of the Composition's subject, resolves GTIN → ATC → interaction
   class (or the Swiss trade name, `COMMERCIALI_CH`), runs the interaction check on recognised drugs only and lists the
-  unrecognised ones (with their ATC when known) instead of ignoring them. Bundle-1: Fentanyl (N01AH01), Nitrolingual
+  unrecognised ones (with their ATC when known) and the discarded resources (status, other subject, other encounter)
+  instead of ignoring them. The ATC→class table covers the pairs in `INTERAZIONI` only (e.g. no ARBs, no
+  amiloride/triamterene, no metformin combinations): those are reported as "fuori dalla tabella", not checked. Bundle-1: Fentanyl (N01AH01), Nitrolingual
   (C01DA02), Aspirin Cardio — no severe pair in the table; positive control Nitrolingual + Viagra by GTIN → GRAVE.
-- **Intended use and run profiles** (`INTENDED_USE.md`, `OMEGA_PROFILO`): `comunicazione` removes every decisional
-  field from the pre-alert (scores, priority, recommendation, pathways, flags) and lists them; the FHIR R4 export emits
-  no RiskAssessment in that profile (found by the new test: it used to emit "priorità None · NEWS2 None"); `punteggi`
+- **Intended use and run profiles** (`INTENDED_USE.md`, `OMEGA_PROFILO`): in `comunicazione` the scoring engine is
+  NOT executed (inputs are validated only) and no decisional field exists in the pre-alert (scores, priority,
+  recommendation, pathways, flags, drug warnings); the FHIR R4 export, the CH EMS document and the ATMIST handover carry
+  vitals as sent and no RiskAssessment (found by the new tests: they used to emit "priorità None · NEWS2 None"); `punteggi`
   (default) is unchanged and its EU MDR Rule 11 / MepV exposure is stated, with the Swissmedic Merkblatt
   BW630_30_007 v3.0 quoted for the "storage, archiving, communication" boundary.
-- Tests: 182 across 15 files (new: test_bacheca_store, test_chems_receipt, test_operatori, test_profilo; test_chems_ingest
-  +5), green with and without `cryptography` in CI.
+- Four-mind review (Gemini Pro, Claude Opus, Sonnet, Haiku) on the diff, findings fixed before the tag: an operator token
+  could rotate the admin token; the admin's own rotation self-locked in pilot mode; the confirmation form and the
+  attachment upload bypassed pilot mode; drug warnings leaked into the communication profile; the journal kept outcomes
+  after expiry and the free-text alternative destination; a journal write error dropped the connection after a signed
+  publish; restored records ignored a changed profile; `/atmist` and the CH EMS document were profile-blind; receipts
+  were looked up by document digest (spurious 503 on concurrent ingest); non-ASCII tokens raised.
+- Tests: 190 across 15 files (new: test_bacheca_store, test_chems_receipt, test_operatori, test_profilo; test_chems_ingest
+  +5), green in both CI configurations; the journal, receipt, operator-identity and profile end-to-end tests need the signed local
+  ledger and are skipped (declared) in the bare-stdlib configuration.
 
 ## 0.6.2 — 2026-09-18 — public claims audited: test counts, opt-in TSA tests
 
