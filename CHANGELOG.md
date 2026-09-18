@@ -13,7 +13,7 @@
   assignment, so an `OMEGA_PROFILO` exported in the environment cannot change what they test — measured: with `setdefault`
   and the variable exported to `comunicazione`, 5 files failed; and not at import time, because `unittest discover` imports
   every file before running any — measured: with a module-level set plus restore, `test_coordinamento` ran under the default
-  and failed). CI now also runs the suite collected in one process. The profile tests cover the default: the end-to-end test now posts an adult, a 3-year-old
+  and failed). CI now also runs the suite collected in one process (the first CI run of 0.7.2 was red: the new steps lacked the no-cryptography job's unsigned opt-in and the fail-closed server answered 503; the steps now carry the same environment as the per-file step). The profile tests cover the default: the end-to-end test now posts an adult, a 3-year-old
   and a known drug interaction, then scans the board, metrics, incidents, page, FHIR export, ATMIST and CH EMS document for
   every decisional key (each `avvisi` occurrence must be empty, `tipo_paziente` null at any depth, no nitrate text). Positive
   controls: the scanner self-checks in code on an injected key and an injected warning, and by hand a `"priorita"` added

@@ -32,8 +32,14 @@ jobs:
             python3 "$t"
           done
       - name: Same suite collected in ONE process (profile must not leak between files)
+        env:
+          OMEGA_PACKAGE_DIR: /nonexistent
+          OMEGA_HEALTH_ALLOW_UNSIGNED: ${{ matrix.crypto == 'none' && '1' || '' }}   # same opt-in as the step above (first run: 503, fail-closed)
         run: python3 -m unittest discover -p "test_*.py"
       - name: Same suite with OMEGA_PROFILO exported (the configuration that exposed the setdefault bug)
+        env:
+          OMEGA_PACKAGE_DIR: /nonexistent
+          OMEGA_HEALTH_ALLOW_UNSIGNED: ${{ matrix.crypto == 'none' && '1' || '' }}
         run: |
           OMEGA_PROFILO=comunicazione python3 -m unittest discover -p "test_*.py"
           OMEGA_PROFILO=punteggi python3 -m unittest discover -p "test_*.py"
