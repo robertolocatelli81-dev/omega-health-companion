@@ -55,13 +55,18 @@ class TestStore(unittest.TestCase):
         r = json.loads(json.dumps(SAMPLE_REC)); r["ts"] = datetime.now(timezone.utc).isoformat(); r.update(over); return r
 
     def test_round_trip_senza_i_campi_solo_memoria(self):
-        self._visto = []                                 # i BYTE reali passati a encrypt (review Opus r11: non «l'oggetto riletto ri-serializzato»)
-        with mock.patch.object(BS, "serializza", side_effect=lambda o: self._visto.append(orig_serializza(o)) or self._visto[-1]):
+        # i BYTE reali passati a encrypt: si intercetta ENCRYPT stesso, non il serializzatore (review Opus r11-r12: così la frase
+        # «i byte consegnati a encrypt» è vera per costruzione e nessun'altra chiamata al serializzatore può alimentare la cattura)
+        self._visto = []; cls = BS._aesgcm(); orig_encrypt = cls.encrypt
+        def _spia(cipher, nonce, data, ad):
+            self._visto.append(bytes(data)); return orig_encrypt(cipher, nonce, data, ad)
+        with mock.patch.object(cls, "encrypt", new=_spia):
             self._round_trip_body()
 
     def _round_trip_body(self):
         st = BS.Store(self.path); st.salva_record(self._rec()); st.salva_incidente({"id": 3, "ts": datetime.now(timezone.utc).isoformat(), "descrizione": "VIA ROSSI 12 TARGA XY", "aperto_da": "centrale"})
         st.salva_stato_ps({"stato": "saturo", "ts": "t", "operatore_ps": "dr", "destinazione_alternativa": "Ospedale Nord Trauma Center H2", "sale": "SALE-SOLO-IN-MEMORIA-MAI-SU-DISCO"}); st.close()
+        plaintext = b"".join(self._visto)                # SOLO i byte della sessione di scrittura, presi PRIMA del ripristino (review Opus r12)
         snap = BS.Store(self.path).ripristina()
         r = snap["board"][0]
         self.assertEqual(r["vitali"], {"hr": 135, "sbp": 85}); self.assertEqual(r["triage_start"], "rosso")
@@ -77,19 +82,20 @@ class TestStore(unittest.TestCase):
         # gli spazi non poteva mai comparire nel JSON compatto → test nullo). Prima si prova che il marcatore È nel plaintext
         # che lo store cifra, poi che NON è nel file.
         persistiti = {"stato": "saturo", "triage_start": "rosso", "hr": 135}
-        plaintext = b"".join(self._visto)
         for k, v in persistiti.items():
             m = orig_serializza({k: v})[1:-1]; self.assertGreaterEqual(len(m), 8, m)
             self.assertIn(m, plaintext, m)                                              # positivo: nei byte passati a encrypt c'è
             self.assertNotIn(m, raw, m)                                                 # negativo: nel file cifrato no
-        for m in (b"Ospedale Nord Trauma Center", b"VIA ROSSI 12 TARGA", b"SALE-SOLO-IN-MEMORIA-MAI-SU-DISCO"):   # solo in RAM
+        for m in (b"Ospedale Nord Trauma Center", b"VIA ROSSI 12 TARGA", b"SALE-SOLO-IN-MEMORIA-MAI-SU-DISCO"):   # solo in RAM:
+            self.assertNotIn(m, plaintext, m)             # mai nei byte consegnati a encrypt (esclusione, non cifratura — review Opus r12)
             self.assertNotIn(m, raw)
         # controllo positivo IN SUITE (review Opus r11): una riga in chiaro scritta nello stesso file DEVE far trovare il marcatore
         import sqlite3
         db = sqlite3.connect(self.path); db.execute("INSERT INTO kv (k, nonce, blob) VALUES ('leak', X'', ?)", (orig_serializza(snap["stato_ps"]),)); db.commit(); db.close()
         with open(self.path, "rb") as fh:
             self.assertIn(orig_serializza({"stato": "saturo"})[1:-1], fh.read())
-        db = sqlite3.connect(self.path); db.execute("DELETE FROM kv WHERE k = 'leak'"); db.commit(); db.close()
+        db = sqlite3.connect(self.path); db.execute("PRAGMA secure_delete=ON"); db.execute("DELETE FROM kv WHERE k = 'leak'"); db.commit(); db.close()
+        # (secure_delete: le pagine liberate vengono azzerate; comunque ogni assertNotIn su `raw` sta PRIMA di questo blocco)
         self.assertEqual(oct(os.stat(self.path).st_mode & 0o777), "0o600")
 
     def test_sale_esiti_e_chiave_altrove(self):
