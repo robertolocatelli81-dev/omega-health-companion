@@ -11,8 +11,12 @@ Zweckbestimmung»). It states what the software is for, what it is not for, and 
 ### `comunicazione` — communication and evidence only (DEFAULT)
 The server receives the vital signs and mission data *as sent by the crew*, shows them to the emergency
 department (board page, `/api/board`, FHIR and ATMIST), records who sent what and when in a signed hash-chained ledger, and renders the pre-alert as a
-CH EMS document. **It computes and shows no score, no priority, no recommendation, no pathway.** The fields that
-would carry them are removed and listed in every response (`campi_non_calcolati`).
+CH EMS document. **It computes and shows no score, no priority, no recommendation, no pathway.** The scoring
+engine is not executed: the pre-alert is rebuilt from the validated inputs only, any decisional field sent by a
+client (for example a score computed by the CLI) is ignored, and the fields that would carry them are listed in
+every response as not computed (`campi_non_calcolati`). A record written by an earlier `punteggi` run and restored
+from the board journal is served the same way: the live profile governs what is served, not the one active when the
+record was written.
 
 Why this profile exists: Swissmedic (same Merkblatt, §4) qualifies software as a medical device only «falls sich
 die Verarbeitung der medizinischen Daten nicht auf die Speicherung, Archivierung, einfache Suche, Kommunikation

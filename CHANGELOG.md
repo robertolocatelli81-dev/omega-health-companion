@@ -8,7 +8,16 @@
   the CH EMS document. Scores return only with `OMEGA_PROFILO=punteggi`, written in the organisation's configuration: activating
   an uncertified decision-support function (EU MDR Annex VIII Rule 11 / MepV exposure) is an explicit act, never a default.
   0.7.1 deployments that relied on scores must set the variable. The CLI and the library are unchanged (they compute when
-  called). Tests of the `punteggi` path declare the profile at the top of their files; the profile tests cover the default.
+  called). Tests of the `punteggi` path set the profile at the top of their files (explicit assignment, so an `OMEGA_PROFILO`
+  exported in the environment cannot change what they test — measured: with `setdefault` and the variable exported to
+  `comunicazione`, 5 files failed). The profile tests cover the default: the end-to-end test now posts an adult, a 3-year-old
+  and a known drug interaction, then scans the board, metrics, incidents, page, FHIR export, ATMIST and CH EMS document for
+  every decisional key, for `tipo_paziente` and for the nitrate warning (positive control: an injected key in `/metriche` is
+  caught); the journal restore test restarts with the variable absent. Under this profile the paediatric gate has nothing to
+  guard (no adult score is ever computed) and a child's vitals are validated like any other input. Review of the diff by
+  Gemini Pro, Opus 5, Sonnet 5 and Haiku 4.5: three findings were false against the code (journal restore and `tipo_paziente`
+  were already gated, the engine branch precedes the engine call, CI runs each test file in its own process) and are recorded
+  as such; the true ones are in this entry.
 
 ## 0.7.1 — 2026-09-18 — after Gemini Pro's whole-product judgement (8 dossiers + synthesis, 7/10)
 

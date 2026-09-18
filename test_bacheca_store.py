@@ -11,7 +11,8 @@ from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 os.environ.setdefault("OMEGA_PACKAGE_DIR", "/nonexistent")
-os.environ.setdefault("OMEGA_PROFILO", "punteggi")   # questi test esercitano il profilo punteggi (default = comunicazione dal 0.7.2)
+os.environ["OMEGA_PROFILO"] = "punteggi"   # questi test esercitano il profilo punteggi (default = comunicazione dal 0.7.2); assegnazione
+                                           # esplicita, non setdefault: un OMEGA_PROFILO esportato nell'ambiente non deve cambiare cosa si testa (review Gemini+Opus 18/09)
 import audit_bridge as AB
 import bacheca_store as BS
 import team_comms as TC
@@ -185,9 +186,12 @@ class TestRipristinoBacheca(unittest.TestCase):
         with TC._LOCK:
             TC.BOARD.clear(); TC._BOARD_SEQ[0] = 0
         TC._STORE[0].close(); TC._STORE[0] = None
-        with mock.patch.dict(os.environ, {TC.PROFILO_ENV: "comunicazione"}):
+        with mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != TC.PROFILO_ENV}, clear=True):   # DEFAULT reale (0.7.2): variabile ASSENTE
             TC._ripristina_da_store()
-        r = TC._find(rid); self.assertIsNone(r["tipo_paziente"]); self.assertNotIn("priorita", r["prealert"]); self.assertEqual(r["prealert"]["profilo"], "comunicazione")
+        r = TC._find(rid); self.assertIsNone(r["tipo_paziente"]); self.assertEqual(r["prealert"]["profilo"], "comunicazione")
+        for k in TC.CAMPI_DECISIONALI:                   # TUTTA la lista, non due chiavi (review Opus 18/09)
+            self.assertTrue(k not in r["prealert"] or r["prealert"][k] == [], k)
+        self.assertEqual(r["prealert"]["avvisi"], [])
         rec2 = TC._pubblica({"priorita": "BASSO", "eta_paziente": 30}, {"hr": 70}, operatore="eq-2")
         self.assertEqual(rec2["id"], rid + 1)
 

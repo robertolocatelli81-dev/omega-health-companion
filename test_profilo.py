@@ -124,6 +124,42 @@ class TestE2EProfilo(unittest.TestCase):
             self.assertIn("vitali come inviati", page); self.assertNotIn("NEWS2 —", page)
             st, met = self._req("GET", "/metriche")            # niente «SCADUTO» per un pre-alert vivo senza priorità calcolata
             self.assertNotIn("SCADUTO", json.dumps(met)); self.assertIn("NON_CALCOLATA", json.dumps(met))
+            # Un adulto, un bambino (3 anni) e un caso di interazione nota (sildenafil + nitrato): sotto il DEFAULT nessuna
+            # uscita del server — bacheca, metriche, incidenti, pagina, FHIR, ATMIST, documento CH EMS — porta una chiave
+            # decisionale né tipo_paziente né la raccomandazione sui nitrati (review Opus/Haiku 18/09: prima si guardava solo /valuta)
+            casi = [dict(VIT, eta=3, vitali={"hr": 150, "rr": 35, "spo2": 94, "sbp": 85, "temp": 39.2, "su_ossigeno": False, "alert_coscienza": True}),
+                    dict(VIT, eta=64, farmaci=["sildenafil", "nitroglicerina"])]
+            ids = [out["id"]]
+            for c in casi:
+                st, o = self._req("POST", "/valuta", c); self.assertEqual(st, 200, o); ids.append(o["id"])
+                self.assertIsNone(o.get("tipo_paziente")); self.assertEqual(o["prealert"]["avvisi"], [])
+            def _chiavi(x, acc):
+                if isinstance(x, dict):
+                    acc.update(x.keys()); [_chiavi(v, acc) for v in x.values()]
+                elif isinstance(x, list):
+                    [_chiavi(v, acc) for v in x]
+                return acc
+            uscite = {"/api/board": self._req("GET", "/api/board")[1], "/metriche": self._req("GET", "/metriche")[1],
+                      "/incidenti": self._req("GET", "/incidenti")[1]}
+            for i in ids:
+                uscite[f"/fhir/{i}"] = self._req("GET", f"/fhir/{i}")[1]
+            vietate = set(T.CAMPI_DECISIONALI) - {"avvisi"}     # avvisi resta come chiave (vuota): lo controlla la riga sopra
+            for nome, u in uscite.items():
+                chiavi = _chiavi(u, set())
+                self.assertFalse(chiavi & vietate, f"{nome}: {chiavi & vietate}")
+                testo = json.dumps(u, ensure_ascii=False)
+                self.assertNotIn("NITRATI", testo, nome); self.assertNotIn('"tipo_paziente": "', testo, nome)
+                for r in (u if isinstance(u, list) else []):
+                    if isinstance(r, dict) and "tipo_paziente" in r:
+                        self.assertIsNone(r["tipo_paziente"], nome)
+            for i in ids:
+                req = urllib.request.Request(self.base + f"/atmist/{i}", headers={"X-Omega-Token": self.token})
+                atm = urllib.request.urlopen(req, timeout=30).read().decode("utf-8")
+                for k in vietate:
+                    self.assertNotIn(k, atm, f"atmist {i}: {k}")
+                self.assertNotIn("NITRATI", atm)
+            st, page = self._req_text("GET", "/?token=" + self.token)
+            self.assertNotIn("NITRATI", page); self.assertNotIn("pediatrico", page.lower()); self.assertNotIn("NEWS2 ", page)
         # nel ledger firmato non c'è comunque mai un punteggio (digest-only): controllo che regge in entrambi i profili
         self.assertNotIn('"NEWS2":', open(AB.FALLBACK_LEDGER).read())
 

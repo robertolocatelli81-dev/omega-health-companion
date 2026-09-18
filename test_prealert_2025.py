@@ -7,7 +7,8 @@ PRIMA di saper fallire (banco-del-banco: un valutatore rotto DEVE essere colto).
 from __future__ import annotations
 import json
 import os
-os.environ.setdefault("OMEGA_PROFILO", "punteggi")   # questi test esercitano il profilo punteggi (default = comunicazione dal 0.7.2)
+os.environ["OMEGA_PROFILO"] = "punteggi"   # questi test esercitano il profilo punteggi (default = comunicazione dal 0.7.2); assegnazione
+                                           # esplicita, non setdefault: un OMEGA_PROFILO esportato nell'ambiente non deve cambiare cosa si testa (review Gemini+Opus 18/09)
 import sys
 import tempfile
 import threading

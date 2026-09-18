@@ -204,14 +204,16 @@ endpoints, published results) with a clinical partner. See `GRANT_APPLICATION.md
 `ONE_PAGER_CLINICO.md`. Automatic ECG interpretation is deliberately **absent**:
 without clinical validation it would be an overclaim.
 
-## Intended use and run profiles (0.7.0)
+## Intended use and run profiles (0.7.0; default `comunicazione` since 0.7.2)
 `INTENDED_USE.md` states what the software is for and for what it is not, with the Swissmedic Merkblatt on
 software (BW630_30_007 v3.0) and EU MDR Rule 11 as references. Two profiles, chosen at start-up with
 `OMEGA_PROFILO`: `comunicazione` (**the default since 0.7.2**: vitals as sent, identity, signed evidence, CH EMS
 document — **no score, no recommendation**, the scoring engine is not executed and the fields are listed as not
 computed in every response) and `punteggi` (opt-in, `OMEGA_PROFILO=punteggi`: scores shown as supporting
 information; regulatory exposure declared, no conformity assessment done). The CLI (`ambulanza_cli.py`) and the
-library keep computing scores when called directly: the profile governs the server. Also new in 0.7.0:
+library keep computing scores when called directly: the profile governs the server, which under `comunicazione`
+rebuilds every pre-alert from the validated inputs and ignores any decisional field a client sends (`/prealert`
+is routed to `/valuta` for the same reason). The active profile is printed at start-up. Also new in 0.7.0:
 per-operator tokens (`POST /operatori`, admin token only; `OMEGA_REQUIRE_OPERATOR=1` refuses clinical events
 without an authenticated operator), the optional AES-256-GCM board journal (`OMEGA_BOARD_STORE`), the receipt
 endpoint for third-party ePCRs (`POST /chems/ingest`, `POST /chems/verifica`), and Swissmedic-backed drug
