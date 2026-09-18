@@ -120,7 +120,7 @@ class TestE2EChems(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.srv.shutdown(); S.LEDGER, T.TOKEN_FILE, AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR = cls._orig
+        cls.srv.shutdown(); cls.srv.server_close(); S.LEDGER, T.TOKEN_FILE, AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR = cls._orig
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
     def _post(self, path, data, token=True, headers=None):

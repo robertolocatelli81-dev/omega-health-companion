@@ -161,7 +161,8 @@ def atmist(eta: Optional[int], orario_evento: str, meccanismo_o_esordio: str,
     if p.get("profilo") == "comunicazione":     # nessun punteggio: il segmento S porta i vitali come inviati (review Opus 18/09)
         v = p.get("vitali") or {}
         segni = "vitali come inviati: " + ", ".join(f"{k} {v[k]}" for k in ("rr", "spo2", "sbp", "hr", "temp") if k in v) + \
-                (" · cosciente" if v.get("alert_coscienza") else " · non alert") + (" · O2" if v.get("su_ossigeno") else "")
+                (" · cosciente" if v.get("alert_coscienza") is True else (" · non alert" if v.get("alert_coscienza") is False else "")) + \
+                (" · O2" if v.get("su_ossigeno") else "")      # dato assente = nulla, mai «non alert» inventato (review Gemini r2)
     else:
         segni = (f"priorità {p.get('priorita')} · NEWS2 {p.get('NEWS2')} · "
                  f"qSOFA {p.get('qSOFA')} · BE-FAST {p.get('BE_FAST')}")

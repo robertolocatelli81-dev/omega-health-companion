@@ -95,22 +95,23 @@ def verifica_ricevuta(ricevuta: Dict[str, Any], doc_bytes: bytes, keys_dir: Opti
         problemi.append("record_sha256 ≠ sha256 dei campi firmati (record alterato)")
     if rec.get("alg") != "ed25519":
         problemi.append(f"alg {rec.get('alg')!r} non supportato (atteso 'ed25519')" if rec.get("alg") is not None else "alg assente (atteso 'ed25519')")
-    firma_ok = False
     try:
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
         pk = Ed25519PublicKey.from_public_bytes(base64.b64decode(rec["pubkey_b64"]))
         pk.verify(base64.b64decode(rec["firma_ed25519_b64"]), bytes.fromhex(rsha))
-        firma_ok = True
     except Exception as e:  # noqa: BLE001
         problemi.append(f"firma Ed25519 non valida ({type(e).__name__})")
     if problemi:
         return {"stato": "NON_VERIFICATA", "problemi": problemi, "doc_sha256": digest}
     # 3) la chiave è di un operatore registrato?
     kd = keys_dir or AB.KEYS_DIR
-    slug = AB._slug(rec["operatore"]) or "anonimo"         # _slug tiene solo [alnum - _]: nessun separatore di percorso
-    assert re.match(r"^[A-Za-z0-9_-]+$", slug)
+    slug = AB._slug(rec["operatore"])                      # _slug tiene solo [alnum - _]: nessun separatore di percorso
+    if not slug or not re.match(r"^[A-Za-z0-9_-]+$", slug):   # mai un ripiego su «anonimo» condiviso (review Haiku r2); mai assert
+        return {"stato": "NON_VERIFICATA", "problemi": ["operatore non riducibile a uno slug di chiave"], "doc_sha256": digest}
     reg = os.path.join(kd, f"fb-{slug}.pub")
     if os.path.exists(reg):
+        if os.stat(reg).st_mode & 0o022:                   # chiave pubblica scrivibile da altri: sostituibile, non affidabile
+            return {"stato": "NON_VERIFICATA", "problemi": [f"registro chiavi {os.path.basename(reg)} scrivibile da altri"], "doc_sha256": digest}
         with open(reg, encoding="utf-8") as f:
             registrata = f.read().strip()
         if registrata == rec["pubkey_b64"]:

@@ -4,6 +4,7 @@
 autenticata vince sul body, modalità pilota OMEGA_REQUIRE_OPERATOR=1 (403 senza operatore), controlli nulli."""
 import json
 import os
+import shutil
 import tempfile
 import threading
 import unittest
@@ -25,7 +26,7 @@ class TestRegistro(unittest.TestCase):
         self.d = tempfile.mkdtemp(); self._o = OP.REGISTRO; OP.REGISTRO = os.path.join(self.d, "operatori.json")
 
     def tearDown(self):
-        OP.REGISTRO = self._o
+        OP.REGISTRO = self._o; shutil.rmtree(self.d, ignore_errors=True)
 
     def test_crea_autentica_revoca(self):
         out = OP.crea("eq-12", "equipaggio"); tok = out["token"]
@@ -38,7 +39,7 @@ class TestRegistro(unittest.TestCase):
         with self.assertRaises(PermissionError):          # registro con permessi larghi: rifiutato
             OP.autentica("qualsiasi")
         os.chmod(OP.REGISTRO, 0o600)
-        for bad in (("EQ 12", "equipaggio"), ("x", "equipaggio"), ("eq-1", "dio"), (None, "ps"), ("eq.12", "ps")):
+        for bad in (("EQ 12", "equipaggio"), ("x", "equipaggio"), ("eq-1", "dio"), (None, "ps"), ("eq.12", "ps"), ("admin", "ps"), ("equipaggio-ambulanza", "equipaggio")):
             with self.assertRaises(ValueError):
                 OP.crea(*bad)
 
@@ -59,7 +60,8 @@ class TestE2EOperatori(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.srv.shutdown(); S.LEDGER, T.TOKEN_FILE, AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR, OP.REGISTRO = cls._orig
+        cls.srv.shutdown(); cls.srv.server_close(); S.LEDGER, T.TOKEN_FILE, AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR, OP.REGISTRO = cls._orig
+        shutil.rmtree(cls.tmp, ignore_errors=True)
 
     def _post(self, path, obj, headers):
         req = urllib.request.Request(self.base + path, data=json.dumps(obj).encode(), method="POST", headers={"Content-Type": "application/json", **headers})
@@ -77,9 +79,15 @@ class TestE2EOperatori(unittest.TestCase):
         self.assertEqual(st, 200, out); self.assertEqual(out["identita"], "autenticata")
         led = open(AB.FALLBACK_LEDGER, encoding="utf-8").read().strip().splitlines()
         last = json.loads(led[-1]); self.assertEqual(last["operatore"], "eq-7"); self.assertNotIn("impostore", open(AB.FALLBACK_LEDGER).read())
+        self.assertEqual(last["dettaglio"]["identita"], "autenticata")          # l'identità è nel record FIRMATO, non solo nella risposta
         # con il solo token admin (retro-compatibile): identità DICHIARATA, e lo dice
         st, out = self._post("/valuta", {**VIT, "operatore": "eq-99"}, {"X-Omega-Token": self.admin})
         self.assertEqual(st, 200); self.assertEqual(out["identita"], "dichiarata")
+        self.assertEqual(json.loads(open(AB.FALLBACK_LEDGER, encoding="utf-8").read().strip().splitlines()[-1])["dettaglio"]["identita"], "dichiarata")
+        # eq-99 ha ora una chiave nata "dichiarata": registrarlo come operatore è rifiutato senza adotta_chiave (review Opus r2)
+        st, out = self._post("/operatori", {"slug": "eq-99", "ruolo": "equipaggio"}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 400); self.assertIn("era dichiarata", out["error"])
+        st, out = self._post("/operatori", {"slug": "eq-99", "ruolo": "equipaggio", "adotta_chiave": True}, {"X-Omega-Token": self.admin})
+        self.assertEqual(st, 200); self.assertEqual(out["evento"], "creazione_operatore_con_chiave_preesistente")
         # ENTRAMBI gli header: il token operatore decide (banco 18/09: prima vinceva l'admin → identità "dichiarata")
         st, out = self._post("/valuta", {**VIT, "operatore": "impostore"}, {"X-Omega-Token": self.admin, "X-Omega-Operatore-Token": tok})
         self.assertEqual(st, 200); self.assertEqual(out["identita"], "autenticata")
@@ -96,10 +104,14 @@ class TestE2EOperatori(unittest.TestCase):
         st, out = self._post("/operatori", {"slug": "eq-7", "ruolo": "equipaggio"}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 409)
         st, out = self._post("/operatori", {"slug": "eq-7", "ruolo": "equipaggio", "riemetti": True}, {"X-Omega-Token": self.admin})
         self.assertEqual(st, 200); self.assertEqual(out["evento"], "riemissione_token"); self.assertNotEqual(out["token"], tok); tok = out["token"]
+        st, out = self._post("/operatori", {"slug": "eq-7", "ruolo": "ps", "riemetti": True}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 400)   # la riemissione non cambia il ruolo
         # un token operatore NON gestisce gli operatori; un token revocato non entra
         st, _ = self._post("/operatori", {"slug": "eq-8", "ruolo": "ps"}, {"X-Omega-Operatore-Token": tok}); self.assertEqual(st, 403)
         st, _ = self._post("/operatori/revoca", {"slug": "eq-7"}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 200)
         st, _ = self._post("/valuta", VIT, {"X-Omega-Operatore-Token": tok}); self.assertEqual(st, 401)
+        st, out = self._post("/operatori", {"slug": "eq-7", "ruolo": "equipaggio", "riemetti": True}, {"X-Omega-Token": self.admin})
+        self.assertEqual(out["evento"], "riattivazione_operatore")                            # riattivare un revocato è un evento NOMINATO
+        self.assertEqual(OP.elenco()["eq-7"]["storia"][-1]["evento"], "riattivazione_operatore"); self.assertIn("revocato_il", OP.elenco()["eq-7"]["storia"][-1])
         st, _ = self._post("/valuta", VIT, {"X-Omega-Operatore-Token": "x" * 43}); self.assertEqual(st, 401)
 
     def test_registro_non_leggibile_nominato(self):
@@ -141,6 +153,17 @@ class TestE2EOperatori(unittest.TestCase):
             except urllib.error.HTTPError as e:
                 self.assertEqual(e.code, 403)
             self.assertNotIn("dr-impostore", open(AB.FALLBACK_LEDGER).read())
+            # in modalità pilota la pagina di loopback NON contiene il token admin e offre un campo per il token operatore
+            req = urllib.request.Request(self.base + "/"); page = urllib.request.urlopen(req, timeout=30).read().decode()
+            self.assertNotIn(self.admin, page); self.assertIn("token operatore", page)
+            # e il form funziona con il token operatore nel campo token
+            import urllib.parse
+            form = urllib.parse.urlencode({"token": tok, "id": rid, "nota": "stroke team pronto"}).encode()
+            req = urllib.request.Request(self.base + "/conferma", data=form, method="POST", headers={"Content-Type": "application/x-www-form-urlencoded"})
+            try:
+                urllib.request.urlopen(req, timeout=30)
+            except urllib.error.HTTPError as e:
+                self.assertEqual(e.code, 303)
             # la gestione operatori resta possibile con l'admin anche in modalità pilota; e la rotazione del token non si auto-blocca
             st, out = self._post("/operatori", {"slug": "eq-2", "ruolo": "equipaggio"}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 200); tok_eq = out["token"]
             # atti del PS: un operatore equipaggio NON può registrare la ricezione / lo stato PS; uno con ruolo ps sì

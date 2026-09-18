@@ -57,14 +57,14 @@ def main() -> int:
     if mancanti:                                          # mai un dizionario vuoto in silenzio (review Haiku/Gemini 18/09)
         raise SystemExit(f"intestazioni Swissmedic non riconosciute: manca {mancanti}; colonne viste: {[' '.join(str(v).split())[:30] for v in hdr.values()]}")
     stand = next((str(v) for r in rows[:hdr_i] for v in r.values() if "Stand" in str(v)), "")
-    out = {}; conflitti = []; scartate = 0
+    out = {}; conflitti = []; scartate = 0; ambigui = set()
     for r in rows[hdr_i + 1:]:
         zn, pc, atc = r.get(col["zn"]), r.get(col["pc"]), r.get(col["atc"])
         if not (zn and pc and atc) or not str(zn).isdigit() or not str(pc).isdigit():
             scartate += 1 if r else 0; continue
         g = gtin_ch(str(zn), str(pc)); a = str(atc).strip()
-        if g in out and out[g] != a:                    # stesso GTIN derivato, ATC diverso: conflitto dichiarato, non last-wins
-            conflitti.append((g, out[g], a)); continue
+        if g in out and out[g] != a:                    # stesso GTIN derivato, ATC diverso: la chiave AMBIGUA esce dal dizionario
+            conflitti.append((g, out[g], a)); ambigui.add(g); continue   # (review Sonnet r2: né first- né last-wins)
         out[g] = a                                      # solo l'ATC: il nome resta quello scritto nel documento
     doc = {"_provenienza": {"fonte": "Swissmedic, Zugelassene Packungen (Humanarzneimittel)", "url": URL,
                             "origine": "download diretto" if src == URL else "file locale (stesso contenuto: vedi sha256)",
@@ -74,6 +74,8 @@ def main() -> int:
                             "n": len(out), "n_righe_scartate_senza_atc_o_packungscode": scartate,
                             "conflitti_gtin": conflitti[:50], "n_conflitti": len(conflitti)},
            "gtin": out}
+    for g in ambigui:
+        out.pop(g, None)
     if len(out) < 10000:                                  # la lista ufficiale ha ~17-18k confezioni: un numero molto più basso = parsing rotto
         raise SystemExit(f"solo {len(out)} GTIN derivati: parsing sospetto, file non scritto")
     with open(OUT, "w", encoding="utf-8") as f:

@@ -42,10 +42,13 @@ certification we do not have.
 - Not identity-proofing: operator tokens tie an event to *who holds the token* (service-level identity). Legal
   non-repudiation towards third parties needs an eID/QTSP signature, which is not implemented and not promised.
   Roles (`equipaggio`, `centrale`, `ps`, `admin`) are recorded; in pilot mode (`OMEGA_REQUIRE_OPERATOR=1`) the
-  emergency-department acts (`/ricezione`, `/stato_ps`, `/esito`) require the `ps` role; other routes accept any
-  authenticated operator. Revoking an operator blocks the token; the per-operator signing key stays on disk and is
+  emergency-department acts (`/ricezione`, `/stato_ps`, `/esito`) require the `ps` role (or the operator role
+  `admin`, which carries no administrative rights: operators are managed only with the server token); other routes
+  accept any authenticated operator. In pilot mode the board page carries no token and its confirmation form is
+  inactive: confirmations go through the API with an operator token. Revoking an operator blocks the token; the per-operator signing key stays on disk and is
   reused if the same slug is re-issued, so pre- and post-revocation signatures are told apart by the ledger's
-  timestamps and the registry's `revocato`/`riemesso` fields, not by the key.
+  timestamps and the registry's `storia` (events `riemissione_token` / `riattivazione_operatore` with `revocato_il`),
+  not by the key. If the signing key itself may have been exposed, do not re-issue: revoke and create a new slug.
 - The administration token IS the pre-existing server token (`team_token.txt`), i.e. the credential every terminal
   of a 0.6.x deployment already holds. Whoever has it can create operators, so `identita: autenticata` is proof
   against the body of a request, not against an insider who holds the server token. A pilot that wants the
@@ -74,8 +77,9 @@ certification we do not have.
   codes (triage colour, outcome code, ED state, receipt codes); the optional board journal is
   AES-256-GCM encrypted and never stores free text (messages, confirmation notes, incident descriptions, the
   free-text alternative destination), attachments or coordinates; free text lives in process memory with a TTL.
-  Threat model of the journal: it protects data at rest (media theft, disposal, copy of the file alone); it does
-  not protect against a compromised host, where key file and journal sit together. Modified bytes are detected
+  Threat model of the journal: with the default key location (next to the file) it protects only a copy of the
+  journal file alone; media theft or disposal takes the key along. To cover those, put the key on another medium
+  (`OMEGA_BOARD_STORE_KEY`). A compromised host is never covered. Modified bytes are detected
   (AEAD); deletion or rollback of a whole entry is not — the signed ledger, not the journal, is the evidence.
   The journal is written synchronously inside the board lock: on a slow disk every clinical write waits for it.
 - **One process:** the server is the standard-library `ThreadingHTTPServer`; locks are thread locks and the

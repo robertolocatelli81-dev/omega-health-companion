@@ -16,8 +16,9 @@ SQLite che NON cambia la natura del prodotto:
 - il ledger firmato resta la fonte di verità: il journal è una copia di lavoro, non evidenza. L'AEAD rileva byte
   modificati; NON rileva la cancellazione o il ripristino di una voce a una versione precedente valida (nessun
   MAC d'insieme): chi può scrivere sul file può far sparire un record dalla bacheca, mai dal ledger firmato;
-- minaccia coperta: dati a riposo (furto del supporto, smaltimento, copia del solo file). NON coperta: host compromesso
-  (chiave e file stanno insieme);
+- minaccia coperta DI DEFAULT (chiave accanto al file): solo la copia del solo file .sqlite. Il furto o lo smaltimento del
+  supporto porta con sé anche la chiave: per coprirli la chiave va su un altro supporto (OMEGA_BOARD_STORE_KEY). Host
+  compromesso: mai coperto;
 - UN processo: i lock sono di thread. Il server è il ThreadingHTTPServer della libreria standard, non un WSGI
   multi-worker; con più processi sullo stesso file il journal (e operatori.json) si corromperebbero (review 18/09).
 """
@@ -30,6 +31,7 @@ import threading
 from typing import Any, Dict, List, Optional, Tuple
 
 STORE_ENV = "OMEGA_BOARD_STORE"
+KEY_ENV = "OMEGA_BOARD_STORE_KEY"           # percorso alternativo della chiave (altro supporto): opzionale
 
 # campi di un record di bacheca che POSSONO andare nel journal (cifrati); tutto il resto NON viene persistito
 CAMPI_RECORD = ("id", "ts", "prealert", "vitali", "provenienza", "audit", "incidente_id", "tipo_paziente",
@@ -50,7 +52,9 @@ def _aesgcm():
 class Store:
     def __init__(self, path: str):
         self.path = path
-        self.key_path = path + ".key"
+        # la chiave può stare su un altro supporto (OMEGA_BOARD_STORE_KEY): solo così il furto del supporto dati non porta con sé la
+        # chiave (review Sonnet r2); di default sta accanto al file e protegge SOLO la copia del solo file
+        self.key_path = os.environ.get(KEY_ENV) or (path + ".key")
         self._lock = threading.Lock()
         # UN processo per journal: lock esclusivo sul file <path>.lock tenuto aperto per tutta la vita dello Store; un secondo
         # processo (worker WSGI, doppio avvio) si ferma subito invece di corrompere sqlite in silenzio (review Haiku 18/09)
@@ -61,18 +65,28 @@ class Store:
         except OSError:
             os.close(self._lock_fd)
             raise SystemExit(f"{STORE_ENV}: {path} è già aperto da un altro processo (un solo processo per journal)")
-        self._key = self._load_or_create_key()
+        try:
+            self._key = self._load_or_create_key()
+        except Exception:
+            os.close(self._lock_fd); raise
         self._cipher = _aesgcm()(self._key)               # fail-closed all'apertura; UN solo key schedule (review Gemini 18/09)
-        nuovo = not os.path.exists(path)
+        if not os.path.exists(path):                          # il file nasce GIÀ 0600 (review Gemini r2: prima sqlite lo creava con
+            os.close(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))   # l'umask e il chmod arrivava dopo)
+        st_db = os.stat(path)
+        if st_db.st_mode & 0o077:                             # anche un journal preesistente con permessi larghi è rifiutato (review Opus r2)
+            os.close(self._lock_fd)                           # rilascia il lock di processo prima di uscire
+            raise PermissionError(f"{path}: permessi troppo larghi ({oct(st_db.st_mode & 0o777)}); attesi 0600")
         self._db = sqlite3.connect(path, check_same_thread=False)
-        if nuovo:
-            os.chmod(path, 0o600)                             # come la chiave: solo il proprietario (review Opus 18/09)
         self._db.execute("CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, nonce BLOB NOT NULL, blob BLOB NOT NULL)")
         self._db.commit()
 
     # ── chiave ────────────────────────────────────────────────────────────────────────────────────────────────
     def _load_or_create_key(self) -> bytes:
         if not os.path.exists(self.key_path):
+            if os.path.exists(self.path) and os.path.getsize(self.path) > 0:
+                # journal presente, chiave assente (supporto non montato, file cancellato): NON si conia una chiave nuova,
+                # altrimenti il journal recuperabile viene poi accusato di manomissione (review Opus r2)
+                raise FileNotFoundError(f"{self.key_path}: chiave assente ma il journal {self.path} esiste: montare/ripristinare la chiave")
             try:
                 fd = os.open(self.key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             except FileExistsError:                        # un altro avvio l'ha appena creata: si legge quella (TOCTOU chiuso da O_EXCL)
@@ -121,7 +135,11 @@ class Store:
 
     # ── API di bacheca ────────────────────────────────────────────────────────────────────────────────────────
     def salva_record(self, rec: Dict[str, Any]) -> None:
-        self._put(f"rec:{int(rec['id'])}", {k: rec.get(k) for k in CAMPI_RECORD})
+        out = {k: rec.get(k) for k in CAMPI_RECORD}
+        # il sale del commitment HMAC (nota clinica dell'esito) vive SOLO in RAM: con il sale su disco la nota a bassa entropia
+        # sarebbe attaccabile a dizionario (review Opus/Sonnet r2); stessa regola di STATO_PS
+        out["esiti"] = [{k: v for k, v in e.items() if k != "sale"} for e in (rec.get("esiti") or []) if isinstance(e, dict)]
+        self._put(f"rec:{int(rec['id'])}", out)
 
     def dimentica_record(self, rid: int) -> None:
         self._del(f"rec:{int(rid)}")
@@ -152,8 +170,9 @@ class Store:
             incidenti.append(i)
         st = self._get_one("stato_ps")
         if st is not None:
-            st["destinazione_alternativa"] = None
-            st["ripristinato_senza"] = ["destinazione_alternativa"]
+            for k in STATO_PS_NON_PERSISTITI:                 # forma del dizionario invariata: le chiavi tornano, a None
+                st[k] = None
+            st["ripristinato_senza"] = list(STATO_PS_NON_PERSISTITI)
         return {"board": board, "incidenti": incidenti, "stato_ps": st, "scartati_senza_ts": senza_ts}
 
     def close(self) -> None:

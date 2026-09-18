@@ -4,6 +4,7 @@
 sono elencati; in `punteggi` tutto come prima; un profilo sconosciuto ferma l'avvio."""
 import json
 import os
+import shutil
 import tempfile
 import threading
 import unittest
@@ -68,7 +69,8 @@ class TestE2EProfilo(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.srv.shutdown(); S.LEDGER, T.TOKEN_FILE, AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR = cls._orig
+        cls.srv.shutdown(); cls.srv.server_close(); S.LEDGER, T.TOKEN_FILE, AB.MOTORE_DISPONIBILE, AB.FALLBACK_LEDGER, AB.KEYS_DIR = cls._orig
+        shutil.rmtree(cls.tmp, ignore_errors=True)
 
     def _req_text(self, method, path):
         req = urllib.request.Request(self.base + path, method=method, headers={"X-Omega-Token": self.token})
@@ -103,8 +105,18 @@ class TestE2EProfilo(unittest.TestCase):
             prov = next(e["resource"] for e in doc["entry"] if e["resource"]["resourceType"] == "Provenance")
             self.assertTrue(all(t["reference"] in urls for t in prov["target"]))   # nessun target pendente (review Opus 18/09)
             self.assertIsNone(out.get("tipo_paziente")); self.assertIn("tipo_paziente", p["campi_non_calcolati"])
+            # SENZA provenienza, in ogni lingua: nessuna sezione con entry vuoto (il validator 6.10.4 lo rifiuta — misurato 18/09: 0 errori)
+            for lang in ("de", "fr", "it", "en"):
+                m = dict(SAMPLE_MISSION); m["lingua"] = lang
+                d2 = C.prealert_to_chems_document(p, VIT["vitali"], "2026-09-18T10:40:00+02:00", m)
+                def _walk(sec):
+                    self.assertNotEqual(sec.get("entry"), [], "entry vuoto"); [_walk(x) for x in sec.get("section", [])]
+                [_walk(sec) for sec in d2["entry"][0]["resource"]["section"]]
+                self.assertIn(C.TEXTS[lang]["nota_profilo"][:20], json.dumps(d2, ensure_ascii=False))
             st, page = self._req_text("GET", "/?token=" + self.token)
             self.assertIn("vitali come inviati", page); self.assertNotIn("NEWS2 —", page)
+            st, met = self._req("GET", "/metriche")            # niente «SCADUTO» per un pre-alert vivo senza priorità calcolata
+            self.assertNotIn("SCADUTO", json.dumps(met)); self.assertIn("NON_CALCOLATA", json.dumps(met))
         # nel ledger firmato non c'è comunque mai un punteggio (digest-only): controllo che regge in entrambi i profili
         self.assertNotIn('"NEWS2":', open(AB.FALLBACK_LEDGER).read())
 

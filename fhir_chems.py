@@ -54,19 +54,19 @@ TITLES = {  # wording suggested by the profile's short descriptions per language
 }
 SECTION_CODE = {"mission": ("1100001", "intervention"), "findings": ("1100006", "findings"), "handover": ("1100011", "handover")}
 TEXTS = {  # narrative sentences per document language (council 16/09: texts must follow Composition.language)
-    "de": {"mission": "Einsatz {mn} · {org} · angefordert von {req}", "times": "Zeiten", "findings": "Vitalparameter während des Transports",
+    "de": {"nota_profilo": "Profil Kommunikation: keine Scores berechnet; Vitalwerte wie übermittelt; die Beurteilung obliegt der Klinik", "mission": "Einsatz {mn} · {org} · angefordert von {req}", "times": "Zeiten", "findings": "Vitalparameter während des Transports",
            "circ": "Herzfrequenz und Blutdruck im Rettungswagen gemessen", "dis": "AVPU: Patient wach (A)", "handover": "Patientenpriorität",
            "dest": "Zielspital {dest}", "patient": "anonymer Patient{age}", "age": ", Alter {eta}", "ann": "OMEGA-Voranmeldung: Priorität {prio}, NEWS2 {news}; Hinweise: {avvisi}; Pfade: {percorsi}. Die Voranmeldung ist an ein hash-verkettetes OMEGA-Ledger verankert (Provenance).",
            "none": "keine", "sr": "Einsatzanforderung von {req}"},
-    "fr": {"mission": "Intervention {mn} · {org} · demandée par {req}", "times": "Heures", "findings": "Paramètres vitaux pendant le transport",
+    "fr": {"nota_profilo": "Profil communication : aucun score calculé ; signes vitaux tels que transmis ; l'évaluation appartient au clinicien", "mission": "Intervention {mn} · {org} · demandée par {req}", "times": "Heures", "findings": "Paramètres vitaux pendant le transport",
            "circ": "Fréquence cardiaque et pression artérielle mesurées dans l'ambulance", "dis": "AVPU : patient alerte (A)", "handover": "Priorité du patient",
            "dest": "hôpital de destination {dest}", "patient": "patient anonyme{age}", "age": ", âge {eta}", "ann": "Pré-alerte OMEGA : priorité {prio}, NEWS2 {news} ; alertes : {avvisi} ; filières : {percorsi}. La pré-alerte est ancrée à un registre OMEGA chaîné par hachage (Provenance).",
            "none": "aucune", "sr": "Demande d'intervention de {req}"},
-    "it": {"mission": "Missione {mn} · {org} · richiesta da {req}", "times": "tempi", "findings": "Parametri vitali rilevati durante il trasporto",
+    "it": {"nota_profilo": "profilo comunicazione: nessun punteggio calcolato; vitali come inviati; la valutazione è del clinico", "mission": "Missione {mn} · {org} · richiesta da {req}", "times": "tempi", "findings": "Parametri vitali rilevati durante il trasporto",
            "circ": "Frequenza cardiaca e pressione arteriosa misurate in ambulanza", "dis": "AVPU: paziente Alert (A)", "handover": "Priorità del paziente",
            "dest": "destinazione {dest}", "patient": "paziente anonimo{age}", "age": ", età {eta}", "ann": "Pre-alert OMEGA: priorità {prio}, NEWS2 {news}; avvisi: {avvisi}; percorsi: {percorsi}. Il pre-alert è ancorato a un ledger hash-chained OMEGA (Provenance).",
            "none": "nessuno", "sr": "Richiesta di intervento da {req}"},
-    "en": {"mission": "Mission {mn} · {org} · requested by {req}", "times": "times", "findings": "Vital signs measured during transport",
+    "en": {"nota_profilo": "communication profile: no score computed; vitals as sent; the assessment is the clinician's", "mission": "Mission {mn} · {org} · requested by {req}", "times": "times", "findings": "Vital signs measured during transport",
            "circ": "Heart rate and blood pressure measured in the ambulance", "dis": "AVPU: patient alert (A)", "handover": "Patient priority",
            "dest": "destination {dest}", "patient": "anonymous patient{age}", "age": ", age {eta}", "ann": "OMEGA pre-alert: priority {prio}, NEWS2 {news}; flags: {avvisi}; pathways: {percorsi}. The pre-alert is anchored to a hash-chained OMEGA ledger (Provenance).",
            "none": "none", "sr": "Service request from {req}"},
@@ -341,10 +341,10 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
         sections.append(section("handover", X["handover"] + (" · " + X["dest"].format(dest=destinazione["name"]) if destinazione else ""), hand_ids))
     ann_ids = ([] if rischio is None else ["prealert"]) + [f["id"] for f in flags] + (["omega-anchor"] if prov else [])
     sections.append({"title": T["annotation"], "code": {"coding": [{"system": LOINC_SYS, "code": "48767-8"}]},   # no display: tx.fhir.org has none per language (fr failed)
-                     "text": _xhtml(p.get("nota_profilo") if comunicazione else                       # comunicazione: nessun punteggio nel narrativo
+                     "text": _xhtml(X["nota_profilo"] if comunicazione else                             # per lingua (review Opus r2)                       # comunicazione: nessun punteggio nel narrativo
                                     X["ann"].format(prio=p.get("priorita"), news=p.get("NEWS2"), avvisi="; ".join(p.get("avvisi") or []) or X["none"],
                                                     percorsi=", ".join(p.get("percorsi_attivare") or []) or X["none"])),
-                     "entry": [ref(i) for i in ann_ids]})
+                     **({"entry": [ref(i) for i in ann_ids]} if ann_ids else {})})   # mai "entry": [] (il validator lo rifiuta — review Opus r2)
     # Composition.identifier is the VERSION-INDEPENDENT id (FHIR documents): same mission number + alarm time (normalised to
     # UTC, so +02:00 and Z spell the same instant) + the per-patient `prealert_id` → same value across preliminary/final/
     # amended and across re-exports. NOT seeded with `ts` (the export instant) — Gemini Pro's review of 18/09 caught that —

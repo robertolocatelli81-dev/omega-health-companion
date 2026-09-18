@@ -30,6 +30,9 @@ REGISTRO = os.path.join(_HERE, "operatori.json")
 REQUIRE_ENV = "OMEGA_REQUIRE_OPERATOR"
 RUOLI = ("equipaggio", "centrale", "ps", "admin")
 _SLUG = re.compile(r"^[a-z0-9][a-z0-9_-]{1,39}$")     # niente '.': audit_bridge._slug lo mapperebbe a '-' → due operatori, una chiave
+# nomi che il server usa come firmatario di sistema o come default dichiarato: registrarli come operatori confonderebbe
+# il ledger (chiave condivisa con «admin») o bloccherebbe ogni chiamata in modalità default (review Opus r2)
+RISERVATI = frozenset({"admin", "anonimo", "equipaggio-ambulanza", "team-ps", "centrale", "epcr-esterno", "ps", "sistema"})
 _LOCK = threading.Lock()
 
 
@@ -37,6 +40,23 @@ def _h(token: str) -> str:
     # SHA-256 semplice, senza KDF: il token è un segreto casuale a 256 bit (token_urlsafe(32)), non una password;
     # una KDF lenta protegge segreti a bassa entropia, qui non aggiunge sicurezza e rallenterebbe ogni richiesta.
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+class _FileLock:
+    """Lock di FILE (fcntl) attorno a read-modify-write del registro: due processi sullo stesso registro non si
+    sovrascrivono (review Sonnet/Haiku r2). Breve, non esclusivo per la vita del processo."""
+    def __init__(self, path: str):
+        self.path = path + ".lock"; self.fd = None
+
+    def __enter__(self):
+        import fcntl
+        self.fd = os.open(self.path, os.O_WRONLY | os.O_CREAT, 0o600)
+        fcntl.flock(self.fd, fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, *a):
+        import fcntl
+        fcntl.flock(self.fd, fcntl.LOCK_UN); os.close(self.fd)
 
 
 def _load() -> Dict[str, dict]:
@@ -76,32 +96,54 @@ def esiste(nome: str) -> bool:
     return any(AB._slug(s) == n for s in reg)
 
 
-def crea(slug: str, ruolo: str, riemetti: bool = False) -> dict:
+def chiave_preesistente(slug: str) -> bool:
+    """True se esiste già una chiave di firma per questo slug nata nell'era «dichiarata» (0.6.x): registrarlo la adotterebbe."""
+    import audit_bridge as AB
+    return os.path.exists(os.path.join(AB.KEYS_DIR, f"fb-{AB._slug(slug)}.key"))
+
+
+def crea(slug: str, ruolo: str, riemetti: bool = False, adotta_chiave: bool = False) -> dict:
     """Crea un operatore; con riemetti=True ri-emette il token (e riattiva) di uno esistente, come evento distinto.
     Ritorna il token IN CHIARO una sola volta."""
     if not isinstance(slug, str) or not _SLUG.match(slug):
         raise ValueError("slug operatore: minuscole, cifre, _ - ; 2-40 caratteri")
     if ruolo not in RUOLI:
         raise ValueError(f"ruolo non ammesso: {ruolo!r} (ammessi: {', '.join(RUOLI)})")
+    if slug in RISERVATI:
+        raise ValueError(f"slug riservato al sistema: {slug!r}")
     import audit_bridge as AB
     token = secrets.token_urlsafe(32)
-    with _LOCK:
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    with _LOCK, _FileLock(REGISTRO):
         reg = _load()
         collisi = [s for s in reg if s != slug and AB._slug(s) == AB._slug(slug)]
         if collisi:
             raise ValueError(f"slug {slug!r} collassa sulla stessa chiave di firma di {collisi[0]!r}")
         if slug in reg and not riemetti:
             raise SlugEsistente(slug)
-        evento = "riemissione_token" if slug in reg else "creazione_operatore"
-        reg[slug] = {"token_sha256": _h(token), "ruolo": ruolo, "attivo": True,
-                     "creato": reg.get(slug, {}).get("creato") or datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                     **({"riemesso": datetime.now(timezone.utc).isoformat(timespec="seconds")} if slug in reg else {})}
+        prev = reg.get(slug)
+        if prev is None and chiave_preesistente(slug) and not adotta_chiave:
+            # la chiave esiste già da eventi DICHIARATI (0.6.x): adottarla renderebbe indistinguibili le firme di prima e di
+            # dopo. Scelta esplicita dell'amministratore (adotta_chiave=True), registrata nell'evento (review Opus r2)
+            raise ValueError(f"per {slug!r} esiste già una chiave di firma dell'era dichiarata: passare adotta_chiave=true per adottarla")
+        if prev is None:
+            evento = "creazione_operatore" + ("_con_chiave_preesistente" if chiave_preesistente(slug) else ""); ruolo_eff = ruolo
+        else:
+            ruolo_eff = prev["ruolo"]                   # la riemissione NON cambia il ruolo (review Gemini r2): revoca e ricrea per cambiarlo
+            if ruolo != ruolo_eff:
+                raise ValueError(f"operatore {slug!r} ha ruolo {ruolo_eff!r}: la riemissione non lo cambia (revoca e ricrea)")
+            evento = "riattivazione_operatore" if not prev.get("attivo") else "riemissione_token"   # nominato (review Opus r2)
+        storia = list((prev or {}).get("storia") or [])
+        if prev is not None:
+            storia.append({"evento": evento, "ts": now, **({"revocato_il": prev["revocato"]} if prev.get("revocato") else {})})
+        reg[slug] = {"token_sha256": _h(token), "ruolo": ruolo_eff, "attivo": True,
+                     "creato": (prev or {}).get("creato") or now, **({"storia": storia} if storia else {})}
         _save(reg)
-    return {"slug": slug, "ruolo": ruolo, "token": token, "evento": evento}
+    return {"slug": slug, "ruolo": ruolo_eff, "token": token, "evento": evento}
 
 
 def revoca(slug: str) -> bool:
-    with _LOCK:
+    with _LOCK, _FileLock(REGISTRO):
         reg = _load()
         if slug not in reg:
             return False

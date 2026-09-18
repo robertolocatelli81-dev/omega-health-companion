@@ -17,3 +17,11 @@ chems_document.json
 chems_document_minimal.json
 chems_validation.json
 broken.json
+
+# 0.7.0: registro operatori (hash dei token, storia), journal cifrato della bacheca e la sua chiave/lock
+operatori.json
+operatori.json.lock
+operatori.json.*.tmp
+*.sqlite
+*.sqlite.key
+*.sqlite.lock

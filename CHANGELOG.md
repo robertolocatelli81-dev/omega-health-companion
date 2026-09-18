@@ -7,7 +7,8 @@ L2 (state in RAM), clinical/regulatory L2, identity via shared token. Everything
 signed evidence and the CH EMS format are untouched.
 
 - **Encrypted board journal, opt-in** (`bacheca_store.py`, `OMEGA_BOARD_STORE=<file.sqlite>`): pre-alerts, triage,
-  receipts, outcomes, incidents and ED status survive a restart. AES-256-GCM per entry (key file 0600, refused if wider),
+  receipts, outcomes, incidents and ED status survive a restart (a `dirotta` status comes back as `saturo` — the
+  destination is never written — and is flagged for re-confirmation; a status older than the TTL is dropped). AES-256-GCM per entry (key file 0600, refused if wider),
   modified bytes = no data (AEAD; deletion or rollback of an entry is not detected — the signed ledger is the evidence). What today is promised "memory only" stays so: free text, confirmation notes, attachment
   bytes, exact coordinates, incident descriptions are NOT written and come back empty with `ripristinato_senza`
   listing them. TTL applies at restore; expired records lose vitals in the journal too. Without the variable: RAM only,
@@ -18,6 +19,9 @@ signed evidence and the CH EMS format are untouched.
   used*, and a declared name matching a registered operator is refused (403). The pre-alert response (`/valuta`) carries
   `identita: autenticata | dichiarata`. Pilot mode `OMEGA_REQUIRE_OPERATOR=1`: clinical events without an authenticated
   operator get a named 403. Declared limit: service-level identity, not legal non-repudiation (eID/QTSP not done).
+  **Upgrade note:** the server token of a 0.6.x deployment is on every terminal; in 0.7.0 that token creates operators.
+  Before enabling pilot mode rotate it (`POST /ruota-token`), keep the new one with the administrator only and give each
+  terminal an operator token.
 - **Receipt for third-party ePCRs** (`chems_receipt.py`, `POST /chems/ingest`, `POST /chems/verifica`): any CH EMS
   document in, a self-contained receipt out (exact-bytes SHA-256 anchored in the signed ledger, chain link, operator key);
   verification offline, three states OK / INCONCLUSIVA (valid signature, key not registered) / NON_VERIFICATA with the
@@ -45,7 +49,7 @@ signed evidence and the CH EMS format are untouched.
   after expiry and the free-text alternative destination; a journal write error dropped the connection after a signed
   publish; restored records ignored a changed profile; `/atmist` and the CH EMS document were profile-blind; receipts
   were looked up by document digest (spurious 503 on concurrent ingest); non-ASCII tokens raised.
-- Tests: 190 across 15 files (new: test_bacheca_store, test_chems_receipt, test_operatori, test_profilo; test_chems_ingest
+- Tests: 194 across 15 files (new: test_bacheca_store, test_chems_receipt, test_operatori, test_profilo; test_chems_ingest
   +5), green in both CI configurations; the journal, receipt, operator-identity and profile end-to-end tests need the signed local
   ledger and are skipped (declared) in the bare-stdlib configuration.
 

@@ -311,13 +311,14 @@ def _identity(operatore: str) -> "AgentIdentity":
     return ident
 
 
-def registra_prealert(prealert_id: str, prealert_sha256: str, operatore: str) -> Dict:
+def registra_prealert(prealert_id: str, prealert_sha256: str, operatore: str, identita: str = "dichiarata") -> Dict:
     """Pre-alert emesso → record CREATE nell'audit trail + firma AUTHORSHIP
-    dell'equipaggio. Nel trail va il DIGEST del pre-alert, mai i dati sanitari."""
+    dell'equipaggio. Nel trail va il DIGEST del pre-alert, mai i dati sanitari; `identita` dice se l'operatore era
+    autenticato con un token proprio o solo dichiarato (0.7.0, nel record FIRMATO)."""
     if not MOTORE_DISPONIBILE:
         if FIRMA_LOCALE_DISPONIBILE:
             return _fb_registra(prealert_id, "emissione",
-                                {"prealert_sha256": prealert_sha256}, operatore)
+                                {"prealert_sha256": prealert_sha256, "identita": identita}, operatore)
         return _livello_base()
     t = _get_trail()
     rec = t.log_change(operatore, AuditAction.CREATE, prealert_id,

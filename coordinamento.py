@@ -218,7 +218,8 @@ def metriche(board: List[Dict], now: Optional[datetime] = None) -> Dict:
     tempi: List[float] = []
     for r in board:
         pa = r.get("prealert") or {}
-        prio[pa.get("priorita", "SCADUTO")] = prio.get(pa.get("priorita", "SCADUTO"), 0) + 1
+        pr = _priorita_o_stato(r)                 # comunicazione: NON_CALCOLATA, non «SCADUTO» (review Opus r2)
+        prio[pr] = prio.get(pr, 0) + 1
         for x in r.get("ricezioni") or []:
             ric += 1
             if x.get("latenza_s") is not None:
@@ -292,12 +293,23 @@ def valida_stato_ps(stato: str, operatore_ps: str, destinazione_alternativa: Opt
 TRIAGE_START = ("rosso", "giallo", "verde", "nero")
 
 # ── 7. Incidenti maggiori (più pazienti) ─────────────────────────────────────────────────
+def _priorita_o_stato(r: Dict) -> str:
+    """Etichetta di priorità per le metriche: il valore calcolato; «NON_CALCOLATA» nel profilo comunicazione (dove per
+    design non esiste); «SCADUTO» solo quando il pre-alert è stato rimosso dalla RAM."""
+    pa = r.get("prealert")
+    if not pa:
+        return "SCADUTO"
+    if pa.get("profilo") == "comunicazione":
+        return "NON_CALCOLATA"
+    return pa.get("priorita", "SCADUTO")
+
+
 def riepilogo_incidente(incidente: Dict, board: List[Dict]) -> Dict:
     pre = [r for r in board if r.get("incidente_id") == incidente["id"]]
     conte: Dict[str, int] = {}
     start: Dict[str, int] = {}
     for r in pre:
-        p = (r.get("prealert") or {}).get("priorita", "SCADUTO")
+        p = _priorita_o_stato(r)
         conte[p] = conte.get(p, 0) + 1
         if r.get("triage_start"):
             start[r["triage_start"]] = start.get(r["triage_start"], 0) + 1

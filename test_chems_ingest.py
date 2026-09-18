@@ -365,7 +365,17 @@ class TestFarmaciDocumento(unittest.TestCase):
         self.assertEqual(IF.classe_da_atc("N02AX02"), {"oppioidi", "tramadolo-serotoninergico"})
         self.assertEqual(IF.riconosci_commerciale("Tramal 50 mg"), {"oppioidi", "tramadolo-serotoninergico"})   # come dal GTIN
         self.assertEqual(IF.riconosci_gtin("07680405580012"), ({"nitrati"}, "C01DA02"))   # GTIN-14 con zero iniziale
-        self.assertIsNone(IF.riconosci_gtin("7680-4055-800")); self.assertIsNone(IF.riconosci_gtin(""))
+        self.assertIsNone(IF.riconosci_gtin("7680-4055-800")); self.assertIsNone(IF.riconosci_gtin("")); self.assertIsNone(IF.riconosci_gtin("00768040558001"))
+        self.assertEqual(IF.classe_da_atc("N03AE01"), {"benzodiazepine"})       # Rivotril (review Opus r2)
+        self.assertEqual(IF.classe_da_atc("C10BA02"), {"statine"}); self.assertEqual(IF.classe_da_atc("C03EA01"), {"diuretici-risparmiatori-k"})
+        # JSON ostile in subject/context non crasha la valutazione (review Opus r2)
+        doc = self._con_farmaci(["Nitrolingual"]); b = doc["bundle"]
+        for e in b["entry"]:
+            r = e["resource"]
+            if r["resourceType"] == "MedicationAdministration" and r["id"] == "x0":
+                r["subject"] = "Patient/x"; r["context"] = 5
+        f = I.estrai_farmaci(I.leggi_documento(json.dumps(b).encode())); self.assertEqual(len(f["scartati"]), 1)
+        r = I.interazioni_documento(self._ig1()); self.assertNotIn("privacy", r); self.assertEqual(r["farmaci_letti"][0]["contesto"], "encounter della Composition")
         # Tramal + SSRI per nome: sindrome serotoninergica trovata (prima si perdeva)
         r = I.interazioni_documento(self._con_farmaci(["Tramal 50", "Sertralina"], rt="MedicationStatement", status="active"))
         self.assertTrue(any("serotoninergica" in x["effetto"] for x in r["interazioni_note_trovate"]))

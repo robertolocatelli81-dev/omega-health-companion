@@ -79,7 +79,7 @@ python3 test_input_types.py             # 31 tests — hostile input types (red-
 python3 test_news2_certificate.py       #  4 tests — NEWS2 certificate
 python3 test_prealert_2025.py           # 49 tests — RCEM/AACE 2025 criteria at the boundaries, ED receipt, verbale, tamper/re-sign/deletion detection
 python3 test_coordinamento.py           #  4 tests — patient types, incidents, ETA/position, messages, attachments, outcomes, metrics, expiry (end-to-end)
-# 126 tests in these six files; CI runs ALL fifteen test_*.py files (190 tests, counted 2026-09-18) on every push, with and without `cryptography`, never with the private engine
+# 126 tests in these six files; CI runs ALL fifteen test_*.py files (194 tests, counted 2026-09-18 by loading every test_*.py with unittest) on every push, with and without `cryptography`, never with the private engine
 # HEALTH_TSA_URL=https://freetsa.org/tsr HEALTH_TSA_CAFILE=cacert.pem python3 test_prealert_2025.py   # + 2 opt-in network tests: real RFC 3161 timestamp, trust chain, wrong CA refused
 python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \
@@ -178,7 +178,9 @@ input is a file or bytes; a caller passing an already-parsed dict has collapsed 
 in the signed, hash-chained audit ledger that the four independent verifiers check offline: the evidence layer
 CH EMS does not have, on top of the format it does (the audit line holds the digest, the mission number — an
 operational quasi-identifier towards the ePCR, no patient data — the IG version and the validator counts). Drug
-interactions are not screened from CH EMS medication lists yet. Real data: the four documents published by the IG
+interactions in CH EMS documents (0.7.0): MedicationStatement/MedicationAdministration of the Composition's subject are
+resolved by Swiss GTIN → ATC (official Swissmedic list) or trade name; the check runs on recognised drugs only and the
+unrecognised and discarded ones are listed. Real data: the four documents published by the IG
 are read end to end (they hold GCS, NACA, blood pressure and mission times but not the NEWS2 vital set, so they are
 reported as not scorable with the missing inputs named).
 

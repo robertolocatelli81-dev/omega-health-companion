@@ -127,7 +127,7 @@ def prealert_comunicazione(body: dict) -> dict:
 
 def applica_profilo(prealert: dict) -> dict:
     """Profilo 'comunicazione': toglie ogni campo decisionale dal pre-alert e lo DICHIARA; 'punteggi': invariato."""
-    if profilo() != "comunicazione":
+    if profilo() != "comunicazione" or prealert.get("profilo") == "comunicazione":   # già in profilo: intatto (review Opus r2)
         return prealert
     tolti = [k for k in CAMPI_DECISIONALI if k in prealert]
     out = {k: v for k, v in prealert.items() if k not in CAMPI_DECISIONALI}
@@ -138,7 +138,8 @@ def applica_profilo(prealert: dict) -> dict:
     return out
 
 
-_STORE_ERR: list = [None]      # ultimo errore del journal (nominato nelle risposte e in /api/board), mai una connessione caduta
+_STORE_ERR: list = [None]      # ultimo errore del journal, nominato in OGNI risposta JSON (campo journal_error / header X-Omega-Journal-Error)
+_STORE_ERR_N: list = [0]       # conteggio cumulativo: non si azzera al successo successivo (review Opus r2)
 
 
 def _journal(op, *a) -> bool:
@@ -147,9 +148,9 @@ def _journal(op, *a) -> bool:
     if _STORE[0] is None:
         return True
     try:
-        op(*a); _STORE_ERR[0] = None; return True
+        op(*a); return True
     except Exception as e:  # noqa: BLE001 — sqlite3.Error, OSError, InvalidTag
-        _STORE_ERR[0] = f"{type(e).__name__}: {str(e)[:120]}"
+        _STORE_ERR[0] = f"{type(e).__name__}: {str(e)[:120]}"; _STORE_ERR_N[0] += 1
         return False
 
 
@@ -165,7 +166,12 @@ def _persisti_incidente(i: dict) -> bool:
 def _ripristina_da_store() -> dict:
     """All'avvio con OMEGA_BOARD_STORE: ricarica bacheca/incidenti/stato PS dal journal, poi applica il TTL
     (un record scaduto NON torna con i vitali) e riallinea i contatori. Ritorna un riepilogo dichiarato."""
-    st = BS.apri_da_ambiente()
+    try:
+        st = BS.apri_da_ambiente()
+    except SystemExit:
+        raise
+    except Exception as e:  # noqa: BLE001 — chiave con permessi larghi / lunghezza errata: nominato all'avvio (review Opus r2)
+        raise SystemExit(f"{BS.STORE_ENV}: journal non apribile ({type(e).__name__}: {e})")
     _STORE[0] = st
     if st is None:
         return {"store": None}
@@ -175,15 +181,32 @@ def _ripristina_da_store() -> dict:
         raise SystemExit(f"{BS.STORE_ENV}: journal non decifrabile o corrotto ({type(e).__name__}): chiave diversa o file manomesso; "
                          "il ledger firmato resta intatto — rimuovere il journal per ripartire")
     with _LOCK:
-        BOARD[:] = [applica_profilo(r) if r.get("prealert") is None else {**r, "prealert": applica_profilo(r["prealert"])} for r in snap["board"]]
-        # ^ il profilo VIVO governa ciò che si serve, non quello attivo quando il record fu scritto (review Sonnet 18/09)
+        def _al_profilo(r):                        # il profilo VIVO governa ciò che si serve, non quello attivo quando il record
+            if profilo() != "comunicazione":       # fu scritto (review Sonnet 18/09); anche tipo_paziente (banco 18/09)
+                return r
+            return {**r, "prealert": (applica_profilo(r["prealert"]) if isinstance(r.get("prealert"), dict) else r.get("prealert")),
+                    "tipo_paziente": None}
+        BOARD[:] = [_al_profilo(r) for r in snap["board"]]
         INCIDENTI[:] = snap["incidenti"]
         if snap["stato_ps"]:
-            STATO_PS.update({k: v for k, v in snap["stato_ps"].items() if k in ("stato", "ts", "operatore_ps", "destinazione_alternativa")})
+            sp = snap["stato_ps"]
+            try:
+                vecchio = (datetime.now(timezone.utc) - datetime.fromisoformat(sp.get("ts"))).total_seconds() / 3600 > BOARD_TTL_H
+            except (TypeError, ValueError):
+                vecchio = True
+            if vecchio:                                        # uno stato più vecchio del TTL non è attuale: si riparte da «accetta»
+                STATO_PS.update({"stato": "accetta", "ts": None, "operatore_ps": None, "destinazione_alternativa": None,
+                                 "ripristinato_senza": (sp.get("ripristinato_senza") or []) + ["stato (più vecchio del TTL: riportato ad accetta)"]})
+            elif sp.get("stato") == "dirotta":                 # la destinazione non è mai su disco: «dirotta» torna come «saturo», la direzione
+                STATO_PS.update({"stato": "saturo", "ts": sp.get("ts"), "operatore_ps": sp.get("operatore_ps"), "destinazione_alternativa": None,   # PRUDENTE (review Opus r2)
+                                 "ripristinato_senza": (sp.get("ripristinato_senza") or []) + ["stato dirotta senza destinazione: riportato a saturo, va riconfermato"]})
+            else:
+                STATO_PS.update({k: v for k, v in sp.items() if k in ("stato", "ts", "operatore_ps", "destinazione_alternativa", "ripristinato_senza")})
         _BOARD_SEQ[0] = max([_BOARD_SEQ[0], AB.ultimo_id_prealert()] + [int(r["id"]) for r in BOARD])
         _INCIDENTE_SEQ[0] = max([_INCIDENTE_SEQ[0], AB.ultimo_id("incidente")] + [int(i["id"]) for i in INCIDENTI])
         scaduti = _scadenza_bacheca()
     return {"store": st.path, "record": len(BOARD), "incidenti": len(INCIDENTI), "scaduti_al_ripristino": scaduti,
+            "scartati_senza_ts": snap.get("scartati_senza_ts", 0),
             "non_ripristinati": list(BS.NON_PERSISTITI) + ["descrizione incidente"]}
 
 
@@ -234,7 +257,7 @@ def _scadenza_bacheca(now: Optional[datetime] = None) -> int:
 
 
 def _pubblica(prealert: dict, vitali: dict | None,
-              operatore: str = "equipaggio-ambulanza", incidente_id: int | None = None) -> dict:
+              operatore: str = "equipaggio-ambulanza", incidente_id: int | None = None, identita: str = "dichiarata") -> dict:
     ts = datetime.now(timezone.utc).isoformat()
     prov = S.ancora_prealert(prealert, ts)          # digest-only di default
     with _LOCK:
@@ -245,7 +268,7 @@ def _pubblica(prealert: dict, vitali: dict | None,
         # audit: CREATE firmato authorship (motore Part 11 se presente, altrimenti firma locale Ed25519); senza
         # firma alza FirmaNonDisponibile (fail-closed 0.6.1) salvo opt-in esplicito OMEGA_HEALTH_ALLOW_UNSIGNED=1
         audit = AB.registra_prealert(f"prealert-{rid}",
-                                     S._hash(prealert), operatore)
+                                     S._hash(prealert), operatore, identita=identita)   # l'identità entra nel record FIRMATO (review Opus r2)
         _BOARD_SEQ[0] = rid
         rec = {"id": rid, "ts": ts, "prealert": prealert,
                "vitali": vitali, "provenienza": prov,
@@ -292,7 +315,7 @@ def _pagina() -> str:
           <div class=meta>conferme: {conf} · <a href="/fhir/{r['id']}">FHIR</a> · <a href="/atmist/{r['id']}">ATMIST</a></div>
           <form method=post action=/conferma>
             <input type=hidden name=id value="{r['id']}">
-            <input type=hidden name=token value="__TOKEN__">
+            __TOKEN_FIELD__
             <input name=operatore placeholder="nome operatore (firma)">
             <input name=nota placeholder="conferma percorso (es. stroke team pronto)">
             <button>Conferma</button>
@@ -394,8 +417,21 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    @staticmethod
+    def _senza_sale(o):
+        """Il sale dei commitment HMAC vive SOLO in RAM: mai in una risposta API (review Opus r2), come mai nel journal."""
+        if isinstance(o, dict):
+            return {k: H._senza_sale(v) for k, v in o.items() if k != "sale"}
+        if isinstance(o, list):
+            return [H._senza_sale(x) for x in o]
+        return o
+
     def _json(self, code, obj):
-        self._send(code, json.dumps(obj, ensure_ascii=False), "application/json; charset=utf-8")
+        obj = self._senza_sale(obj)
+        if isinstance(obj, dict) and _STORE_ERR[0]:          # journal in errore: dichiarato in OGNI risposta JSON (review Opus/Sonnet r2)
+            obj = {**obj, "journal_error": _STORE_ERR[0], "journal_errori_totali": _STORE_ERR_N[0]}
+        self._send(code, json.dumps(obj, ensure_ascii=False), "application/json; charset=utf-8",
+                   extra=({"X-Omega-Journal-Error": str(_STORE_ERR_N[0])} if _STORE_ERR[0] else None))
 
     def _authed(self, qs_token: str | None = None) -> bool:
         """Token di amministrazione (team_token.txt) OPPURE token di un operatore registrato (0.7.0). Con un token
@@ -431,9 +467,15 @@ class H(BaseHTTPRequestHandler):
             return op["slug"]
         if OP.richiesto():
             raise OperatoreRichiesto()
-        nome = str((body or {}).get(campo) or default)[:60]
-        if OP.esiste(nome):                          # review Opus 18/09: un nome DICHIARATO uguale a uno slug registrato
-            raise NomeRiservato(nome)                # firmerebbe con la chiave di quell'operatore: rifiutato
+        nome = str((body or {}).get(campo) or default).strip()[:60] or default
+        if nome and (nome in ("admin", "anonimo", "sistema") or not AB._slug(nome)):   # nomi di sistema o non riducibili a una chiave:
+            raise NomeRiservato(nome)                                                   # mai dichiarati (un nome vuoto lo valida il handler)
+        try:
+            riservato = OP.esiste(nome)              # review Opus 18/09: un nome DICHIARATO uguale a uno slug registrato
+        except PermissionError as e:                 # firmerebbe con la chiave di quell'operatore: rifiutato
+            raise RegistroNonLeggibile(str(e))
+        if riservato:
+            raise NomeRiservato(nome)
         return nome
 
     def _identita(self) -> str:
@@ -452,7 +494,13 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/" or self.path.startswith("/?"):
             if not (self._is_loopback() or self._authed()):
                 return self._send(401, "token richiesto")
-            return self._send(200, _pagina().replace("__TOKEN__", _token() if self._is_loopback() else ""))
+            # in modalità pilota il token admin NON viene messo nella pagina (creerebbe operatori) e il form di conferma
+            # non ha un campo per il token operatore: si usa l'API (review Opus r2)
+            if OP.richiesto():                       # modalità pilota: campo visibile per il token OPERATORE, mai il token admin
+                campo = '<input name=token placeholder="token operatore" type=password>'
+            else:
+                campo = f'<input type=hidden name=token value="{_token() if self._is_loopback() else ""}">'
+            return self._send(200, _pagina().replace("__TOKEN_FIELD__", campo))
         if not self._authed():
             return self._json(401, {"ok": False, "error": "X-Omega-Token mancante o errato"})
         if self.path == "/api/board":
@@ -668,7 +716,7 @@ class H(BaseHTTPRequestHandler):
                 if not esiste:
                     return self._json(400, {"ok": False, "error": f"incidente_id inesistente: {inc!r}"})
             rec = _pubblica(out["PRE_ALERT_INTEGRATO"], body.get("vitali"),
-                            operatore=self._operatore(body, "equipaggio-ambulanza"), incidente_id=inc)
+                            operatore=self._operatore(body, "equipaggio-ambulanza"), incidente_id=inc, identita=self._identita())
             if ts_start is not None:          # tag iniziale: firmato come ogni decisione clinica
                 _op0 = self._operatore(body, "equipaggio-ambulanza")
                 _evento_su_record(rec["id"], "triage", "triage_start", {"triage_start": ts_start}, _op0,
@@ -819,6 +867,7 @@ class H(BaseHTTPRequestHandler):
             det = {"stato": stato, "destinazione_alternativa": imp}
             with _LOCK:      # audit e stato sotto lo stesso lock: l'ordine nel ledger = l'ordine in memoria
                 audit = AB.registra_evento_clinico("ps", "stato_ps", det, op)
+                STATO_PS.pop("ripristinato_senza", None)     # un nuovo stato dichiarato sostituisce quello ripristinato (review Opus r2)
                 STATO_PS.update({"stato": stato, "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                                  "operatore_ps": op, "destinazione_alternativa": dest, "sale": sale})
                 _journal(lambda: _STORE[0].salva_stato_ps(STATO_PS))
@@ -896,12 +945,17 @@ class H(BaseHTTPRequestHandler):
                 return self._json(403, {"ok": False, "error": "solo il token di amministrazione gestisce gli operatori"})
             if self.path == "/operatori":
                 try:
-                    out = OP.crea(body.get("slug"), body.get("ruolo"), riemetti=bool(body.get("riemetti")))
+                    out = OP.crea(body.get("slug"), body.get("ruolo"), riemetti=bool(body.get("riemetti")), adotta_chiave=bool(body.get("adotta_chiave")))
                 except OP.SlugEsistente as e:
                     return self._json(409, {"ok": False, "error": f"operatore '{e}' già registrato: per un nuovo token invia riemetti=true"})
+                except PermissionError as e:
+                    raise RegistroNonLeggibile(str(e))
                 except ValueError as e:
                     return self._json(400, {"ok": False, "error": str(e)})
-                AB.registra_evento_sistema(f"sistema/operatori/{out['slug']}", out["evento"], f"ruolo {out['ruolo']}", "admin")
+                try:
+                    AB.registra_evento_sistema(f"sistema/operatori/{out['slug']}", out["evento"], f"ruolo {out['ruolo']}", "admin")
+                except Exception:                            # noqa: BLE001 — atto amministrativo NON firmato: si annulla (review Opus r2)
+                    OP.revoca(out["slug"]); raise
                 return self._json(200, {"ok": True, **out, "nota": "il token è mostrato UNA volta; sul server resta solo il suo hash"})
             ok = OP.revoca(str(body.get("slug") or ""))
             if ok:
@@ -972,11 +1026,15 @@ class H(BaseHTTPRequestHandler):
 def serve(port=8097, host="127.0.0.1"):
     AB.esigi_firma_o_optin("team-comms")       # fail-closed (0.6.1): senza motore di firma il server non parte
     print(f"profilo d'uso: {profilo()} (INTENDED_USE.md)")
-    OP.elenco()                                # permessi del registro operatori controllati all'avvio (PermissionError nominato)
+    try:
+        OP.elenco()                            # permessi del registro operatori controllati all'avvio
+    except PermissionError as e:
+        raise SystemExit(f"registro operatori: {e}")
     rip = _ripristina_da_store()               # 0.7.0: journal cifrato opt-in (OMEGA_BOARD_STORE); senza = RAM come sempre
     if rip.get("store"):
         print(f"bacheca ripristinata da {rip['store']}: {rip['record']} record, {rip['incidenti']} incidenti, "
-              f"{rip['scaduti_al_ripristino']} scaduti; non ripristinati (per design): {', '.join(rip['non_ripristinati'])}")
+              f"{rip['scaduti_al_ripristino']} scaduti, {rip['scartati_senza_ts']} scartati senza istante; "
+              f"non ripristinati (per design): {', '.join(rip['non_ripristinati'])}")
     livello = "part11" if AB.MOTORE_DISPONIBILE else ("firma-locale" if AB.FIRMA_LOCALE_DISPONIBILE else
                                                         "base (NON FIRMATO, opt-in; senza trail gli id NON sono stabili al riavvio)")
     print(f"OMEGA team-comms su http://{host}:{port}/  (bacheca PS) · token: {TOKEN_FILE} · audit: {livello}")

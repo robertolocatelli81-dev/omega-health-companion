@@ -100,15 +100,16 @@ ATC_CLASSE = [
     ("C01DA", "nitrati"),
     ("G04BE03", "inibitori-pde5"), ("G04BE08", "inibitori-pde5"), ("G04BE09", "inibitori-pde5"), ("G04BE11", "inibitori-pde5"),
     ("N01AH", "oppioidi"), ("N02A", "oppioidi"), ("N02AX02", "tramadolo"),
-    ("N05BA", "benzodiazepine"), ("N05CD", "benzodiazepine"),
+    ("N05BA", "benzodiazepine"), ("N05CD", "benzodiazepine"), ("N03AE", "benzodiazepine"),   # N03AE01 clonazepam/Rivotril (review Opus r2)
     ("B01AA", "warfarin"), ("B01AE07", "doac"), ("B01AF", "doac"),
     ("M01AB", "fans"), ("M01AC", "fans"), ("M01AE", "fans"), ("M01AG", "fans"), ("M01AH", "fans"), ("N02BA", "fans"), ("B01AC06", "fans"),
-    ("C10AA", "statine"), ("J01FA", "macrolidi"), ("J01MA", "chinolonici"),
-    ("C09A", "ace-inibitori"), ("C09B", "ace-inibitori"), ("C03DA", "diuretici-risparmiatori-k"),
+    ("C10AA", "statine"), ("C10BA", "statine"), ("C10BX", "statine"), ("J01FA", "macrolidi"), ("J01MA", "chinolonici"),
+    ("C09A", "ace-inibitori"), ("C09B", "ace-inibitori"), ("C03DA", "diuretici-risparmiatori-k"), ("C03EA", "diuretici-risparmiatori-k"),
     ("A10BA02", "metformina"), ("N06AB", "ssri"), ("N06AF", "imao"), ("N06AG", "imao"),
     ("J02AB", "azoli-antifungini"), ("J02AC", "azoli-antifungini"), ("A12BA", "potassio"),
     ("V08A", "mezzo-di-contrasto"),
 ]
+ATC_CLASSE.sort(key=lambda x: -len(x[0]))      # una volta sola: prefisso più lungo prima (N02AX02 prima di N02A)
 
 _GTIN_ATC = None
 GTIN_SYSTEMS = ("urn:oid:2.51.1.1", "https://www.gs1.org/gtin")   # GS1 GTIN: OID (esempi IG CH EMS) e URI HL7
@@ -127,7 +128,7 @@ def _gtin_atc() -> dict:
 
 def classe_da_atc(atc: str):
     a = (atc or "").strip().upper()
-    for pref, cl in sorted(ATC_CLASSE, key=lambda x: -len(x[0])):     # prefisso più lungo prima (N02AX02 prima di N02A)
+    for pref, cl in ATC_CLASSE:
         if a.startswith(pref):
             return {"oppioidi", "tramadolo-serotoninergico"} if cl == "tramadolo" else {cl}
     return None
@@ -137,9 +138,12 @@ def riconosci_gtin(gtin: str):
     """GTIN svizzero → (classi, atc) via Swissmedic, o None. Dato ufficiale con provenienza nel file dati.
     GTIN-14 con zeri iniziali (forma GS1) normalizzato a 13 cifre; solo cifre."""
     g = str(gtin).strip()
-    if not g.isdigit():
+    if not g.isdigit() or len(g) not in (13, 14):
         return None
-    g = g.lstrip("0") if len(g) > 13 else g
+    if len(g) == 14:                                # GTIN-14 = GTIN-13 con UNO zero davanti; altro non è un GTIN svizzero
+        if g[0] != "0":
+            return None
+        g = g[1:]
     atc = _gtin_atc()["gtin"].get(g)
     if not atc:
         return None
