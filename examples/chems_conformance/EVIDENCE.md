@@ -144,3 +144,15 @@ ch-ems-epr-patient; Encounter.identifier[0] IVR `MN` not in identifier-type; Enc
 not resolvable; Encounter.identifier[1] not in identifier-type; RiskAssessment.method OMEGA code system not resolvable;
 RiskAssessment.prediction OMEGA code system not resolvable; ch-ems-epr-document; "Didn't find a matching certificate for the
 'kid' omega:fb-esempio in the header, so can't verify the signature". The first 8 are the full sample's own (0.7.2).
+
+## Ballot entries fact-check (2026-09-19 11:50 CEST) — details the entries cite, measured today
+- IG qa.html (https://fhir.ch/ig/ch-ems/2.0.0-ballot/qa.html, fetched 11:47): "Generated Mon Jun 15 08:06:58 UTC 2026",
+  "IG Publisher Version: v2.2.9", "Validation Flags: On: autoLoad, displayWarnings; Off: hintAboutNonMustSupport,
+  anyExtensionsAllowed, checkAggregation, showReferenceMessages, noExperimentalContent".
+- Matchbox CapabilityStatement (test.ahdis.ch/matchboxv3/fhir/metadata): "powered by matchbox 4.1.16, hapi-fhir 8.12.0 and
+  org.hl7.fhir.core 6.10.4"; its $validate OperationOutcome (18/09 and 19/09 files) carries the settings
+  `displayIssuesAreWarnings=true` and `txUseEcosystem=true`.
+- Our minimal document (`../chems_document_sample_minimal.json`): Composition.status `preliminary`, type LOINC 67796-3, sections
+  IVR 1100001 (mission: Encounter with meta.profile ch-ems-encounter and identifier type MN, alarm time observation IVR
+  1000033 with profile observation-missiontimestatus), IVR 1100006 (findings, "Circulation" sub-section with the heart-rate
+  observation), LOINC 48767-8 (annotation: the RiskAssessment); no handover section, no destination.
