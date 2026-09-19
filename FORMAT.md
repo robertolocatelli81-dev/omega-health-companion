@@ -93,23 +93,31 @@ disallowing Ed25519 after 2035 — inside the retention windows of clinical reco
 ## CH EMS document signature (`Bundle.signature`, 0.7.3)
 
 Carrier: FHIR R4 `Bundle.signature` (`Signature` datatype). `type` = ASTM E1762-95 `1.2.840.10065.1.12.1.1` (Author's
-Signature); `when` = signing instant; `who` = the responding organisation's entry (`fullUrl`); `targetFormat` =
-`application/fhir+json;canonicalization=http://hl7.org/fhir/canonicalization/json`; `sigFormat` = `application/jose`;
-`data` = base64 of a compact JWS `<protected>..<signature>` with the payload **detached** (RFC 7515 App. F) and
-**unencoded** (RFC 7797: `b64: false`, `crit: ["b64"]`).
+Signature); `when` = signing instant; `who` = the responding Organization's entry (`fullUrl`; `kid` names the individual
+operator whose key signed); `targetFormat` = `application/fhir+json;canonicalization=<CANON_URI>`; `sigFormat` =
+`application/jose`; `data` = base64 of a compact JWS `<protected>..<signature>` with the payload **detached** (RFC 7515
+App. F) and **unencoded** (RFC 7797: `b64: false`, `crit: ["b64"]` exactly).
 
+`CANON_URI` = `https://omega.example/fhir/canonicalization/rfc8785-bundle-without-signature` (defined here, not by HL7: FHIR
+R4's "canonical JSON" is not RFC 8785 and does not remove the signature member; the R6 build adopts RFC 8785).
 Signed bytes: `ASCII(BASE64URL(protected header)) || '.' || JCS(Bundle without the "signature" member)`, JCS per RFC 8785
-(keys sorted by UTF-16 code units, no whitespace, ES6 numbers — `39.4` and `39.40` are the same value). The root
-`id` and `meta` ARE signed (plain variant, not `#document`). `Composition.attester` is added before signing, so it is
-covered.
+(keys sorted by UTF-16 code units, no whitespace, ES6 numbers — `39.4` and `39.40` are the same value). The root `id`
+and `meta` ARE signed (not the `#document` variant). `Composition.attester` is added before signing, so it is covered.
 
-Protected header: `{"alg":"EdDSA","b64":false,"crit":["b64"],"kid":"omega:fb-<slug>","sigT":"<when>",
-"srCms":[{"commId":{"id":"urn:oid:1.2.840.10065.1.12.1.1","desc":"Author's Signature"}}],
-"jwk":{"kty":"OKP","crv":"Ed25519","x":"<base64url 32 bytes>"}}` (sorted keys, no whitespace). `sigT` must equal
-`Signature.when`.
+Protected header (sorted keys, no whitespace): `alg` `EdDSA`; `b64` false; `crit` `["b64"]`; `kid` `omega:fb-<slug>`
+(`[a-z0-9-]{1,64}`); `sigT` = `Signature.when`; `srCms` `[{"commId":{"id":"urn:oid:1.2.840.10065.1.12.1.1","desc":"Author's
+Signature"}}]` (JAdES-shaped; the instant keeps its offset, JAdES would want UTC — no JAdES conformance is claimed);
+`jwk` `{"kty":"OKP","crv":"Ed25519","x":…}` (public part only, exactly these three members); `canon` = `CANON_URI`;
+`who` = `Signature.who.reference`. The last two and `sigT`/`srCms` bind what the Signature datatype leaves outside the
+signed bytes.
 
-Verification (`fhir_chems.verifica_firma_documento`): parse strictly (duplicate keys refused) → check the carrier and
-the header → rebuild the payload from the Bundle → Ed25519 verify with the embedded JWK → verdict OK / NON_VALIDA /
-NON_VERIFICATA (no Ed25519 implementation) / ASSENTE; then, separately, TRUST: is the JWK the registered key of the
-operator named in `kid` (`.audit_keys/fb-<slug>.pub`)? The signature proves the bytes; the registry proves who.
-Independent check: any JWS library with EdDSA and detached-payload support (jwcrypto is the oracle in the tests).
+Verification (`fhir_chems.verifica_firma_documento`), structure BEFORE cryptography: strict parse (duplicate keys refused)
+→ carrier (`sigFormat`, exact `targetFormat`) → header (`alg`, `b64`, `crit`, `kid` shape, `canon`, `sigT` present and
+equal to `when`, `srCms` codes equal to `Signature.type` codes, `who` equal to `Signature.who.reference` which must be an
+Organization entry of the Bundle, any `Composition.attester` at the signing time must name the same party, public-only
+JWK) → registry lookup (`<keys_dir>/fb-<slug>.pub` equals the JWK) → Ed25519 over the rebuilt payload. Verdict:
+`OK_REGISTRATA` (the only accepting state) / `OK_CHIAVE_NON_REGISTRATA` (integrity only: anyone can sign with a fresh key)
+/ `NON_VALIDA` / `NON_VERIFICATA` (no Ed25519 implementation; structural failures still give `NON_VALIDA`) / `ASSENTE`.
+The registry is the LOCAL operator record of the verifying machine; there is no key distribution. Independent check: any
+JWS library with EdDSA and detached-payload support, given the payload rule above (jwcrypto is the oracle in the tests,
+against the registered key file, not the header's).

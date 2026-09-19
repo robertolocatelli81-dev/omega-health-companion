@@ -120,11 +120,12 @@ validator_cli 6.10.4 re-run on both: 0 errors, 8 and 6 warnings (same set as 0.6
 Matchbox (test.ahdis.ch/matchboxv3, 2026-09-19 08:45 CEST) on the same two documents: 0 errors, 7 and 4 warnings (unchanged set); OperationOutcome files in `release_0.7.2/`.
 
 ## Release 0.7.3 (2026-09-19, `release_0.7.3/`)
-- `abl-identified-patient.json`: the default document with `missione.paziente` (local MPI identifier, name, gender,
-  birth date). validator_cli 6.10.4 against ch-ems-document: 0 errors, **3 warnings** (the three `ch-ems-epr-*` warnings
+- `abl-identified-patient.json` (SYNTHETIC person: "Petra Muster", the IG's own example name; MPI id invented): the default
+  document with `missione.paziente` (local MPI identifier, name, gender, birth date). validator_cli 6.10.4 against ch-ems-document: 0 errors, **3 warnings** (the three `ch-ems-epr-*` warnings
   are gone; IVR `MN` ×2 and the OMEGA code system remain); against `ch-core-document-epr` directly: 0 errors, 4 warnings
   (the same 3 + LOINC 67796-3 not in ch-term DocumentEntry.typeCode). Ablation: the EPR warnings have one cause.
-- `../chems_document_sample_signed.json` (Bundle.signature + Composition.attester, key derived from a public sentence):
+- `../chems_document_sample_signed.json` (Bundle.signature + Composition.attester, key derived from a public sentence, so it
+  verifies as OK_CHIAVE_NON_REGISTRATA everywhere — a format proof, not an authenticity claim):
   validator_cli 0 errors, 9 warnings (the 8 of the full sample + "Didn't find a matching certificate for the 'kid'…
   so can't verify the signature"); Matchbox 0 errors, 8 warnings. Also measured and NOT shipped: a self-signed Ed25519
   certificate in `x5c` gives an ERROR ("Unable to parse X509 Certificate: Unsupported key type: EdDSA"); without `sigT`

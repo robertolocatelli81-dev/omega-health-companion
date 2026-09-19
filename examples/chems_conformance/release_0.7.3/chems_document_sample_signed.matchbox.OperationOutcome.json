@@ -1,6 +1,6 @@
 {
   "resourceType": "OperationOutcome",
-  "id": "55e7af9f-8a3b-4ee4-9fd8-87095a959fdf",
+  "id": "8e88f482-39e9-4cb5-849f-91c37ef15e0a",
   "meta": {
     "source": "matchbox-validation"
   },
@@ -19,7 +19,7 @@
       }, {
         "url": "total",
         "valueDuration": {
-          "value": 127,
+          "value": 106,
           "unit": "ms"
         }
       }, {
@@ -185,7 +185,7 @@
     } ],
     "severity": "information",
     "code": "informational",
-    "diagnostics": "Validation for profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot (2026-06-15T08:00:21+00:00). Loaded packages: hl7.fhir.r4.core#4.0.1, hl7.fhir.xver-extensions#0.1.0, hl7.terminology.r4#7.3.0, hl7.fhir.uv.extensions.r4#5.3.0, hl7.fhir.uv.xver-r5.r4#0.1.0, hl7.fhir.uv.extensions.r4#5.2.0, hl7.terminology.r4#6.3.0, ihe.formatcode.fhir#1.4.0, hl7.terminology.r4#7.0.1, ch.fhir.ig.ch-term#3.4.0, hl7.terminology.r4#7.1.0, ch.fhir.ig.ch-core#7.0.0-ballot, ch.fhir.ig.ch-term#3.4.0, ch.fhir.ig.ch-ems#2.0.0-ballot. Duration: 0.127s. powered by matchbox 4.1.16, hapi-fhir 8.12.0 and org.hl7.fhir.core 6.10.4. Validation parameters: CliContext{doNative=false, extensions=null, hintAboutNonMustSupport=false, recursive=false, showMessagesFromReferences=true, doDebug=false, assumeValidRestReferences=false, canDoNative=false, noExtensibleBindingMessages=false, noUnicodeBiDiControlChars=false, noInvariants=false, displayIssuesAreWarnings=true, wantInvariantsInMessages=false, doImplicitFHIRPathStringConversion=false, htmlInMarkdownCheck=WARNING, txServer='http://localhost:8080/matchboxv3/tx', txServerCache='true', txLog='null', txUseEcosystem=true, lang='null', snomedCT='null', fhirVersion='4.0.1', ig='ch.fhir.ig.ch-ems#2.0.0-ballot', questionnaireMode=CHECK, level=HINTS, mode=VALIDATION, securityChecks=false, crumbTrails=false, forPublication=false, showMessageIds=false, showTerminologyRouting=false, clearTxCache=false, allowExampleUrls=true, locale='en', locations={}, jurisdiction='urn:iso:std:iso:3166#US', checkReferences=false, resolutionContext=null, r5-bundle-relative-reference-policy='default', disableDefaultResourceFetcher=true, checkIpsCodes='false', bundle='null', suppressErrors=null, suppressWarnInfos=null, igs=null}"
+    "diagnostics": "Validation for profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document|2.0.0-ballot (2026-06-15T08:00:21+00:00). Loaded packages: hl7.fhir.r4.core#4.0.1, hl7.fhir.xver-extensions#0.1.0, hl7.terminology.r4#7.3.0, hl7.fhir.uv.extensions.r4#5.3.0, hl7.fhir.uv.xver-r5.r4#0.1.0, hl7.fhir.uv.extensions.r4#5.2.0, hl7.terminology.r4#6.3.0, ihe.formatcode.fhir#1.4.0, hl7.terminology.r4#7.0.1, ch.fhir.ig.ch-term#3.4.0, hl7.terminology.r4#7.1.0, ch.fhir.ig.ch-core#7.0.0-ballot, ch.fhir.ig.ch-term#3.4.0, ch.fhir.ig.ch-ems#2.0.0-ballot. Duration: 0.106s. powered by matchbox 4.1.16, hapi-fhir 8.12.0 and org.hl7.fhir.core 6.10.4. Validation parameters: CliContext{doNative=false, extensions=null, hintAboutNonMustSupport=false, recursive=false, showMessagesFromReferences=true, doDebug=false, assumeValidRestReferences=false, canDoNative=false, noExtensibleBindingMessages=false, noUnicodeBiDiControlChars=false, noInvariants=false, displayIssuesAreWarnings=true, wantInvariantsInMessages=false, doImplicitFHIRPathStringConversion=false, htmlInMarkdownCheck=WARNING, txServer='http://localhost:8080/matchboxv3/tx', txServerCache='true', txLog='null', txUseEcosystem=true, lang='null', snomedCT='null', fhirVersion='4.0.1', ig='ch.fhir.ig.ch-ems#2.0.0-ballot', questionnaireMode=CHECK, level=HINTS, mode=VALIDATION, securityChecks=false, crumbTrails=false, forPublication=false, showMessageIds=false, showTerminologyRouting=false, clearTxCache=false, allowExampleUrls=true, locale='en', locations={}, jurisdiction='urn:iso:std:iso:3166#US', checkReferences=false, resolutionContext=null, r5-bundle-relative-reference-policy='default', disableDefaultResourceFetcher=true, checkIpsCodes='false', bundle='null', suppressErrors=null, suppressWarnInfos=null, igs=null}"
   }, {
     "extension": [ {
       "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",

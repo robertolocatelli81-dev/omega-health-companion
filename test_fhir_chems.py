@@ -4,6 +4,7 @@
 the official HL7 validator; these tests pin the exporter's own rules and its NULL controls)."""
 import copy
 import json
+import os
 import re
 import unittest
 
@@ -206,11 +207,12 @@ class TestChemsDocument(unittest.TestCase):
 
 class TestFirmaDocumento(unittest.TestCase):
     """0.7.3 — Bundle.signature (detached JWS EdDSA over JCS of the Bundle without `signature`) and Composition.attester.
-    Every negative here is a POSITIVE CONTROL of the verifier: a change of one value, one key, one entry, one signature
-    byte, or the attestation must give NON_VALIDA; without an Ed25519 implementation the verdict is NON_VERIFICATA."""
+    Every negative here is a POSITIVE CONTROL of the verifier. Trust and mathematics are two verdicts: OK_REGISTRATA only
+    when the embedded key equals the operator's registered key; a fresh key under the same kid is OK_CHIAVE_NON_REGISTRATA."""
     def setUp(self):
         import audit_bridge as AB, tempfile, shutil
         self.AB = AB; self._orig = (AB.KEYS_DIR, AB.FALLBACK_LEDGER, AB.MOTORE_DISPONIBILE)
+        self._prod_keys = set(os.listdir(AB.KEYS_DIR)) if os.path.isdir(AB.KEYS_DIR) else None      # isolation: measured, not assumed
         self.d = tempfile.mkdtemp(prefix="chems-sig-"); AB.KEYS_DIR = self.d + "/keys"; AB.FALLBACK_LEDGER = self.d + "/fb.jsonl"; AB.MOTORE_DISPONIBILE = False
         self.addCleanup(lambda: (setattr(AB, "KEYS_DIR", self._orig[0]), setattr(AB, "FALLBACK_LEDGER", self._orig[1]), setattr(AB, "MOTORE_DISPONIBILE", self._orig[2]), shutil.rmtree(self.d, ignore_errors=True)))
         if not AB.FIRMA_LOCALE_DISPONIBILE:
@@ -218,98 +220,169 @@ class TestFirmaDocumento(unittest.TestCase):
         self.doc = build_sample()
         self.signed = C.firma_documento(self.doc, "equipaggio-118-alfa", "2026-09-19T09:11:00+02:00")
 
+    def tearDown(self):
+        prod = set(os.listdir(self._orig[0])) if os.path.isdir(self._orig[0]) else None
+        self.assertEqual(prod, self._prod_keys, "the test wrote into the production key store")
+        self.assertTrue(os.path.exists(self.d + "/keys/fb-equipaggio-118-alfa.pub"), "the sandbox registry was not used")
+
+    def _jws(self, doc=None):
+        import base64
+        return base64.b64decode((doc or self.signed)["signature"]["data"]).decode()
+
+    def _rewrap(self, doc, jws):
+        import base64
+        t = copy.deepcopy(doc); t["signature"]["data"] = base64.b64encode(jws.encode()).decode(); return t
+
     def test_sign_verify_and_caller_untouched(self):
         self.assertNotIn("signature", self.doc); self.assertNotIn("attester", self.doc["entry"][0]["resource"])   # deep copy
         v = C.verifica_firma_documento(self.signed)
-        self.assertEqual((v["stato"], v["kid"], v["chiave_registrata"]), ("OK", "omega:fb-equipaggio-118-alfa", True))
+        self.assertEqual((v["stato"], v["kid"], v["chiave_registrata"]), ("OK_REGISTRATA", "omega:fb-equipaggio-118-alfa", True))
         raw = json.dumps(self.signed, ensure_ascii=False, indent=2).encode("utf-8")          # any serialisation of the same JSON
-        self.assertEqual(C.verifica_firma_documento(raw)["stato"], "OK")
+        self.assertEqual(C.verifica_firma_documento(raw)["stato"], "OK_REGISTRATA")
         sig = self.signed["signature"]
         self.assertEqual(sig["type"][0]["code"], "1.2.840.10065.1.12.1.1"); self.assertEqual(sig["sigFormat"], "application/jose")
-        self.assertTrue(sig["targetFormat"].endswith("canonicalization=http://hl7.org/fhir/canonicalization/json"))
+        self.assertEqual(sig["targetFormat"], C.TARGET_FORMAT); self.assertIn("rfc8785-bundle-without-signature", C.TARGET_FORMAT)
         att = self.signed["entry"][0]["resource"]["attester"]
         self.assertEqual([a["mode"] for a in att], ["professional"]); self.assertEqual(att[0]["party"], sig["who"])
-        import base64
-        jws = base64.b64decode(sig["data"]).decode(); h = json.loads(C._b64u_dec(jws.split(".")[0]))
-        self.assertEqual((h["alg"], h["b64"], h["crit"], h["sigT"]), ("EdDSA", False, ["b64"], sig["when"]))
-        self.assertEqual(h["srCms"][0]["commId"]["id"], "urn:oid:1.2.840.10065.1.12.1.1"); self.assertEqual(h["jwk"]["crv"], "Ed25519")
+        jws = self._jws(); h = json.loads(C._b64u_dec(jws.split(".")[0]))
+        self.assertEqual((h["alg"], h["b64"], h["crit"], h["sigT"], h["canon"], h["who"]), ("EdDSA", False, ["b64"], sig["when"], C.CANON_URI, sig["who"]["reference"]))
+        self.assertEqual(h["srCms"][0]["commId"]["id"], "urn:oid:1.2.840.10065.1.12.1.1")
+        self.assertEqual(set(h["jwk"]), {"kty", "crv", "x"}); self.assertEqual(h["jwk"]["crv"], "Ed25519")   # PUBLIC part only, never "d"
         self.assertEqual(jws.split(".")[1], "")                                                # detached payload
         self.assertEqual(C.verifica_firma_documento(self.doc)["stato"], "ASSENTE")
-        self.assertEqual(C.verifica_firma_documento(self.signed, keys_dir=self.d + "/nessuno")["chiave_registrata"], False)
+        v2 = C.verifica_firma_documento(self.signed, keys_dir=self.d + "/nessuno")            # no registry at all
+        self.assertEqual((v2["stato"], v2["chiave_registrata"]), ("OK_CHIAVE_NON_REGISTRATA", False))
+
+    def test_key_substitution_is_not_registered(self):
+        """The attack an embedded-JWK design must survive: a fresh key, same kid, valid mathematics → never OK_REGISTRATA."""
+        import shutil, tempfile
+        altro = tempfile.mkdtemp(prefix="chems-rogue-"); self.addCleanup(shutil.rmtree, altro, True)
+        self.AB.KEYS_DIR = altro + "/keys"                       # a different machine generates its own key for the same name
+        t = copy.deepcopy(self.doc); t["entry"][1]["resource"]["text"]["div"] = t["entry"][1]["resource"]["text"]["div"].upper()
+        rogue = C.firma_documento(t, "equipaggio-118-alfa", "2026-09-19T09:11:00+02:00")
+        self.AB.KEYS_DIR = self.d + "/keys"
+        v = C.verifica_firma_documento(rogue)                    # verified against the VICTIM's registry
+        self.assertEqual((v["stato"], v["kid"], v["chiave_registrata"]), ("OK_CHIAVE_NON_REGISTRATA", "omega:fb-equipaggio-118-alfa", False))
+        self.assertEqual(C.verifica_firma_documento(rogue, keys_dir=altro + "/keys")["stato"], "OK_REGISTRATA")   # …and on the rogue machine it is "its" key
+        import chems_ingest as I
+        self.assertEqual(I.leggi_documento(json.dumps(rogue).encode())["firma"]["stato"], "OK_CHIAVE_NON_REGISTRATA")
 
     def test_every_tampering_is_non_valida(self):
+        import base64
         casi = {}
         t = copy.deepcopy(self.signed); t["entry"][1]["resource"]["text"]["div"] = t["entry"][1]["resource"]["text"]["div"].upper(); casi["valore"] = t
         t = copy.deepcopy(self.signed); t["entry"].append({"fullUrl": "urn:uuid:x", "resource": {"resourceType": "Basic", "id": "x"}}); casi["entry aggiunta"] = t
         t = copy.deepcopy(self.signed); del t["entry"][-1]; casi["entry tolta"] = t
-        t = copy.deepcopy(self.signed); t["entry"][0]["resource"]["attester"][0]["mode"] = "legal"; casi["attester"] = t
+        t = copy.deepcopy(self.signed); t["entry"][0]["resource"]["attester"][0]["mode"] = "legal"; casi["attester mode"] = t
         t = copy.deepcopy(self.signed); t["signature"]["when"] = "2026-09-19T09:12:00+02:00"; casi["when≠sigT"] = t
-        t = copy.deepcopy(self.signed); t["signature"]["data"] = t["signature"]["data"][:-8] + "AAAAAAAA"; casi["byte firma"] = t
         t = copy.deepcopy(self.signed); t["signature"]["sigFormat"] = "application/pkcs7-mime"; casi["sigFormat"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["targetFormat"] = "application/fhir+json"; casi["targetFormat non firmato"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["type"][0]["code"] = "1.2.840.10065.1.12.1.5"; casi["type ≠ srCms"] = t
+        centrale = next(e["fullUrl"] for e in self.signed["entry"] if e["resource"].get("id") == "destinazione")
+        t = copy.deepcopy(self.signed); t["signature"]["who"] = {"reference": centrale}; casi["who → other Organization"] = t
         t = json.loads(json.dumps(self.signed).replace('"status"', '"status2"', 1)); casi["chiave rinominata"] = t
-        t = copy.deepcopy(self.signed); t["meta"]["profile"] = ["http://example.org/other"]; casi["meta.profile (firmato: variante piena, non #document)"] = t
+        t = copy.deepcopy(self.signed); t["meta"]["profile"] = ["http://example.org/other"]; casi["meta.profile (signed: plain variant, not #document)"] = t
+        jws = self._jws(); h, _, sg = jws.split(".")
+        raw = bytearray(C._b64u_dec(sg)); raw[10] ^= 0x01                                    # well-formed 64-byte signature, one bit wrong
+        casi["un bit della firma"] = self._rewrap(self.signed, f"{h}..{C._b64u(bytes(raw))}")
+        casi["firma troncata"] = self._rewrap(self.signed, f"{h}..{sg[:-8]}")
+        def _hdr(**mod):
+            hd = json.loads(C._b64u_dec(h)); hd.update(mod); hd = {k: v for k, v in hd.items() if v is not None}
+            return self._rewrap(self.signed, C._b64u(json.dumps(hd, separators=(",", ":"), sort_keys=True).encode()) + ".." + sg)
+        casi["alg none"] = _hdr(alg="none"); casi["alg HS256"] = _hdr(alg="HS256"); casi["crv Ed448"] = _hdr(jwk={"kty": "OKP", "crv": "Ed448", "x": "AA"})
+        casi["b64 true"] = _hdr(b64=True); casi["crit extra"] = _hdr(crit=["b64", "exp"]); casi["crit assente"] = _hdr(crit=None)
+        casi["sigT assente"] = _hdr(sigT=None); casi["canon diversa"] = _hdr(canon="http://hl7.org/fhir/canonicalization/json")
+        casi["who nel header diverso"] = _hdr(who="urn:uuid:altro"); casi["kid traversal"] = _hdr(kid="omega:fb-../../etc/passwd")
+        casi["jwk con chiave privata"] = _hdr(jwk={"kty": "OKP", "crv": "Ed25519", "x": json.loads(C._b64u_dec(h))["jwk"]["x"], "d": "AA"})
         for nome, x in casi.items():
             self.assertEqual(C.verifica_firma_documento(x)["stato"], "NON_VALIDA", nome)
-        self.assertEqual(C.verifica_firma_documento(b"{\"resourceType\": \"Bundle\", \"resourceType\": \"Bundle\"}")["stato"], "NON_VALIDA")   # duplicate keys
+        # duplicate keys INSIDE a signed document (last-wins would equal the signed value): refused on the bytes
+        raw = json.dumps(self.signed).replace('"status": "preliminary"', '"status": "final", "status": "preliminary"', 1)
+        self.assertIn('"status": "final", "status": "preliminary"', raw)
+        self.assertEqual(C.verifica_firma_documento(raw.encode())["stato"], "NON_VALIDA")
         self.assertEqual(C.verifica_firma_documento({"resourceType": "Patient"})["stato"], "NON_VALIDA")
+        self.assertEqual(C.verifica_firma_documento(b'{"resourceType":"Bundle","signature":{"sigFormat":"application/jose","data":"x","targetFormat":"' + C.TARGET_FORMAT.encode() + b'","x":"\\ud800"}}')["stato"], "NON_VALIDA")   # lone surrogate: a verdict, not a crash
         with self.assertRaises(ValueError):
             C.firma_documento(self.signed, "equipaggio-118-alfa", "2026-09-19T09:11:00+02:00")   # one signature per document
+        k = json.loads(C._b64u_dec(self._jws(C.firma_documento(self.doc, "../x", "2026-09-19T09:11:00+02:00")).split(".")[0]))["kid"]
+        self.assertRegex(k, r"^omega:fb-[a-z0-9-]{1,64}$"); self.assertNotIn("..", k)          # slug sanitised at the signer too
 
-    def test_same_number_different_text_is_the_same_document(self):
-        """JCS signs NUMBERS, not their spelling: 39.4 and 39.40 are one value (RFC 8785 §3.2.2.3) — declared, not a hole."""
-        raw = json.dumps(self.signed); self.assertIn("39.4", raw)
-        self.assertEqual(C.verifica_firma_documento(json.loads(raw.replace("39.4", "39.40", 1)))["stato"], "OK")
-
-    def test_senza_ed25519_non_verificata(self):
+    def test_structure_is_judged_before_cryptography(self):
+        """Without Ed25519 a valid document is NON_VERIFICATA, but a malformed one is still NON_VALIDA."""
         from unittest import mock
         with mock.patch.object(C, "_ed25519_verify", return_value=None):
-            v = C.verifica_firma_documento(self.signed)
-        self.assertEqual(v["stato"], "NON_VERIFICATA"); self.assertIsNone(v["chiave_registrata"])
+            v = C.verifica_firma_documento(self.signed); self.assertEqual((v["stato"], v["chiave_registrata"]), ("NON_VERIFICATA", True))
+            t = copy.deepcopy(self.signed); t["signature"]["when"] = "2026-09-19T09:12:00+02:00"
+            self.assertEqual(C.verifica_firma_documento(t)["stato"], "NON_VALIDA")
+            t = copy.deepcopy(self.signed); t["signature"]["sigFormat"] = "x"
+            self.assertEqual(C.verifica_firma_documento(t)["stato"], "NON_VALIDA")
+            self.assertEqual(C.verifica_firma_documento({"resourceType": "Patient"})["stato"], "NON_VALIDA")
+
+    def test_jcs_signs_numbers_not_spellings(self):
+        """RFC 8785 §3.2.2.3: 39.4 and 39.40 canonicalise to the same bytes — measured on the bytes, not through json.loads."""
+        raw = json.dumps(self.signed); self.assertRegex(raw, r'"value": 39\.4[,}]')
+        self.assertEqual(C.verifica_firma_documento(raw.replace('"value": 39.4', '"value": 39.40', 1).encode())["stato"], "OK_REGISTRATA")
+        self.assertEqual(C._es6_number(39.40), "39.4")
 
     def test_independent_jws_library_agrees(self):
-        """Oracle: a standard JWS library (jwcrypto, EdDSA, detached payload) verifies the same bytes — and refuses a
-        tampered payload. Skipped when jwcrypto is not installed (CI installs it in the conformance job)."""
+        """Oracle: jwcrypto (EdDSA, detached payload) verifies the same bytes against the REGISTERED public key file — not
+        the header's — and refuses a tampered payload and a base64url-encoded (b64:true) payload."""
         try:
             from jwcrypto import jws as J, jwk as K
         except ImportError:
             self.skipTest("jwcrypto not installed")
         import base64
-        raw = base64.b64decode(self.signed["signature"]["data"]).decode()
-        h = json.loads(C._b64u_dec(raw.split(".")[0])); key = K.JWK(**h["jwk"])
-        payload = C.jcs({k: v for k, v in self.signed.items() if k != "signature"})
+        pub = base64.b64decode(open(self.d + "/keys/fb-equipaggio-118-alfa.pub").read().strip())
+        key = K.JWK(kty="OKP", crv="Ed25519", x=C._b64u(pub))
+        raw = self._jws(); payload = C.jcs({k: v for k, v in self.signed.items() if k != "signature"})
         j = J.JWS(); j.deserialize(raw); j.verify(key, detached_payload=payload)
-        with self.assertRaises(Exception):
-            j2 = J.JWS(); j2.deserialize(raw); j2.verify(key, detached_payload=payload + b" ")
+        for bad in (payload + b" ", C._b64u(payload).encode()):
+            with self.assertRaises(Exception):
+                j2 = J.JWS(); j2.deserialize(raw); j2.verify(key, detached_payload=bad)
 
     def test_reader_reports_attester_and_signature(self):
         import chems_ingest as I
         r = I.leggi_documento(json.dumps(self.signed).encode())
-        self.assertEqual(r["firma"]["stato"], "OK"); self.assertEqual(r["attestazioni"][0]["mode"], "professional")
+        self.assertEqual(r["firma"]["stato"], "OK_REGISTRATA"); self.assertEqual(r["attestazioni"][0]["mode"], "professional")
         r2 = I.leggi_documento(json.dumps(self.doc).encode()); self.assertEqual(r2["firma"]["stato"], "ASSENTE"); self.assertEqual(r2["attestazioni"], [])
-        for f in ("examples/chems_conformance/ig-Bundle-2-Einsatzprotokoll.json",):     # the IG example: attester legal, no signature
-            r3 = I.leggi_documento(open(f, "rb").read()); self.assertEqual(r3["attestazioni"][0]["mode"], "legal"); self.assertEqual(r3["firma"]["stato"], "ASSENTE")
+        with open("examples/chems_conformance/ig-Bundle-2-Einsatzprotokoll.json", "rb") as fh:     # the IG example: attester legal, no signature
+            r3 = I.leggi_documento(fh.read())
+        self.assertEqual(r3["attestazioni"][0]["mode"], "legal"); self.assertEqual(r3["firma"]["stato"], "ASSENTE")
 
     def test_published_signed_sample_is_deterministic_and_verifies(self):
         from chems_validate import build_signed_sample
         a, b = build_signed_sample(), build_signed_sample()
-        self.assertEqual(a, b); self.assertEqual(C.verifica_firma_documento(a)["stato"], "OK")
-        self.assertEqual(json.load(open("examples/chems_document_sample_signed.json")), a)   # the committed file IS the build
+        self.assertEqual(a, b)
+        v = C.verifica_firma_documento(a); self.assertEqual((v["stato"], v["chiave_registrata"]), ("OK_CHIAVE_NON_REGISTRATA", False))   # public key: format, not identity
+        with open("examples/chems_document_sample_signed.json") as fh:
+            self.assertEqual(json.load(fh), a)                                                  # the committed file IS the build
+        self.assertFalse(os.path.exists(self.d + "/keys/fb-esempio.pub"), "the sample key must not enter the registry")
 
 
 class TestVerificaSenzaFirmatario(unittest.TestCase):
-    """Runs with or without `cryptography`: JCS vectors, and the verdict on the PUBLISHED signed sample must be OK where
-    Ed25519 is available and NON_VERIFICATA where it is not — never ASSENTE, never NON_VALIDA."""
+    """Runs with or without `cryptography`: RFC 8785 vectors, rejections, and the verdict on the PUBLISHED signed sample."""
     def test_jcs_vectors(self):
-        for f, want in ((1e21, "1e+21"), (1e-7, "1e-7"), (0.000001, "0.000001"), (295147905179352830000.0, "295147905179352830000"), (-0.0, "0"), (100.0, "100"), (39.4, "39.4")):
-            self.assertEqual(C._es6_number(f), want, f)
+        # RFC 8785 Appendix B (all rows) + the ES6 threshold neighbours
+        for f, want in ((5e-324, "5e-324"), (1.7976931348623157e+308, "1.7976931348623157e+308"), (0.0, "0"), (-0.0, "0"), (1e21, "1e+21"),
+                        (1e-7, "1e-7"), (0.000001, "0.000001"), (9.999999999999997e-7, "9.999999999999997e-7"), (1e23, "1e+23"),
+                        (9.999999999999997e+22, "9.999999999999997e+22"), (1.0000000000000001e+23, "1.0000000000000001e+23"), (295147905179352830000.0, "295147905179352830000"),
+                        (999999999999999900000.0, "999999999999999900000"), (333333333.33333325, "333333333.33333325"),
+                        (-0.0000033333333333333333, "-0.0000033333333333333333"), (0.05, "0.05"), (100.0, "100"), (39.4, "39.4")):
+            self.assertEqual(C._es6_number(f), want, repr(f))
         self.assertEqual(C.jcs({"b": 1, "a": [True, None, 1.5, "x"], "\u20ac": 0}), '{"a":[true,null,1.5,"x"],"b":1,"\u20ac":0}'.encode("utf-8"))
+        self.assertEqual(C.jcs({"\ufb33": 1, "\U0001f600": 2}), '{"\U0001f600":2,"\ufb33":1}'.encode("utf-8"))   # UTF-16 code units: the surrogate pair sorts first
+        self.assertEqual(C.jcs({"s": "\u001f\u007f\u2028\"\\"}), b'{"s":"\\u001f\x7f\xe2\x80\xa8\\"\\\\"}')
+        for bad in (float("nan"), float("inf"), 2 ** 53 + 1):
+            with self.assertRaises((ValueError, TypeError)):
+                C.jcs({"x": bad})
+        self.assertEqual(C.jcs({"x": 9007199254740992}), b'{"x":9007199254740992}')     # 2^53 itself is exact
 
     def test_published_signed_sample_verdict(self):
         import audit_bridge as AB
         with open("examples/chems_document_sample_signed.json", "rb") as fh:
             v = C.verifica_firma_documento(fh.read())
-        self.assertEqual(v["stato"], "OK" if AB.FIRMA_LOCALE_DISPONIBILE else "NON_VERIFICATA", v)
-        self.assertEqual(v["kid"], "omega:fb-esempio")
+        self.assertEqual(v["stato"], "OK_CHIAVE_NON_REGISTRATA" if AB.FIRMA_LOCALE_DISPONIBILE else "NON_VERIFICATA", v)
+        self.assertEqual((v["kid"], v["chiave_registrata"]), ("omega:fb-esempio", False))
 
 
 class TestPazienteIdentificato(unittest.TestCase):
@@ -330,12 +403,32 @@ class TestPazienteIdentificato(unittest.TestCase):
         self.assertIn("Muster", pat["text"]["div"]); self.assertNotIn("<b>", pat["text"]["div"])
         anon = self._doc(None)["entry"][1]["resource"]; self.assertEqual(set(anon), {"resourceType", "id", "meta", "text"})   # default unchanged
 
+    def test_identity_only_in_the_document(self):
+        """paziente + firma + lettura together (the real handover path); the identity is in the document and nowhere else."""
+        import audit_bridge as AB, tempfile, shutil, chems_ingest as I
+        if not AB.FIRMA_LOCALE_DISPONIBILE:
+            self.skipTest("cryptography missing")
+        d = tempfile.mkdtemp(prefix="chems-id-"); orig = (AB.KEYS_DIR, AB.FALLBACK_LEDGER, AB.MOTORE_DISPONIBILE)
+        AB.KEYS_DIR, AB.FALLBACK_LEDGER, AB.MOTORE_DISPONIBILE = d + "/keys", d + "/fb.jsonl", False
+        self.addCleanup(lambda: (setattr(AB, "KEYS_DIR", orig[0]), setattr(AB, "FALLBACK_LEDGER", orig[1]), setattr(AB, "MOTORE_DISPONIBILE", orig[2]), shutil.rmtree(d, True)))
+        doc = C.firma_documento(self._doc(dict(self.PAZ, cognome="D'Angelo & Figli")), "eq-1", "2026-09-19T09:11:00+02:00", attester="legal")
+        pat = doc["entry"][1]["resource"]; self.assertEqual(pat["id"], "paziente")
+        self.assertIn("D'Angelo &amp; Figli", pat["text"]["div"]); self.assertNotIn("& ", pat["text"]["div"])       # escaped, never raw
+        self.assertEqual(doc["entry"][0]["resource"]["subject"]["reference"], doc["entry"][1]["fullUrl"])              # subject → the identified patient
+        r = I.leggi_documento(json.dumps(doc, ensure_ascii=False).encode()); self.assertEqual(r["firma"]["stato"], "OK_REGISTRATA")
+        self.assertEqual(r["attestazioni"][0]["mode"], "legal")
+        rec = I.ancora_documento(json.dumps(doc, ensure_ascii=False).encode(), "eq-1")                                # anchoring keeps digests only
+        ledger = open(AB.FALLBACK_LEDGER, encoding="utf-8").read()
+        for pii in ("Angelo", "Petra", "MPI-000123", "1959-03-04"):
+            self.assertNotIn(pii, ledger, pii); self.assertNotIn(pii, json.dumps(rec), pii)
+
     def test_refusals(self):
         for bad, why in (({**self.PAZ, "identificatore": {"system": C.OID_EPR_SPID, "value": "761337610411265304"}}, "EPR-SPID"),
                          ({**self.PAZ, "identificatore": {"system": C.OID_AHVN13, "value": "7561234567897"}}, "AHVN13"),
                          ({**self.PAZ, "data_nascita": "1959-02-30"}, "calendar"), ({**self.PAZ, "data_nascita": "04.03.1959"}, "YYYY-MM-DD"),
                          ({**self.PAZ, "cognome": "<script>"}, "printable"), ({k: v for k, v in self.PAZ.items() if k != "cognome"}, "family"),
                          ({**self.PAZ, "sesso": "F"}, "administrative-gender"), ({**self.PAZ, "identificatore": {"system": "http://x", "value": "1"}}, "urn:oid"),
+                         ({**self.PAZ, "identificatore": {"system": "urn:oid:2.16.756.5.30.1.999.2", "value": "7561234567897"}}, "AHVN13"),
                          ("Muster", "object")):
             with self.assertRaises(ValueError, msg=why) as cm:
                 self._doc(bad)

@@ -121,7 +121,7 @@ def leggi_documento(src) -> Dict[str, Any]:
         if isinstance(a, dict):
             party = a.get("party") if isinstance(a.get("party"), dict) else {}
             attestazioni.append({"mode": a.get("mode"), "time": a.get("time"), "party": party.get("reference") or party.get("display")})
-    firma = C.verifica_firma_documento(raw if raw is not None else bundle)
+    firma = C.verifica_firma_documento(raw if raw is not None else bundle)   # OK_REGISTRATA is the only accepting state
     return {"bundle": bundle, "bytes_sha256": hashlib.sha256(raw).hexdigest() if raw is not None else None,
             "profili": profili, "composition": comp, "per_tipo": per_tipo, "avvisi": avvisi, "_by_url": by_url,
             "attestazioni": attestazioni, "firma": firma}

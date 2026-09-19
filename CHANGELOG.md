@@ -10,12 +10,22 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   `signature` element; `targetFormat` names the canonicalization as the FHIR "Digital Signatures" page asks; header
   with `kid`, `sigT` = `Signature.when`, `srCms` = the ASTM purpose of `Signature.type`, and the verifying key as a JWK.
   The same call adds `Composition.attester` (`professional` for a pre-alert, `legal` for the final protocol) inside the
-  signed bytes. `verifica_firma_documento` (and `chems_validate.py --verify-signature`) returns OK / NON_VALIDA /
-  NON_VERIFICATA / ASSENTE plus whether the key is the operator's registered key. Measured 2026-09-19: signed document
+  signed bytes. `verifica_firma_documento` (and `chems_validate.py --verify-signature`) returns OK_REGISTRATA (the only
+  accepting state: bytes verify AND the embedded key equals the operator's registered key of the verifying machine) /
+  OK_CHIAVE_NON_REGISTRATA (integrity only — anyone can sign with a fresh key under any `kid`) / NON_VALIDA /
+  NON_VERIFICATA / ASSENTE; the payload rule is a URI we define (`canon` header + `targetFormat`), not the FHIR R4
+  canonical-JSON URI, whose rules differ; `who` and `srCms` in the header bind `Signature.who` and `Signature.type`. Measured 2026-09-19: signed document
   0 errors on validator_cli 6.10.4 (it inspects the JOSE signature; one warning: it verifies only against X.509
   certificates and cannot parse an Ed25519 certificate — "Unsupported key type: EdDSA", measured with a self-signed
-  `x5c`, so none is embedded) and 0 errors on Matchbox; nine tamperings each give NON_VALIDA; jwcrypto verifies the
-  same JWS and refuses a tampered payload (test, and CI installs it). Declared: JCS signs numbers, not spellings; the
+  `x5c`, so none is embedded) and 0 errors on Matchbox; 24 tamperings (bytes, signature bit, header algorithm/curve/crit/
+  canon/who, unsigned `who`/`type`/`targetFormat`, duplicate keys, lone surrogate) each give NON_VALIDA; a fresh key under
+  the victim's `kid` gives OK_CHIAVE_NON_REGISTRATA; the verifier broken to "always valid" and to "always registered" each
+  turn the suite red; jwcrypto verifies the same JWS against the registered key file and refuses a tampered and a
+  base64url-encoded payload (test, and CI installs it). Review round 1 (Gemini Pro + Opus 5): the first cut returned a
+  single "OK" for a mathematically valid signature under an unregistered key and the CLI exited 0 on it — a key-substitution
+  bypass; labelled the bytes with the FHIR canonical-JSON URI although the rules differ; left `who`/`type`/`targetFormat`
+  unbound; kept the identified patient under id `anon`; a variable shadowing bug (`pid`) sent the Composition subject to a
+  wrong reference for identified patients (found by the sample hash changing). All fixed and measured. Declared: JCS signs numbers, not spellings; the
   FHIR R6 draft moves this to `Provenance.signature` (CH EMS is R4). The published `chems_document_sample_signed.json`
   is signed with a key derived from a public sentence (format proof, not identity) and is byte-deterministic (test).
 - **Identified patient at handover, opt-in** (`missione.paziente`): a `ch-core-patient-epr`-conformant Patient (local
@@ -26,7 +36,7 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
 - Reader (`chems_ingest.leggi_documento`): reports `attestazioni` (Composition.attester) and `firma` (the four-state
   verdict) for any CH EMS document; on the IG's Bundle-2 example: attester `legal`, signature ASSENTE. The list of
   missing vitals (`mancanti`) already existed: on Bundle-2/2b it names rr, spo2, sbp, hr, temp.
-- 3 new test classes, 11 tests, 211 in the suite (positive controls: the verifier broken to "always valid" makes the suite red).
+- 3 new test classes, 14 tests, 214 in the suite; tests assert their own isolation (no key written to the production key store).
 
 ## 0.7.2 — 2026-09-18 — default profile is `comunicazione`
 

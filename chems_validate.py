@@ -109,13 +109,17 @@ def build_signed_sample() -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--sample", help="write the sample CH EMS documents (full, minimal, signed) here and exit")
-    ap.add_argument("--verify-signature", help="print the four-state verdict on Bundle.signature of this document and exit (0 = OK)")
+    ap.add_argument("--verify-signature", help="print the verdict on Bundle.signature of this document; exit 0 only for OK_REGISTRATA")
+    ap.add_argument("--allow-unregistered", action="store_true", help="with --verify-signature: exit 0 also for OK_CHIAVE_NON_REGISTRATA (format check, NOT trust)")
     ap.add_argument("--strict", action="store_true", help="run the validator; exit 1 on any error")
     ap.add_argument("--doc", help="validate this document instead of the built sample")
     a = ap.parse_args(argv)
     if a.verify_signature:
-        v = C.verifica_firma_documento(open(a.verify_signature, "rb").read())
-        print(json.dumps(v, ensure_ascii=False)); return 0 if v["stato"] == "OK" else 1
+        with open(a.verify_signature, "rb") as fh:
+            v = C.verifica_firma_documento(fh.read())
+        print(json.dumps(v, ensure_ascii=False))
+        accettati = ("OK_REGISTRATA", "OK_CHIAVE_NON_REGISTRATA") if a.allow_unregistered else ("OK_REGISTRATA",)
+        return 0 if v["stato"] in accettati else 1
     if a.sample:
         json.dump(build_sample(), open(a.sample, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         mp = a.sample.replace(".json", "_minimal.json")

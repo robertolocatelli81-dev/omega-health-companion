@@ -123,7 +123,7 @@ def _xhtml(text: str, lang: Optional[str] = None) -> Dict:
     return {"status": "generated", "div": f'<div xmlns="http://www.w3.org/1999/xhtml"{attrs}>{esc}</div>'}
 
 
-_NOME = re.compile(r"[^\x00-\x1f<>&\"]{1,80}")
+_NOME = re.compile(r"[^\x00-\x1f<>]{1,80}")           # apostrophes and ampersands are names; the narrative escapes them
 
 
 def _paziente_identificato(spec: Dict, base: Dict) -> Dict:
@@ -152,6 +152,8 @@ def _paziente_identificato(spec: Dict, base: Dict) -> Dict:
         raise ValueError("CH EMS: paziente.identificatore must be {system: 'urn:oid:…' of the local patient index, value: token}")
     if ident["system"] in (OID_EPR_SPID, OID_AHVN13):
         raise ValueError("CH EMS: EPR-SPID and AHVN13 must not be carried in a document (ch-core-patient-epr: max 0)")
+    if re.fullmatch(r"756\d{10}", ident["value"]):        # an AHVN13-shaped value under a "local" system is still the AHVN13
+        raise ValueError("CH EMS: identificatore.value looks like an AHVN13 (756 + 10 digits): refused under any system")
     nome_txt = (cog.strip() + (", " + nom.strip() if nom else ""))
     out = dict(base)
     out["identifier"] = [{"system": ident["system"], "value": ident["value"]}]
@@ -228,9 +230,14 @@ def jcs(obj: Any) -> bytes:
 # by looking the key up in the OMEGA operator registry (fb-<slug>.pub). This is not the OMEGA audit-record signature
 # (which stays in Provenance as entities): it is a signature of THIS document by the operator's key.
 SIG_TYPE = {"system": "urn:iso-astm:E1762-95:2013", "code": "1.2.840.10065.1.12.1.1", "display": "Author's Signature"}
-# canonicalization named in targetFormat as the spec asks; the signed bytes are the whole Bundle (root id and meta.profile
-# INCLUDED — the plain variant, not #document) minus the `signature` element itself, in RFC 8785 form
-TARGET_FORMAT = "application/fhir+json;canonicalization=http://hl7.org/fhir/canonicalization/json"
+# The canonicalization is named in targetFormat in the parameter form the FHIR "Digital Signatures" page uses, with a URI
+# WE define (FORMAT.md): FHIR R4's own "canonical JSON" is not RFC 8785 (no number rewriting, and it does not say to remove
+# the signature member); the current FHIR build adopts RFC 8785, but CH EMS is R4. Labelling our bytes with the FHIR URI
+# would let a verifier following that page rebuild different bytes (review Opus r1). The same URI travels in the JWS
+# header ("canon"), so the payload rule is discoverable from the signature itself.
+CANON_URI = "https://omega.example/fhir/canonicalization/rfc8785-bundle-without-signature"
+TARGET_FORMAT = "application/fhir+json;canonicalization=" + CANON_URI
+_KID = re.compile(r"omega:fb-([a-z0-9-]{1,64})")
 
 
 def _b64u(b: bytes) -> str:
@@ -257,99 +264,129 @@ def firma_documento(doc: Dict, operatore: str, ts: str, who_id: str = "soccorso"
         raise ValueError("firma_documento: ts must be an ISO 8601 instant with timezone")
     if attester not in (None, "professional", "legal"):
         raise ValueError("firma_documento: attester must be professional | legal | None")
+    slug = AB._slug(operatore) or "anonimo"
+    if not _KID.fullmatch(f"omega:fb-{slug}"):
+        raise ValueError("firma_documento: operator slug must be [a-z0-9-]{1,64}")
     sk = AB._fb_key(operatore)
     pub = sk.public_key().public_bytes(AB._ser.Encoding.Raw, AB._ser.PublicFormat.Raw)
-    slug = AB._slug(operatore) or "anonimo"
-    # header per FHIR "Digital Signatures" (build of 2026-09, normative track; R4 text is looser): kid (no X.509 here),
-    # sigT equal to Signature.when, srCms = the same ASTM purpose as Signature.type (JAdES-shaped; no JAdES
-    # conformance is claimed), the verifying key as a JWK so any JWS library can check the bytes
-    header = {"alg": "EdDSA", "b64": False, "crit": ["b64"], "kid": f"omega:fb-{slug}", "sigT": ts,
-              "srCms": [{"commId": {"id": "urn:oid:" + SIG_TYPE["code"], "desc": SIG_TYPE["display"]}}],
-              "jwk": {"kty": "OKP", "crv": "Ed25519", "x": _b64u(pub)}}
-    h = _b64u(json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8"))
-    payload = jcs(doc)
-    sig = sk.sign(h.encode("ascii") + b"." + payload)
-    jws = f"{h}..{_b64u(sig)}"                       # detached: payload omitted, reconstructed by the verifier from the Bundle
     who = None
     for e in doc.get("entry", []):
-        if e.get("resource", {}).get("id") == who_id:
-            who = {"reference": e["fullUrl"]}
+        r = e.get("resource", {})
+        if r.get("resourceType") == "Organization" and r.get("id") == who_id:
+            who = {"reference": e["fullUrl"]}; break
     if who is None:
-        raise ValueError(f"firma_documento: signer resource {who_id!r} not in the Bundle")
+        raise ValueError(f"firma_documento: signer Organization {who_id!r} not in the Bundle")
     out = json.loads(json.dumps(doc))                    # deep copy: the caller's Bundle is never mutated
-    if attester:                                          # the attestation is INSIDE the signed bytes: computed before signing
+    if attester:                                          # the attestation is INSIDE the signed bytes: added before signing
         comp = out["entry"][0]["resource"]
         if comp.get("resourceType") != "Composition":
             raise ValueError("firma_documento: entry[0] must be the Composition")
         comp.setdefault("attester", []).append({"mode": attester, "time": ts, "party": who})
-        payload = jcs(out)
-        sig = sk.sign(h.encode("ascii") + b"." + payload)
-        jws = f"{h}..{_b64u(sig)}"
+    # header per FHIR "Digital Signatures" (build of 2026-09, normative track; R4 text is looser): kid (no X.509 here),
+    # sigT equal to Signature.when, srCms = the same ASTM purpose as Signature.type (JAdES-shaped; no JAdES conformance
+    # is claimed), the verifying key as a JWK (public part only), plus two private parameters that bind what the Signature
+    # datatype leaves outside the signed bytes: "canon" (the payload rule) and "who" (the signer reference)
+    header = {"alg": "EdDSA", "b64": False, "crit": ["b64"], "kid": f"omega:fb-{slug}", "sigT": ts,
+              "srCms": [{"commId": {"id": "urn:oid:" + SIG_TYPE["code"], "desc": SIG_TYPE["display"]}}],
+              "jwk": {"kty": "OKP", "crv": "Ed25519", "x": _b64u(pub)}, "canon": CANON_URI, "who": who["reference"]}
+    h = _b64u(json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8"))
+    sig = sk.sign(h.encode("ascii") + b"." + jcs(out))   # signed ONCE, over the final content
+    jws = f"{h}..{_b64u(sig)}"                       # detached: payload omitted, reconstructed by the verifier from the Bundle
     out["signature"] = {"type": [dict(SIG_TYPE)], "when": ts, "who": who, "targetFormat": TARGET_FORMAT,
                         "sigFormat": "application/jose", "data": base64.b64encode(jws.encode("ascii")).decode("ascii")}
     return out
 
 
 def verifica_firma_documento(doc: Any, keys_dir: Optional[str] = None) -> Dict:
-    """Four-state verdict on Bundle.signature: OK (valid against the embedded key, plus whether that key is REGISTERED
-    in the operator registry), NON_VALIDA (present but does not verify / malformed), NON_VERIFICATA (present, no Ed25519
-    implementation here), ASSENTE (no signature).
-    `doc` may be the parsed Bundle or its raw bytes (strict JSON: duplicate keys refused)."""
+    """Verdict on Bundle.signature, five states, structure checked BEFORE cryptography:
+      OK_REGISTRATA          — the bytes verify AND the embedded key equals the operator's registered key (`kid`) in
+                               `keys_dir` (default: this machine's `.audit_keys/`); the only state a consumer may accept
+      OK_CHIAVE_NON_REGISTRATA — the bytes verify against the key embedded in the header, which is NOT (or cannot be) matched
+                               to a registered operator key: anyone can produce such a signature with a fresh key
+      NON_VALIDA             — present but malformed, unbound, or the bytes do not verify
+      NON_VERIFICATA         — structurally sound, no Ed25519 implementation here to check the bytes
+      ASSENTE                — no signature
+    The signature proves the bytes; the registry proves only that the key matches the LOCAL operator record of the verifying
+    machine — there is no key distribution in 0.7.3, so on a machine without that registry the best verdict is
+    OK_CHIAVE_NON_REGISTRATA. `doc` may be the parsed Bundle or its raw bytes (strict JSON: duplicate keys refused)."""
     out = {"stato": "ASSENTE", "kid": None, "chiave_registrata": None, "motivo": None}
+    def _no(m):
+        out.update(stato="NON_VALIDA", motivo=m); return out
     try:
         if isinstance(doc, (bytes, bytearray)):
             doc = json.loads(bytes(doc).decode("utf-8"), object_pairs_hook=_no_dup)
         if not isinstance(doc, dict) or doc.get("resourceType") != "Bundle":
-            out.update(stato="NON_VALIDA", motivo="not a Bundle"); return out
+            return _no("not a Bundle")
         sig = doc.get("signature")
         if sig is None:
             return out
         if not isinstance(sig, dict) or sig.get("sigFormat") != "application/jose" or not isinstance(sig.get("data"), str):
-            out.update(stato="NON_VALIDA", motivo="signature is not an application/jose Signature with data"); return out
+            return _no("signature is not an application/jose Signature with data")
+        if sig.get("targetFormat") != TARGET_FORMAT:
+            return _no("targetFormat must be exactly " + TARGET_FORMAT)
         jws = base64.b64decode(sig["data"], validate=True).decode("ascii")
         parts = jws.split(".")
         if len(parts) != 3 or parts[1] != "":
-            out.update(stato="NON_VALIDA", motivo="not a detached compact JWS (header..signature)"); return out
+            return _no("not a detached compact JWS (header..signature)")
         header = json.loads(_b64u_dec(parts[0]).decode("utf-8"), object_pairs_hook=_no_dup)
-        out["kid"] = header.get("kid")
-        if header.get("alg") != "EdDSA" or header.get("b64") is not False or "b64" not in (header.get("crit") or []):
-            out.update(stato="NON_VALIDA", motivo="header must be alg EdDSA with b64:false in crit"); return out
-        if not str(sig.get("targetFormat", "")).startswith("application/fhir+json"):
-            out.update(stato="NON_VALIDA", motivo="targetFormat must be application/fhir+json[;canonicalization=…]"); return out
-        if "sigT" in header and sig.get("when") is not None and header["sigT"] != sig["when"]:
-            out.update(stato="NON_VALIDA", motivo="sigT in the header and Signature.when disagree"); return out
+        if not isinstance(header, dict):
+            return _no("protected header is not an object")
+        kid = header.get("kid")
+        out["kid"] = kid if isinstance(kid, str) else None
+        if not isinstance(kid, str) or not _KID.fullmatch(kid):
+            return _no("kid must be omega:fb-<slug> with slug [a-z0-9-]{1,64}")
+        if header.get("alg") != "EdDSA" or header.get("b64") is not False or header.get("crit") != ["b64"]:
+            return _no("header must be alg EdDSA, b64:false, crit exactly [\"b64\"]")
+        if header.get("canon") != CANON_URI:
+            return _no("header canon must name the payload rule " + CANON_URI)
+        if not isinstance(header.get("sigT"), str) or not isinstance(sig.get("when"), str) or header["sigT"] != sig["when"]:
+            return _no("sigT (header) and Signature.when must both be present and equal")
+        types = sig.get("type") if isinstance(sig.get("type"), list) else []
+        srcms = header.get("srCms") if isinstance(header.get("srCms"), list) else []
+        codes = {t.get("code") for t in types if isinstance(t, dict) and t.get("system") == SIG_TYPE["system"]}
+        comm = {str(c.get("commId", {}).get("id", "")).replace("urn:oid:", "", 1) for c in srcms if isinstance(c, dict) and isinstance(c.get("commId"), dict)}
+        if not codes or codes != comm:
+            return _no("Signature.type (ASTM E1762-95) and the header srCms commitments must carry the same codes")
+        who = sig.get("who") if isinstance(sig.get("who"), dict) else {}
+        if not isinstance(who.get("reference"), str) or header.get("who") != who["reference"]:
+            return _no("Signature.who.reference must equal the signed header who")
+        if not any(e.get("fullUrl") == who["reference"] and isinstance(e.get("resource"), dict) and e["resource"].get("resourceType") == "Organization"
+                   for e in (doc.get("entry") or []) if isinstance(e, dict)):
+            return _no("Signature.who must reference an Organization entry of this Bundle")
+        comp = (doc.get("entry") or [{}])[0].get("resource", {}) if isinstance(doc.get("entry"), list) and doc["entry"] else {}
+        for a in (comp.get("attester") or []) if isinstance(comp, dict) and isinstance(comp.get("attester"), list) else []:
+            if isinstance(a, dict) and a.get("time") == sig["when"] and (a.get("party") or {}).get("reference") != who["reference"]:
+                return _no("a Composition.attester at the signing time names a different party than Signature.who")
         jwk = header.get("jwk") or {}
-        if jwk.get("kty") != "OKP" or jwk.get("crv") != "Ed25519" or not isinstance(jwk.get("x"), str):
-            out.update(stato="NON_VALIDA", motivo="header must embed an OKP/Ed25519 JWK"); return out
+        if not isinstance(jwk, dict) or set(jwk) != {"kty", "crv", "x"} or jwk.get("kty") != "OKP" or jwk.get("crv") != "Ed25519" or not isinstance(jwk.get("x"), str):
+            return _no("header must embed a PUBLIC OKP/Ed25519 JWK with exactly kty, crv, x")
         pub = _b64u_dec(jwk["x"])
         if len(pub) != 32:
-            out.update(stato="NON_VALIDA", motivo="JWK x is not a 32-byte Ed25519 key"); return out
-        senza = {k: v for k, v in doc.items() if k != "signature"}
-        payload = jcs(senza)
+            return _no("JWK x is not a 32-byte Ed25519 key")
         raw_sig = _b64u_dec(parts[2])
         if len(raw_sig) != 64:
-            out.update(stato="NON_VALIDA", motivo="signature is not 64 bytes"); return out
+            return _no("signature is not 64 bytes")
+        senza = {k: v for k, v in doc.items() if k != "signature"}
+        payload = jcs(senza)
+        # trust, decided from the LOCAL registry before the mathematics (so a missing implementation still reports it)
+        import audit_bridge as AB
+        path = os.path.join(keys_dir or AB.KEYS_DIR, f"fb-{_KID.fullmatch(kid).group(1)}.pub")
+        registrata = False
+        if os.path.exists(path):
+            try:
+                registrata = base64.b64decode(open(path).read().strip()) == pub
+            except Exception:      # noqa: BLE001 — a corrupt registry file is "not registered", never a crash
+                registrata = False
+        out["chiave_registrata"] = registrata
         ok = _ed25519_verify(pub, raw_sig, parts[0].encode("ascii") + b"." + payload)
         if ok is None:                                    # no Ed25519 implementation here: NOT verified, never "valid"/"invalid"
             out.update(stato="NON_VERIFICATA", motivo="no Ed25519 implementation available (`cryptography` missing)"); return out
         if not ok:
-            out.update(stato="NON_VALIDA", motivo="Ed25519 verification failed over JCS(Bundle without signature)"); return out
-        out["stato"] = "OK"
-        # trust: is this key the registered key of the operator named in kid?
-        out["chiave_registrata"] = False
-        kid = header.get("kid") or ""
-        if kid.startswith("omega:fb-") and re.fullmatch(r"[a-z0-9-]{1,64}", kid[9:]):
-            import audit_bridge as AB
-            path = os.path.join(keys_dir or AB.KEYS_DIR, f"fb-{kid[9:]}.pub")
-            if os.path.exists(path):
-                try:
-                    out["chiave_registrata"] = base64.b64decode(open(path).read().strip()) == pub
-                except Exception:      # noqa: BLE001 — a corrupt registry file is "not registered", never a crash
-                    out["chiave_registrata"] = False
+            return _no("Ed25519 verification failed over JCS(Bundle without signature)")
+        out["stato"] = "OK_REGISTRATA" if registrata else "OK_CHIAVE_NON_REGISTRATA"
         return out
     except Exception as e:             # noqa: BLE001 — input from the network: every malformation is a verdict
-        out.update(stato="NON_VALIDA", motivo=f"{type(e).__name__}: {str(e)[:120]}"); return out
-
+        return _no(f"{type(e).__name__}: {str(e)[:120]}")
 
 def _no_dup(pairs):
     d = {}
@@ -423,7 +460,8 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
     ref = lambda rid: {"reference": urn(rid)}
 
     eta = p.get("eta_paziente")
-    patient = {"resourceType": "Patient", "id": "anon", "meta": {"profile": [PROFILE["patient"]]},
+    paz_id = "anon" if missione.get("paziente") is None else "paziente"  # an identified patient is not "anon" (review Opus r1)
+    patient = {"resourceType": "Patient", "id": paz_id, "meta": {"profile": [PROFILE["patient"]]},
                "text": _xhtml(X["patient"].format(age=X["age"].format(eta=eta) if isinstance(eta, int) and not isinstance(eta, bool) else ""))}
     if missione.get("paziente") is not None:
         patient = _paziente_identificato(missione["paziente"], patient)
@@ -451,7 +489,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
                  # short ("AMB | IMP", BFS mapping) for a pre-hospital mission — both are the profile's semantics
                  "status": "in-progress" if stato == "preliminary" else "finished",
                  "class": {"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB"},
-                 "subject": ref("anon"), "basedOn": [ref("richiesta")], "period": period}
+                 "subject": ref(paz_id), "basedOn": [ref("richiesta")], "period": period}
     if missione.get("tipo_missione") is not None:      # never assumed: primary / secondary / stand-by is an input
         if missione["tipo_missione"] not in MISSION_TYPE:
             raise ValueError("CH EMS: tipo_missione must be primaria | secondaria | standby")
@@ -474,7 +512,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
     # INSIDE the ServiceRequest (measured with the HL7 validator 16/09: a bundle-level reference is an error)
     richiesta = {"resourceType": "ServiceRequest", "id": "richiesta", "meta": {"profile": [PROFILE["servicerequest"]]},
                  "text": _xhtml(X["sr"].format(req=centrale["name"])),
-                 "contained": [centrale], "status": "active", "intent": "order", "subject": ref("anon"),
+                 "contained": [centrale], "status": "active", "intent": "order", "subject": ref(paz_id),
                  "encounter": ref("missione"), "requester": {"reference": "#centrale"}}
 
     # vitals (OMEGA measures) — every CH EMS observation is bound to the patient AND the mission encounter
@@ -482,7 +520,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
     for k, code in LOINC.items():
         if k in vitali and vitali[k] is not None:
             o = _obs(f"vit-{k}", code, float(vitali[k]), UCUM[k], ts)
-            o["subject"], o["encounter"] = ref("anon"), ref("missione")
+            o["subject"], o["encounter"] = ref(paz_id), ref("missione")
             if k == "hr":
                 o["meta"] = {"profile": [PROFILE["heartrate"]]}
             elif k == "sbp":   # the CH EMS blood-pressure profile is the LOINC 85354-9 panel (systolic component; diastolic absent)
@@ -503,7 +541,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
     if vitali.get("alert_coscienza") is True:   # OMEGA knows only "alert / not alert": V, P, U are not distinguishable → exported only when A
         avpu = {"resourceType": "Observation", "id": "vit-avpu", "meta": {"profile": [PROFILE["avpu"]]}, "status": "final",
                 "code": {"coding": [{"system": LOINC_SYS, "code": "11454-6"}]},
-                "subject": ref("anon"), "encounter": ref("missione"), "effectiveDateTime": ts,
+                "subject": ref(paz_id), "encounter": ref("missione"), "effectiveDateTime": ts,
                 "valueCodeableConcept": {"coding": [{"system": CS_IVR, "code": "A", "display": "wach, ansprechbar und orientiert"}]}}
         entries.append(avpu)
 
@@ -511,7 +549,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
     for k, v in tempi.items():
         c, d = MISSION_TIME_ROLE[k]
         times.append({"resourceType": "Observation", "id": "tempo-" + k.replace("_", "-"), "meta": {"profile": [PROFILE["missiontime"]]}, "status": "final",
-                      "code": {"coding": [{"system": CS_IVR, "code": c, "display": d}]}, "subject": ref("anon"),
+                      "code": {"coding": [{"system": CS_IVR, "code": c, "display": d}]}, "subject": ref(paz_id),
                       "encounter": ref("missione"), "effectiveDateTime": v, "valueDateTime": v})
     entries.extend(times)
 
@@ -522,7 +560,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
         c, d = START_TO_SNOMED[missione["triage_colore"]]
         priority = {"resourceType": "Observation", "id": "stato-paziente", "meta": {"profile": [PROFILE["statuspriority"]]}, "status": "final",
                     "code": {"coding": [{"system": LOINC_SYS, "code": "77941-3"}]},
-                    "subject": ref("anon"), "encounter": ref("missione"), "effectiveDateTime": ts,
+                    "subject": ref(paz_id), "encounter": ref("missione"), "effectiveDateTime": ts,
                     "valueCodeableConcept": {"coding": [{"system": SNOMED, "code": c, "display": d}]}}
         entries.append(priority)
     destinazione = None
@@ -530,14 +568,14 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
         destinazione = _org("destinazione", missione["destinazione"], "destinazione (receiving hospital)")
 
     comunicazione = p.get("profilo") == "comunicazione"      # 0.7.0: nessun RiskAssessment senza punteggi calcolati (review Opus 18/09)
-    rischio = None if comunicazione else {"resourceType": "RiskAssessment", "id": "prealert", "status": "final", "subject": ref("anon"),
+    rischio = None if comunicazione else {"resourceType": "RiskAssessment", "id": "prealert", "status": "final", "subject": ref(paz_id),
                "encounter": ref("missione"), "occurrenceDateTime": ts,
                "method": {"coding": [{"system": CS_LOCALE, "code": "news2", "display": "NEWS2 (RCP 2017) + percorsi tempo-dipendenti"}]},
                "basis": [ref(v) for v in vit_ids.values()],
                "prediction": [{"outcome": {"text": f"priorità {p.get('priorita')} · NEWS2 {p.get('NEWS2')}"},
                                "qualitativeRisk": {"coding": [{"system": CS_LOCALE, "code": str(p.get("priorita")).lower()}]}}],
                "note": [{"text": a} for a in ([p.get("azione_raccomandata")] + list(p.get("percorsi_attivare") or [])) if a]}
-    flags = [{"resourceType": "Flag", "id": f"avviso-{i}", "status": "active", "code": {"text": a}, "subject": ref("anon"),
+    flags = [{"resourceType": "Flag", "id": f"avviso-{i}", "status": "active", "code": {"text": a}, "subject": ref(paz_id),
               "encounter": ref("missione")} for i, a in enumerate([] if comunicazione else (p.get("avvisi") or []))]   # nessun Flag in comunicazione
     prov = attester = None
     if provenienza_omega and provenienza_omega.get("firma_b64") is not None and not provenienza_omega.get("ancorato"):
@@ -631,7 +669,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
                    "_confidentiality": {"extension": [{"url": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-ext-epr-confidentialitycode",
                                                        "valueCodeableConcept": {"coding": [{"system": "http://snomed.info/sct", "code": "17621005"}]}}]},
                    "type": {"coding": [{"system": LOINC_SYS, "code": "67796-3"}]},
-                   "subject": ref("anon"), "encounter": ref("missione"), "date": ts, "author": [ref("soccorso")],
+                   "subject": ref(paz_id), "encounter": ref("missione"), "date": ts, "author": [ref("soccorso")],
                    "title": T["doc"], "custodian": ref("soccorso"), "section": sections}
     if attester:
         composition["attester"] = [attester]        # the eCH-0207 use case: the crew "unterzeichnet das Dokument"

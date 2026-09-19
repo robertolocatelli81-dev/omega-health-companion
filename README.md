@@ -160,30 +160,39 @@ falsely claim to cover this JSON.
 **Signing the document itself (0.7.3)** — `fhir_chems.firma_documento(doc, operatore, ts)` adds a `Bundle.signature`
 (base FHIR R4, 0..1; CH EMS does not profile or require it) that *does* cover this JSON: a detached JWS
 (RFC 7515, payload omitted), unencoded payload (RFC 7797, `b64: false`), `EdDSA`/Ed25519 (RFC 8037), computed over the
-RFC 8785 canonical form of the whole Bundle without the `signature` element (root `id` and `meta.profile` included),
-named in `Signature.targetFormat` as the FHIR "Digital Signatures" page asks
-(`application/fhir+json;canonicalization=http://hl7.org/fhir/canonicalization/json`); header with `kid`
-(`omega:fb-<operator>`), `sigT` equal to `Signature.when`, `srCms` with the same ASTM E1762-95 purpose as
-`Signature.type` (Author's Signature) and the verifying key as a JWK, so any JWS library checks the bytes; the same call
-adds `Composition.attester` (mode `professional` for a pre-alert, `legal` for the final protocol — the eCH-0207 use
-case) *inside* the signed bytes. `fhir_chems.verifica_firma_documento(doc)` (also `chems_validate.py
---verify-signature doc.json`) gives a four-state verdict — OK, NON_VALIDA, NON_VERIFICATA (no Ed25519 implementation),
-ASSENTE — plus whether the key is the operator's *registered* key (`.audit_keys/fb-<slug>.pub`): a signature that
-verifies proves the bytes, the registry proves who. Measured 2026-09-19: the signed sample validates with **0 errors**
-on validator_cli 6.10.4 (which inspects the JOSE signature and reports one warning: it can verify only against X.509
-certificates in its store and cannot parse Ed25519 certificates — "Unsupported key type: EdDSA", measured with a
-self-signed `x5c`, so none is embedded) and **0 errors** on Matchbox; every tampering — a value, a key name, an added
-or removed entry, the attester, `when` ≠ `sigT`, one signature byte — gives NON_VALIDA (tests), and jwcrypto, an
-independent JWS library, verifies the same detached JWS and refuses a tampered payload (test + CI). Two declared
-limits: JCS signs numbers, not their spelling (`39.4` and `39.40` are one value); and the current FHIR build
-(R6 draft) is removing `Bundle.signature` in favour of `Provenance.signature` with the document as target — CH EMS
-is R4, where `Bundle.signature` is the defined carrier. The published `examples/chems_document_sample_signed.json` is
-signed by a key derived from a public sentence in `chems_validate.py`: it proves the format, not an identity.
+RFC 8785 canonical form of the whole Bundle without the `signature` element (root `id` and `meta.profile` included).
+The payload rule is named twice, as a `canonicalization` parameter of `Signature.targetFormat` (the parameter form the
+FHIR "Digital Signatures" page uses) and as the `canon` header parameter of the JWS itself, with a URI **we define**
+(FORMAT.md) — not the FHIR one, because FHIR R4's own "canonical JSON" is not RFC 8785 and does not say to remove the
+signature member (the current FHIR build adopts RFC 8785, declared here from build.fhir.org read on 2026-09-19; CH EMS is
+R4). Header: `kid` (`omega:fb-<operator>`), `sigT` equal to `Signature.when`, `srCms` with the same ASTM E1762-95 purpose
+as `Signature.type` (Author's Signature), `who` equal to `Signature.who` (so the three elements the Signature datatype
+leaves outside the signed bytes are bound), and the verifying key as a public JWK. The same call adds
+`Composition.attester` (mode `professional` for a pre-alert, `legal` for the final protocol — the eCH-0207 use case)
+*inside* the signed bytes. `fhir_chems.verifica_firma_documento(doc)` (also `chems_validate.py --verify-signature
+doc.json`) gives a five-state verdict, structure before cryptography: **OK_REGISTRATA** (the bytes verify *and* the
+embedded key equals the operator's registered key in the verifying machine's `.audit_keys/`: the only state a consumer
+may accept; the CLI exits 0 only there), **OK_CHIAVE_NON_REGISTRATA** (the bytes verify against the key carried in the
+header — anyone can produce that with a fresh key, so it proves integrity, not who), NON_VALIDA, NON_VERIFICATA (no
+Ed25519 implementation), ASSENTE. The registry proves only that the key matches the *local* operator record of the
+verifying machine; there is no key distribution in 0.7.3, so on a machine without that registry the best verdict is
+OK_CHIAVE_NON_REGISTRATA. Measured 2026-09-19: the signed sample validates with **0 errors** on validator_cli 6.10.4
+(which inspects the JOSE signature and reports one warning: it can verify only against X.509 certificates in its store
+and cannot parse Ed25519 certificates — "Unsupported key type: EdDSA", measured with a self-signed `x5c`, so none is
+embedded) and **0 errors** on Matchbox; 24 tamperings of the signed bytes, the signature, the header and the unsigned
+Signature metadata each give NON_VALIDA, a fresh key under the victim's `kid` gives OK_CHIAVE_NON_REGISTRATA (tests, with
+the verifier broken to "always valid" and to "always registered" as positive controls), and jwcrypto, an independent JWS
+library, verifies the same detached JWS against the registered key file and refuses a tampered payload (test + CI).
+Declared limits: JCS signs numbers, not their spelling (`39.4` and `39.40` are one value); `Signature.who` is the
+responding Organization while `kid` names the individual operator. The published
+`examples/chems_document_sample_signed.json` is signed by a key derived from a public sentence in `chems_validate.py`:
+it proves the format, not an identity, and verifies as OK_CHIAVE_NON_REGISTRATA everywhere.
 
 **Identified patient at handover (0.7.3, opt-in)** — `missione.paziente` = {cognome, nome, sesso, data_nascita,
-identificatore {system: local MPI OID, value}} renders a `ch-core-patient-epr`-conformant Patient; EPR-SPID and AHVN13
-are refused (the profile forbids them in a document), the identity goes into that document only (the ledger stays
-digest-only, the board PII-free). Measured 2026-09-19 (`examples/chems_conformance/release_0.7.3/abl-identified-patient*`):
+identificatore {system: local MPI OID, value}} renders a `ch-core-patient-epr`-conformant Patient (id `paziente`, not
+`anon`); EPR-SPID and AHVN13 are refused (the profile forbids them in a document), an AHVN13-shaped value is refused under
+any system, the identity goes into that document only (the ledger stays digest-only — tested on the anchoring path —
+the board PII-free; the ablation document is synthetic). Measured 2026-09-19 (`examples/chems_conformance/release_0.7.3/abl-identified-patient*`):
 with the identity the three `ch-ems-epr-*` warnings disappear (3 warnings remain: IVR `MN` and the OMEGA code system)
 and the document validates directly against `ch-core-document-epr` with 0 errors (one extra warning there: LOINC
 67796-3 is not in ch-term's DocumentEntry.typeCode value set). So the EPR warnings on the default document have exactly

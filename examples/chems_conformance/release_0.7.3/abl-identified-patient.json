@@ -60,7 +60,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "encounter": {
      "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
@@ -215,10 +215,10 @@
    }
   },
   {
-   "fullUrl": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d",
+   "fullUrl": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719",
    "resource": {
     "resourceType": "Patient",
-    "id": "anon",
+    "id": "paziente",
     "meta": {
      "profile": [
       "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient"
@@ -346,7 +346,7 @@
      "code": "AMB"
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "basedOn": [
      {
@@ -406,7 +406,7 @@
     "status": "active",
     "intent": "order",
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "encounter": {
      "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
@@ -442,7 +442,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "effectiveDateTime": "2026-09-19T09:10:00+02:00",
     "valueQuantity": {
@@ -496,7 +496,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "effectiveDateTime": "2026-09-19T09:10:00+02:00",
     "valueQuantity": {
@@ -550,7 +550,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "effectiveDateTime": "2026-09-19T09:10:00+02:00",
     "encounter": {
@@ -642,7 +642,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "effectiveDateTime": "2026-09-19T09:10:00+02:00",
     "valueQuantity": {
@@ -696,7 +696,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "effectiveDateTime": "2026-09-19T09:10:00+02:00",
     "valueQuantity": {
@@ -744,7 +744,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "encounter": {
      "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
@@ -791,7 +791,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "encounter": {
      "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
@@ -830,7 +830,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "encounter": {
      "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
@@ -869,7 +869,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "encounter": {
      "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
@@ -908,7 +908,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "encounter": {
      "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
@@ -947,7 +947,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "encounter": {
      "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
@@ -985,7 +985,7 @@
      ]
     },
     "subject": {
-     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+     "reference": "urn:uuid:048b86a4-4f90-5786-8cd3-ed7b80004719"
     },
     "encounter": {
      "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"

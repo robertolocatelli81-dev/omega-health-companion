@@ -1,0 +1,40 @@
+FHIR Validation tool Version 6.10.4 (Git# 1b90fb13f77b). Built 2026-09-04T05:45:41.468Z (15 days old)
+  Java:   17.0.20.1 from /usr/lib/jvm/java-17-openjdk-amd64 on amd64 (64bit). 1618MB available
+  Paths:  Current = ~/progetti/omega-health-companion, Package Cache = ~/.fhir/packages
+  Params: examples/chems_document_sample_signed.json -version 4.0.1 -ig ch.fhir.ig.ch-ems#2.0.0-ballot -profile http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document -output examples/chems_conformance/release_0.7.3/chems_document_sample_signed.against-ch-ems-document.OperationOutcome.json
+  Locale: United States/US
+  Jurisdiction: United States of America
+Loading
+  Loading FHIR v4.0.1 from hl7.fhir.r4.core#4.0.1
+  Load hl7.terminology.r4#6.2.0 - 4288 resources (00:10.641)
+  Load hl7.fhir.uv.extensions.r4#5.2.0 - 759 resources (00:02.205)
+  Loaded FHIR - 8265 resources (00:00.000)
+  Terminology server https://tx.fhir.org - Version Connected to Terminology Server at https://tx.fhir.org (00:03.871)
+  Load hl7.fhir.uv.extensions.r5#5.2.0 - 759 resources (00:01.196)
+  Load hl7.terminology.r5#7.1.0 - 4072 resources (00:01.386)
+  Load hl7.fhir.uv.extensions.r5#5.3.0 - 856 resources (00:00.015)
+  Load hl7.terminology#7.3.0 - 4146 resources (00:02.196)
+  Load hl7.fhir.uv.extensions#5.3.0 - 856 resources (00:00.254)
+  Load hl7.terminology.r4#7.1.0 - 4072 resources (00:04.090)
+  Load hl7.fhir.uv.extensions.r4#5.3.0 - 885 resources (00:00.556)
+  Load hl7.terminology.r4#6.3.0 - 4339 resources (00:06.032)
+  Load ihe.formatcode.fhir#1.4.0 - 3 resources (00:00.000)
+  Load hl7.terminology.r4#7.0.1 - 4066 resources (00:08.064)
+  Load ch.fhir.ig.ch-term#3.4.x - 154 resources (00:00.023)
+  Load hl7.fhir.uv.xver-r5.r4#0.1.0 - 4707 resources (00:00.109)
+  Load ch.fhir.ig.ch-core#7.0.0-ballot - 83 resources (00:00.003)
+  Load ch.fhir.ig.ch-term#3.4.x - 0 resources (00:00.002)
+  Load ch.fhir.ig.ch-ems#2.0.0-ballot - 123 resources (00:00.057)
+  Package Summary: [hl7.fhir.r4.core#4.0.1, hl7.fhir.xver-extensions#0.1.0, hl7.terminology.r4#6.2.0, hl7.fhir.uv.extensions.r4#5.2.0, hl7.fhir.uv.extensions.r5#5.2.0, hl7.terminology.r5#7.1.0, hl7.fhir.uv.extensions.r5#5.3.0, hl7.terminology#7.3.0, hl7.fhir.uv.extensions#5.3.0, hl7.terminology.r4#7.1.0, hl7.fhir.uv.extensions.r4#5.3.0, hl7.terminology.r4#6.3.0, ihe.formatcode.fhir#1.4.0, hl7.terminology.r4#7.0.1, ch.fhir.ig.ch-term#3.4.0, hl7.fhir.uv.xver-r5.r4#0.1.0, ch.fhir.ig.ch-core#7.0.0-ballot, ch.fhir.ig.ch-ems#2.0.0-ballot]
+  Terminology Cache at /tmp/default-tx-cache
+  Get set... 
+  ...go! (00:10.878)
+Cached new session. Cache size = 1
+Sources to validate: examples/chems_document_sample_signed.json
+Validating
+  Profiles: [http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document]
+  Validate examples/chems_document_sample_signed.json
+ 00:06.516
+Done. Times: Loading: 00:51.701, validation: 00:06.516. Memory = 965Mb
+
+Done. Times: Loading: 00:51.701, validation: 00:06.516. Max Memory = 1Gb
