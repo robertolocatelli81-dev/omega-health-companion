@@ -19,7 +19,7 @@ meet its own obligations.
 - **The provenance ledger stores SHA-256 digests only — never health data.** It proves
   *that* a pre-alert existed at a time, unaltered, without containing it (see
   `scores_emergenza.ancora_prealert`, default `payload="digest"`).
-- **The FHIR export is anonymised by default**: age only; no name, no identifiers, no birth date. The only exception is the opt-in identified patient of the CH EMS handover document (0.7.3, below), which never reaches the ledger or the board.
+- **The FHIR export is anonymised by default**: age only; no name, no identifiers, no birth date. The only exception is the opt-in identified patient of the CH EMS handover document (0.7.3, below), which never reaches the ledger (tested on the anchoring path) or the board (by construction: no server endpoint builds that document).
   Identity linkage happens inside the hospital's own systems, in the care flow.
 - **Confirmation signatures** bind operator name, time and meaning to a record digest —
   professional accountability data (staff, not patients), retained in the audit trail.
@@ -77,4 +77,4 @@ organisation (the data controller).
 - **Identified patient at handover (0.7.3, opt-in):** `missione.paziente` puts the patient's local MPI identifier, name,
   gender and birth date into the CH EMS document that the receiving hospital asked for — into that document only. The
   ledger keeps digests, the board keeps no identity, EPR-SPID and AHVN13 are refused. Whoever produces that document
-  handles a health record: the same duties as for the paper protocol.
+  handles a health record: the same duties as for the paper protocol. The ledger keeps digests (tested), the board is not involved (the document is built by the library, not by a server endpoint).

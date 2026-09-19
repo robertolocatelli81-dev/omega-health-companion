@@ -147,13 +147,14 @@ def _paziente_identificato(spec: Dict, base: Dict) -> Dict:
         datetime.strptime(dn, "%Y-%m-%d")
     except ValueError:
         raise ValueError("CH EMS: paziente.data_nascita is not a calendar date") from None
-    if not isinstance(ident, dict) or not isinstance(ident.get("system"), str) or not isinstance(ident.get("value"), str) \
-            or not re.fullmatch(r"urn:oid:[0-2](\.(0|[1-9]\d*))+", ident["system"]) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", ident["value"]):
+    if not isinstance(ident, dict) or not isinstance(ident.get("system"), str) or not isinstance(ident.get("value"), str):
         raise ValueError("CH EMS: paziente.identificatore must be {system: 'urn:oid:…' of the local patient index, value: token}")
     if ident["system"] in (OID_EPR_SPID, OID_AHVN13):
         raise ValueError("CH EMS: EPR-SPID and AHVN13 must not be carried in a document (ch-core-patient-epr: max 0)")
-    if re.fullmatch(r"756\d{10}", re.sub(r"[.\s-]", "", ident["value"])):   # 756.1234.5678.97 too: an AHVN13-shaped value under
-        raise ValueError("CH EMS: identificatore.value looks like an AHVN13 (756 + 10 digits): refused under any system")   # any system is still the AHVN13
+    if re.fullmatch(r"756\d{10}", re.sub(r"\D", "", ident["value"])):        # 756.1234.5678.97, with spaces or hyphens too: the digits of
+        raise ValueError("CH EMS: identificatore.value looks like an AHVN13 (756 + 10 digits): refused under any system")   # an AHVN13 under any system
+    if not re.fullmatch(r"urn:oid:[0-2](\.(0|[1-9]\d*))+", ident["system"]) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", ident["value"]):
+        raise ValueError("CH EMS: paziente.identificatore must be {system: 'urn:oid:…' of the local patient index, value: token}")
     nome_txt = (cog.strip() + (", " + nom.strip() if nom else ""))
     out = dict(base)
     out["identifier"] = [{"system": ident["system"], "value": ident["value"]}]
@@ -315,13 +316,16 @@ def verifica_firma_documento(doc: Any, keys_dir: Optional[str] = None) -> Dict:
       ASSENTE                — no signature
     The signature proves the bytes; the registry proves only that the key matches the LOCAL operator record of the verifying
     machine — there is no key distribution in 0.7.3, so on a machine without that registry the best verdict is
-    OK_CHIAVE_NON_REGISTRATA. `doc` may be the parsed Bundle or its raw bytes (strict JSON: duplicate keys refused)."""
+    OK_CHIAVE_NON_REGISTRATA. The default registry is `audit_bridge.KEYS_DIR`, an absolute path next to the installed module
+    (or the server's configured directory): never the current working directory and never the document's folder, so a
+    document shipped with a crafted `.audit_keys/` beside it cannot bring its own trust anchor (tested).
+    `doc` may be the parsed Bundle or its raw bytes (strict JSON: duplicate keys and NaN/Infinity refused)."""
     out = {"stato": "ASSENTE", "kid": None, "chiave_registrata": None, "motivo": None}
     def _no(m):
         out.update(stato="NON_VALIDA", motivo=m); return out
     try:
-        if isinstance(doc, (bytes, bytearray)):
-            doc = json.loads(bytes(doc).decode("utf-8"), object_pairs_hook=_no_dup)
+        if isinstance(doc, (bytes, bytearray)):                                    # strict: duplicate keys and NaN/Infinity refused (RFC 8785 §3.1, §3.2.2.3)
+            doc = json.loads(bytes(doc).decode("utf-8"), object_pairs_hook=_no_dup, parse_constant=_no_const)
         if not isinstance(doc, dict) or doc.get("resourceType") != "Bundle":
             return _no("not a Bundle")
         sig = doc.get("signature")
@@ -337,7 +341,7 @@ def verifica_firma_documento(doc: Any, keys_dir: Optional[str] = None) -> Dict:
         parts = jws.split(".")
         if len(parts) != 3 or parts[1] != "":
             return _no("not a detached compact JWS (header..signature)")
-        header = json.loads(_b64u_dec(parts[0]).decode("utf-8"), object_pairs_hook=_no_dup)
+        header = json.loads(_b64u_dec(parts[0]).decode("utf-8"), object_pairs_hook=_no_dup, parse_constant=_no_const)
         if not isinstance(header, dict):
             return _no("protected header is not an object")
         kid = header.get("kid")
@@ -400,6 +404,10 @@ def verifica_firma_documento(doc: Any, keys_dir: Optional[str] = None) -> Dict:
         return out
     except Exception as e:             # noqa: BLE001 — input from the network: every malformation is a verdict
         return _no(f"{type(e).__name__}: {str(e)[:120]}")
+
+def _no_const(name):
+    raise ValueError(f"non-JSON constant {name}")
+
 
 def _no_dup(pairs):
     d = {}

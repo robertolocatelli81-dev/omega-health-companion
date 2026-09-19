@@ -34,7 +34,15 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   surrogate inside the signed payload is a verdict on both the bytes and the dict path; the privacy test asserts the shape
   of the ledger record, not the absence of four substrings; isolation is checked by file content; the RFC 8785 Appendix B
   table is tested from the 24 IEEE-754 bit patterns; the sample's public key is pinned in the verifier and never reported
-  as registered; README now names `--allow-unregistered` and quotes the validator's warning verbatim. Declared: JCS signs numbers, not spellings; the
+  as registered; README now names `--allow-unregistered` and quotes the validator's warning verbatim. Round 3 (four minds:
+  Gemini Pro and Haiku no material issues; Opus 5 and Sonnet 5): the "mock is live" control of the structure test could not
+  fail → now a bit-flipped signature must verify under the lying oracle; the sample key is registered through the real
+  registry writer before the pin is proved; the ledger-shape check recurses into nested values; AHVN13 digits are matched
+  after removing every non-digit (spaces and hyphens too) and a dotted local id is asserted accepted; NaN/Infinity literals
+  are refused at parse; the registry default is the installed module's absolute path, never CWD or the document's folder
+  (a crafted `.audit_keys/` beside the document is measured as not consulted); more malformed-JWS shapes (payload in the
+  middle, 2 or 4 segments, 65-char or upper-case kid, absent alg, 31-byte JWK) are verdicts; README/PRIVACY say the board
+  is out of the identified-patient path by construction, not by test. Declared: JCS signs numbers, not spellings; the
   FHIR R6 draft moves this to `Provenance.signature` (CH EMS is R4). The published `chems_document_sample_signed.json`
   is signed with a key derived from a public sentence (format proof, not identity) and is byte-deterministic (test).
 - **Identified patient at handover, opt-in** (`missione.paziente`): a `ch-core-patient-epr`-conformant Patient (local
@@ -45,7 +53,7 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
 - Reader (`chems_ingest.leggi_documento`): reports `attestazioni` (Composition.attester) and `firma` (the five-state
   verdict) for any CH EMS document; on the IG's Bundle-2 example: attester `legal`, signature ASSENTE. The list of
   missing vitals (`mancanti`) already existed: on Bundle-2/2b it names rr, spo2, sbp, hr, temp.
-- 3 new test classes, 17 tests in test_fhir_chems (26 in the file), 216 in the suite (measured: `unittest discover`); tests assert their
+- 3 new test classes, 18 tests in test_fhir_chems (27 in the file), 217 in the suite (measured: `unittest discover`); tests assert their
   own isolation by file content (nothing written to the production key store).
 
 ## 0.7.2 — 2026-09-18 — default profile is `comunicazione`

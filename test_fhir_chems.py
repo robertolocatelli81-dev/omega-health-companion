@@ -260,6 +260,11 @@ class TestFirmaDocumento(unittest.TestCase):
         t = self._rewrap(t, C._b64u(json.dumps({**json.loads(C._b64u_dec(h)), "who": pat}, separators=(",", ":"), sort_keys=True).encode()) + ".." + sg)
         casi["who → Patient entry (header agrees)"] = t
         t = copy.deepcopy(self.signed); t["entry"][0]["resource"]["attester"][0]["party"] = {"reference": dest}; casi["attester party ≠ who"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["type"][0]["system"] = "http://example.org/astm"; casi["type system"] = t
+        casi["JWS con payload nel mezzo"] = self._rewrap(self.signed, f"{h}.eyJ4IjoxfQ.{sg}")
+        casi["JWS 2 segmenti"] = self._rewrap(self.signed, f"{h}.{sg}"); casi["JWS 4 segmenti"] = self._rewrap(self.signed, f"{h}..{sg}.x")
+        casi["kid 65 caratteri"] = _hdr(kid="omega:fb-" + "a" * 65); casi["kid maiuscolo"] = _hdr(kid="omega:fb-Alfa"); casi["alg assente"] = _hdr(alg=None)
+        casi["jwk.x 31 byte"] = _hdr(jwk={"kty": "OKP", "crv": "Ed25519", "x": C._b64u(b"\x01" * 31)})
         return casi
 
     def _jws(self, doc=None):
@@ -305,7 +310,8 @@ class TestFirmaDocumento(unittest.TestCase):
         self.assertEqual(I.leggi_documento(json.dumps(rogue).encode())["firma"]["stato"], "OK_CHIAVE_NON_REGISTRATA")
 
     def test_every_tampering_is_non_valida(self):
-        """Signed-bytes tamperings: refused by the mathematics."""
+        """Signed-bytes tamperings (refused by the mathematics) and, with real cryptography, the header/metadata cases too
+        (their structural enforcement is proved separately under a lying oracle)."""
         casi = {}
         t = copy.deepcopy(self.signed); t["entry"][1]["resource"]["text"]["div"] = t["entry"][1]["resource"]["text"]["div"].upper(); casi["valore"] = t
         t = copy.deepcopy(self.signed); t["entry"].append({"fullUrl": "urn:uuid:x", "resource": {"resourceType": "Basic", "id": "x"}}); casi["entry aggiunta"] = t
@@ -329,6 +335,8 @@ class TestFirmaDocumento(unittest.TestCase):
         with self.assertRaises(I.DocumentoNonValido):
             I.leggi_documento(raw.encode())
         self.assertEqual(C.verifica_firma_documento({"resourceType": "Patient"})["stato"], "NON_VALIDA")
+        raw = json.dumps(self.signed).replace('"value": 39.4', '"value": NaN', 1); self.assertIn("NaN", raw)
+        self.assertEqual(C.verifica_firma_documento(raw.encode())["stato"], "NON_VALIDA")   # NaN literal: refused at parse (RFC 8785 §3.2.2.3)
         # a lone surrogate INSIDE the signed payload (bytes path and dict path): a verdict, not a crash
         raw = json.dumps(self.signed).replace('"preliminary"', '"prelim\\ud800"', 1); self.assertIn("\\ud800", raw)
         self.assertEqual(C.verifica_firma_documento(raw.encode())["stato"], "NON_VALIDA")
@@ -342,10 +350,33 @@ class TestFirmaDocumento(unittest.TestCase):
         """Under an oracle that calls every signature valid, every header/metadata rule must still give NON_VALIDA — so the
         rules are enforced by the verifier, not by the signature happening to break too (review Opus r2)."""
         from unittest import mock
+        jws = self._jws(); h, _, sg = jws.split("."); raw = bytearray(C._b64u_dec(sg)); raw[10] ^= 0x01
+        rotto = self._rewrap(self.signed, f"{h}..{C._b64u(bytes(raw))}")                     # mathematically INVALID document
+        self.assertEqual(C.verifica_firma_documento(rotto)["stato"], "NON_VALIDA")
         with mock.patch.object(C, "_ed25519_verify", return_value=True):
-            self.assertEqual(C.verifica_firma_documento(self.signed)["stato"], "OK_REGISTRATA")   # the mock is live
+            self.assertEqual(C.verifica_firma_documento(rotto)["stato"], "OK_REGISTRATA")     # only a LIVE lying oracle can say this
             for nome, x in self._casi_header_e_metadati().items():
                 self.assertEqual(C.verifica_firma_documento(x)["stato"], "NON_VALIDA", nome)
+        with mock.patch.object(C, "_ed25519_verify", return_value=False):
+            self.assertEqual(C.verifica_firma_documento(self.signed)["stato"], "NON_VALIDA")
+
+    def test_a_registry_beside_the_document_is_not_consulted(self):
+        """A recipient verifying from the document's folder, which ships a crafted `.audit_keys/`: the default registry is the
+        installed module's absolute path, not CWD, so the document cannot bring its own trust anchor."""
+        import shutil, tempfile
+        altro = tempfile.mkdtemp(prefix="chems-rogue-"); self.addCleanup(shutil.rmtree, altro, True)
+        self.AB.KEYS_DIR = altro + "/keys"
+        rogue = C.firma_documento(self.doc, "equipaggio-118-alfa", "2026-09-19T09:11:00+02:00")
+        self.AB.KEYS_DIR = self.d + "/keys"
+        cartella = tempfile.mkdtemp(prefix="chems-doc-"); self.addCleanup(shutil.rmtree, cartella, True)
+        shutil.copytree(altro + "/keys", cartella + "/.audit_keys")
+        with open(cartella + "/doc.json", "w") as fh:
+            json.dump(rogue, fh)
+        cwd = os.getcwd(); os.chdir(cartella); self.addCleanup(os.chdir, cwd)
+        self.assertTrue(os.path.isabs(self.AB.KEYS_DIR))
+        with open("doc.json", "rb") as fh:
+            self.assertEqual(C.verifica_firma_documento(fh.read())["stato"], "OK_CHIAVE_NON_REGISTRATA")
+        os.chdir(cwd)
 
     def test_registered_key_under_another_name_is_not_that_operator(self):
         """Lookup is by kid: operator beta's registered key presented under alfa's kid is not registered for alfa."""
@@ -409,10 +440,15 @@ class TestFirmaDocumento(unittest.TestCase):
         with open("examples/chems_document_sample_signed.json") as fh:
             self.assertEqual(json.load(fh), a)                                                  # the committed file IS the build
         self.assertFalse(os.path.exists(self.d + "/keys/fb-esempio.pub"), "the sample key must not enter the registry")
-        import base64
-        with open(self.d + "/keys/fb-esempio.pub", "w") as fh:                                  # even a registry that lists it: never trusted
-            fh.write(base64.b64encode(C.SAMPLE_PUBKEY).decode())
-        self.assertEqual(C.verifica_firma_documento(a)["stato"], "OK_CHIAVE_NON_REGISTRATA")
+        import base64, hashlib
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        sk = Ed25519PrivateKey.from_private_bytes(hashlib.sha256(C.SAMPLE_KEY_SEED).digest())
+        self.AB._fb_registra_pubkey("esempio", sk)                                              # the REAL registry writer, same format as alfa's
+        with open(self.d + "/keys/fb-esempio.pub") as fh:
+            self.assertEqual(base64.b64decode(fh.read().strip()), C.SAMPLE_PUBKEY)             # the file now names exactly the pinned key
+        with open(self.d + "/keys/fb-equipaggio-118-alfa.pub") as fh:                          # …and that format is the one the verifier trusts for alfa
+            self.assertEqual(len(base64.b64decode(fh.read().strip())), 32)
+        self.assertEqual(C.verifica_firma_documento(a)["stato"], "OK_CHIAVE_NON_REGISTRATA")   # even a registry that lists it: never trusted
 
 
 class TestVerificaSenzaFirmatario(unittest.TestCase):
@@ -479,9 +515,12 @@ class TestPazienteIdentificato(unittest.TestCase):
         self.assertEqual(set(pat), {"resourceType", "id", "meta", "text", "identifier", "name", "gender", "birthDate"})
         self.assertIn("Muster", pat["text"]["div"]); self.assertNotIn("<b>", pat["text"]["div"])
         anon = self._doc(None)["entry"][1]["resource"]; self.assertEqual(set(anon), {"resourceType", "id", "meta", "text"})   # default unchanged
+        ok = self._doc({**self.PAZ, "identificatore": {"system": "urn:oid:2.16.756.5.30.1.999.2", "value": "MPI.000.123-A"}})   # dots are not a refusal
+        self.assertEqual(ok["entry"][1]["resource"]["identifier"][0]["value"], "MPI.000.123-A")
 
     def test_identity_only_in_the_document(self):
-        """paziente + firma + lettura together (the real handover path); the identity is in the document and nowhere else."""
+        """paziente + firma + lettura together (the real handover path); the identity is in the document and nowhere else
+        (measured on the fallback ledger; the private Part 11 engine writes its own record and is not exercised here)."""
         import audit_bridge as AB, tempfile, shutil, chems_ingest as I
         if not AB.FIRMA_LOCALE_DISPONIBILE:
             self.skipTest("cryptography missing")
@@ -500,10 +539,19 @@ class TestPazienteIdentificato(unittest.TestCase):
         for pii in ("Angelo", "Petra", "MPI-000123", "1959-03-04"):
             self.assertNotIn(pii, json.dumps(righe), pii); self.assertNotIn(pii, json.dumps(rec), pii)
         doc_len = len(json.dumps(doc))
-        for r in righe:                                                                 # shape: digests and short fields, never a document in any encoding
-            self.assertTrue(all(isinstance(v, (str, int, float, bool, type(None), dict)) for v in r.values()))
+        def _foglie(o):
+            if isinstance(o, dict):
+                for v in o.values():
+                    yield from _foglie(v)
+            elif isinstance(o, list):
+                for v in o:
+                    yield from _foglie(v)
+            else:
+                yield o
+        for r in righe:                                                                 # shape: digests and short fields at EVERY depth, never a document in any encoding
             self.assertLess(len(json.dumps(r)), doc_len / 4)
-            for v in r.values():
+            for v in _foglie(r):
+                self.assertIsInstance(v, (str, int, float, bool, type(None)))
                 if isinstance(v, str):
                     self.assertLessEqual(len(v), 128)
         self.assertRegex(rec["doc_sha256"], r"^[0-9a-f]{64}$")
@@ -516,6 +564,9 @@ class TestPazienteIdentificato(unittest.TestCase):
                          ({**self.PAZ, "sesso": "F"}, "administrative-gender"), ({**self.PAZ, "identificatore": {"system": "http://x", "value": "1"}}, "urn:oid"),
                          ({**self.PAZ, "identificatore": {"system": "urn:oid:2.16.756.5.30.1.999.2", "value": "7561234567897"}}, "AHVN13"),
                          ({**self.PAZ, "identificatore": {"system": "urn:oid:2.16.756.5.30.1.999.2", "value": "756.1234.5678.97"}}, "AHVN13"),
+                         ({**self.PAZ, "identificatore": {"system": "urn:oid:2.16.756.5.30.1.999.2", "value": "756 1234 5678 97"}}, "AHVN13"),
+                         ({**self.PAZ, "identificatore": {"system": "urn:oid:2.16.756.5.30.1.999.2", "value": "756-1234-5678-97"}}, "AHVN13"),
+                         ({**self.PAZ, "identificatore": {"system": C.OID_AHVN13, "value": "x"}}, "AHVN13"),
                          ("Muster", "object")):
             with self.assertRaises(ValueError, msg=why) as cm:
                 self._doc(bad)

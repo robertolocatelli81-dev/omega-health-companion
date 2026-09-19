@@ -133,8 +133,9 @@ Matchbox (test.ahdis.ch/matchboxv3, 2026-09-19 08:45 CEST) on the same two docum
   "Signature Verification is a work in progress".
 - `epr/omega-full.against-ch-core-document-epr.OperationOutcome.json`: the 0.7.2 full document against the EPR document
   profile: 1 error (Composition slice not matched), the cause chain that 0.7.3 closes.
-Post-review re-run (2026-09-19 09:2x CEST, after the round-1 fixes: `targetFormat` URI, `canon`/`who` headers, patient id
+Post-review re-run (2026-09-19 09:22 CEST, after the round-1 fixes: `targetFormat` URI, `canon`/`who` headers, patient id
 `paziente`): `abl-identified-patient.json` sha256 `44583ea7b32fe26a…` — ch-ems-document 0 errors / 3 warnings,
 ch-core-document-epr 0 errors / 4 warnings; `../chems_document_sample_signed.json` sha256 `c302d9801c18fc61…` —
 validator_cli 0 errors / 9 warnings, Matchbox 0 errors / 8 warnings. The OperationOutcome files in `release_0.7.3/` are
 from these files.
+Round 3 check (2026-09-19 10:01 CEST): `chems_document_sample_signed.json` at HEAD sha256 `c302d9801c18fc61…` (the signer is unchanged since the 09:22 run: same file, same OperationOutcome).

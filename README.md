@@ -173,20 +173,20 @@ leaves outside the signed bytes are bound), and the verifying key as a public JW
 doc.json`) gives a five-state verdict, structure before cryptography: **OK_REGISTRATA** (the bytes verify *and* the
 embedded key equals the operator's registered key in the verifying machine's `.audit_keys/`: the only state a consumer
 may accept; the CLI exits 0 only there, unless `--allow-unregistered` is passed — CI passes it for the public-key sample
-and asserts that the default exit is 1), **OK_CHIAVE_NON_REGISTRATA** (the bytes verify against the key carried in the
+and asserts that the default exit is non-zero), **OK_CHIAVE_NON_REGISTRATA** (the bytes verify against the key carried in the
 header — anyone can produce that with a fresh key, so it proves integrity, not who), NON_VALIDA, NON_VERIFICATA (no
 Ed25519 implementation), ASSENTE. The registry proves only that the key matches the *local* operator record of the
 verifying machine; there is no key distribution in 0.7.3, so on a machine without that registry the best verdict is
 OK_CHIAVE_NON_REGISTRATA. Measured 2026-09-19: the signed sample validates with **0 errors** on validator_cli 6.10.4,
-which inspects the JOSE signature and reports one warning — "Didn't find a matching certificate for the 'kid' … so can't
-verify the signature": it verifies only against X.509 certificates in its store; a self-signed Ed25519 certificate in `x5c`
+which inspects the JOSE signature and reports one signature-related warning (9 warnings in total, listed in EVIDENCE.md)
+— "Didn't find a matching certificate for the 'kid' … so can't verify the signature": it verifies only against X.509 certificates in its store; a self-signed Ed25519 certificate in `x5c`
 was measured separately and is an **error** there ("Unable to parse X509 Certificate: Unsupported key type: EdDSA"), so
 none is embedded — and **0 errors** on Matchbox. 8 tamperings of the signed bytes give NON_VALIDA by the mathematics; 25
 tamperings of the header and of the unsigned Signature metadata give NON_VALIDA by structure, asserted also under an oracle
 that calls every signature valid; a fresh key under the victim's `kid`, and a registered key under another operator's `kid`,
 give OK_CHIAVE_NON_REGISTRATA; the verifier broken to "always registered" turns the suite red; jwcrypto, an independent JWS
-library with RFC 7797 support, verifies the same detached JWS against the registered key file and refuses any payload
-that is not byte-identical (test + CI).
+library with RFC 7797 support, verifies the same detached JWS against the registered key file and refuses a tampered payload
+and the base64url form of the payload (test + CI).
 Declared limits: JCS signs numbers, not their spelling (`39.4` and `39.40` are one value); `Signature.who` is the
 responding Organization while `kid` names the individual operator. The published
 `examples/chems_document_sample_signed.json` is signed by a key derived from a public sentence in `chems_validate.py`:
@@ -196,8 +196,8 @@ whatever a local registry says.
 **Identified patient at handover (0.7.3, opt-in)** — `missione.paziente` = {cognome, nome, sesso, data_nascita,
 identificatore {system: local MPI OID, value}} renders a `ch-core-patient-epr`-conformant Patient (id `paziente`, not
 `anon`); EPR-SPID and AHVN13 are refused (the profile forbids them in a document), an AHVN13-shaped value (756 + 10 digits,
-with or without dots) is refused under any system, the identity goes into that document only (the ledger stays digest-only — tested on the anchoring path —
-the board PII-free; the ablation document is synthetic). Measured 2026-09-19 (`examples/chems_conformance/release_0.7.3/abl-identified-patient*`):
+with or without dots) is refused under any system, the identity goes into that document only (the ledger stays digest-only — tested on the anchoring path; the board never
+receives `missione`, by construction: no server endpoint builds the document; the ablation document is synthetic). Measured 2026-09-19 (`examples/chems_conformance/release_0.7.3/abl-identified-patient*`):
 with the identity the three `ch-ems-epr-*` warnings disappear (3 warnings remain: IVR `MN` and the OMEGA code system)
 and the document validates directly against `ch-core-document-epr` with 0 errors (one extra warning there: LOINC
 67796-3 is not in ch-term's DocumentEntry.typeCode value set). So the EPR warnings on the default document have exactly
