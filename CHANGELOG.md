@@ -26,7 +26,7 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
 - Reader (`chems_ingest.leggi_documento`): reports `attestazioni` (Composition.attester) and `firma` (the four-state
   verdict) for any CH EMS document; on the IG's Bundle-2 example: attester `legal`, signature ASSENTE. The list of
   missing vitals (`mancanti`) already existed: on Bundle-2/2b it names rr, spo2, sbp, hr, temp.
-- 2 new test classes, 10 tests, 210 in the suite (positive controls: the verifier broken to "always valid" makes the suite red).
+- 3 new test classes, 11 tests, 211 in the suite (positive controls: the verifier broken to "always valid" makes the suite red).
 
 ## 0.7.2 — 2026-09-18 — default profile is `comunicazione`
 

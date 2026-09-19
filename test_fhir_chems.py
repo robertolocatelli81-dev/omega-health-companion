@@ -281,12 +281,6 @@ class TestFirmaDocumento(unittest.TestCase):
         with self.assertRaises(Exception):
             j2 = J.JWS(); j2.deserialize(raw); j2.verify(key, detached_payload=payload + b" ")
 
-    def test_jcs_vectors(self):
-        """RFC 8785 Appendix B number vectors (subset) and key ordering by UTF-16 code units."""
-        for f, want in ((1e21, "1e+21"), (1e-7, "1e-7"), (0.000001, "0.000001"), (295147905179352830000.0, "295147905179352830000"), (-0.0, "0"), (100.0, "100"), (39.4, "39.4")):
-            self.assertEqual(C._es6_number(f), want, f)
-        self.assertEqual(C.jcs({"b": 1, "a": [True, None, 1.5, "x"], "\u20ac": 0}), b'{"a":[true,null,1.5,"x"],"b":1,"\u20ac":0}'.replace(b"\\u20ac", "\u20ac".encode()))
-
     def test_reader_reports_attester_and_signature(self):
         import chems_ingest as I
         r = I.leggi_documento(json.dumps(self.signed).encode())
@@ -300,6 +294,22 @@ class TestFirmaDocumento(unittest.TestCase):
         a, b = build_signed_sample(), build_signed_sample()
         self.assertEqual(a, b); self.assertEqual(C.verifica_firma_documento(a)["stato"], "OK")
         self.assertEqual(json.load(open("examples/chems_document_sample_signed.json")), a)   # the committed file IS the build
+
+
+class TestVerificaSenzaFirmatario(unittest.TestCase):
+    """Runs with or without `cryptography`: JCS vectors, and the verdict on the PUBLISHED signed sample must be OK where
+    Ed25519 is available and NON_VERIFICATA where it is not — never ASSENTE, never NON_VALIDA."""
+    def test_jcs_vectors(self):
+        for f, want in ((1e21, "1e+21"), (1e-7, "1e-7"), (0.000001, "0.000001"), (295147905179352830000.0, "295147905179352830000"), (-0.0, "0"), (100.0, "100"), (39.4, "39.4")):
+            self.assertEqual(C._es6_number(f), want, f)
+        self.assertEqual(C.jcs({"b": 1, "a": [True, None, 1.5, "x"], "\u20ac": 0}), '{"a":[true,null,1.5,"x"],"b":1,"\u20ac":0}'.encode("utf-8"))
+
+    def test_published_signed_sample_verdict(self):
+        import audit_bridge as AB
+        with open("examples/chems_document_sample_signed.json", "rb") as fh:
+            v = C.verifica_firma_documento(fh.read())
+        self.assertEqual(v["stato"], "OK" if AB.FIRMA_LOCALE_DISPONIBILE else "NON_VERIFICATA", v)
+        self.assertEqual(v["kid"], "omega:fb-esempio")
 
 
 class TestPazienteIdentificato(unittest.TestCase):
