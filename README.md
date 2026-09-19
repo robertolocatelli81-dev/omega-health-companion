@@ -200,7 +200,9 @@ identificatore {system: local MPI OID, value}} renders a `ch-core-patient-epr`-c
 with or without dots) is refused under any system, the identity goes into that document only (the ledger stays digest-only — tested on the fallback ledger; the private Part 11
 engine's record is declared digest-only, not tested here; the board never
 receives `missione`, by construction: no server endpoint builds the document; the ablation document is synthetic). Measured 2026-09-19 (`examples/chems_conformance/release_0.7.3/abl-identified-patient*`):
-with the identity the three `ch-ems-epr-*` warnings disappear (3 warnings remain: IVR `MN` and the OMEGA code system)
+with the identity the three `ch-ems-epr-*` warnings disappear (3 warnings remain: IVR `MN` and the OMEGA code system — the
+ablation document is the smaller communication-profile one, without RiskAssessment, so fewer code-system warnings than the
+full sample)
 and the document validates directly against `ch-core-document-epr` with 0 errors (one extra warning there: LOINC
 67796-3 is not in ch-term's DocumentEntry.typeCode value set). So the EPR warnings on the default document have exactly
 one cause, the anonymous patient — an ablation, not an inference.

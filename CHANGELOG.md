@@ -46,7 +46,11 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   the length check is inside the loop; Sonnet, Opus): the production registry default is now asserted absolute and beside
   the installed module from a value captured before any patch; KEYS_DIR restored by cleanup even if the signer raises; the
   identifier length is checked before the digit scan; the privacy sentence says "fallback ledger, Part 11 record declared
-  not tested"; the nine validator warnings are listed in EVIDENCE.md; PRIVACY no longer repeats the ledger sentence. Declared: JCS signs numbers, not spellings; the
+  not tested"; the nine validator warnings are listed in EVIDENCE.md; PRIVACY no longer repeats the ledger sentence.
+  Round 5 (Gemini Pro, Sonnet: none; Haiku: none material; Opus): the registry-default assertion could not tell a
+  `__file__`-based default from a CWD-at-import one when the suite starts from the repo root → a fresh interpreter started
+  from an unrelated directory now has to compute the same path; skip count published; README says why the identified
+  ablation has fewer warnings than the full sample. Declared: JCS signs numbers, not spellings; the
   FHIR R6 draft moves this to `Provenance.signature` (CH EMS is R4). The published `chems_document_sample_signed.json`
   is signed with a key derived from a public sentence (format proof, not identity) and is byte-deterministic (test).
 - **Identified patient at handover, opt-in** (`missione.paziente`): a `ch-core-patient-epr`-conformant Patient (local
@@ -57,7 +61,8 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
 - Reader (`chems_ingest.leggi_documento`): reports `attestazioni` (Composition.attester) and `firma` (the five-state
   verdict) for any CH EMS document; on the IG's Bundle-2 example: attester `legal`, signature ASSENTE. The list of
   missing vitals (`mancanti`) already existed: on Bundle-2/2b it names rr, spo2, sbp, hr, temp.
-- 3 new test classes, 18 tests in test_fhir_chems (27 in the file), 217 in the suite (measured: `unittest discover`); tests assert their
+- 3 new test classes, 19 tests in test_fhir_chems (28 in the file), 218 in the suite; without `cryptography` the signing
+  class is skipped (13 skips in that file) and the rest runs (measured: `unittest discover`); tests assert their
   own isolation by file content (nothing written to the production key store).
 
 ## 0.7.2 — 2026-09-18 — default profile is `comunicazione`
