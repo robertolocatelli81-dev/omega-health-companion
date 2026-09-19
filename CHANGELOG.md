@@ -42,7 +42,11 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   are refused at parse; the registry default is the installed module's absolute path, never CWD or the document's folder
   (a crafted `.audit_keys/` beside the document is measured as not consulted); more malformed-JWS shapes (payload in the
   middle, 2 or 4 segments, 65-char or upper-case kid, absent alg, 31-byte JWK) are verdicts; README/PRIVACY say the board
-  is out of the identified-patient path by construction, not by test. Declared: JCS signs numbers, not spellings; the
+  is out of the identified-patient path by construction, not by test. Round 4 (Gemini Pro: none; Haiku: one misread —
+  the length check is inside the loop; Sonnet, Opus): the production registry default is now asserted absolute and beside
+  the installed module from a value captured before any patch; KEYS_DIR restored by cleanup even if the signer raises; the
+  identifier length is checked before the digit scan; the privacy sentence says "fallback ledger, Part 11 record declared
+  not tested"; the nine validator warnings are listed in EVIDENCE.md; PRIVACY no longer repeats the ledger sentence. Declared: JCS signs numbers, not spellings; the
   FHIR R6 draft moves this to `Provenance.signature` (CH EMS is R4). The published `chems_document_sample_signed.json`
   is signed with a key derived from a public sentence (format proof, not identity) and is byte-deterministic (test).
 - **Identified patient at handover, opt-in** (`missione.paziente`): a `ch-core-patient-epr`-conformant Patient (local

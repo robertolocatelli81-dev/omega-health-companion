@@ -139,3 +139,8 @@ ch-core-document-epr 0 errors / 4 warnings; `../chems_document_sample_signed.jso
 validator_cli 0 errors / 9 warnings, Matchbox 0 errors / 8 warnings. The OperationOutcome files in `release_0.7.3/` are
 from these files.
 Round 3 check (2026-09-19 10:01 CEST): `chems_document_sample_signed.json` at HEAD sha256 `c302d9801c18fc61…` (the signer is unchanged since the 09:22 run: same file, same OperationOutcome).
+The 9 validator_cli warnings on `chems_document_sample_signed.json` (from its OperationOutcome): ch-ems-epr-composition;
+ch-ems-epr-patient; Encounter.identifier[0] IVR `MN` not in identifier-type; Encounter.identifier[1] OMEGA code system
+not resolvable; Encounter.identifier[1] not in identifier-type; RiskAssessment.method OMEGA code system not resolvable;
+RiskAssessment.prediction OMEGA code system not resolvable; ch-ems-epr-document; "Didn't find a matching certificate for the
+'kid' omega:fb-esempio in the header, so can't verify the signature". The first 8 are the full sample's own (0.7.2).

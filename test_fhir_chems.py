@@ -9,7 +9,9 @@ import re
 import unittest
 
 import ambulanza_intelligente as A
+import audit_bridge as _AB_import
 import fhir_chems as C
+KEYS_DIR_PRODUZIONE = _AB_import.KEYS_DIR              # captured BEFORE any test patches it: the production default
 from chems_validate import SAMPLE_MISSION, build_sample
 
 ID_RE = re.compile(r"^[A-Za-z0-9\-.]{1,64}$")
@@ -299,6 +301,7 @@ class TestFirmaDocumento(unittest.TestCase):
         """The attack an embedded-JWK design must survive: a fresh key, same kid, valid mathematics → never OK_REGISTRATA."""
         import shutil, tempfile
         altro = tempfile.mkdtemp(prefix="chems-rogue-"); self.addCleanup(shutil.rmtree, altro, True)
+        self.addCleanup(setattr, self.AB, "KEYS_DIR", self.d + "/keys")
         self.AB.KEYS_DIR = altro + "/keys"                       # a different machine generates its own key for the same name
         t = copy.deepcopy(self.doc); t["entry"][1]["resource"]["text"]["div"] = t["entry"][1]["resource"]["text"]["div"].upper()
         rogue = C.firma_documento(t, "equipaggio-118-alfa", "2026-09-19T09:11:00+02:00")
@@ -365,9 +368,13 @@ class TestFirmaDocumento(unittest.TestCase):
         installed module's absolute path, not CWD, so the document cannot bring its own trust anchor."""
         import shutil, tempfile
         altro = tempfile.mkdtemp(prefix="chems-rogue-"); self.addCleanup(shutil.rmtree, altro, True)
+        self.addCleanup(setattr, self.AB, "KEYS_DIR", self.d + "/keys")                     # restore even if the signer raises
         self.AB.KEYS_DIR = altro + "/keys"
         rogue = C.firma_documento(self.doc, "equipaggio-118-alfa", "2026-09-19T09:11:00+02:00")
         self.AB.KEYS_DIR = self.d + "/keys"
+        # the PRODUCTION default (captured at import, before any patch): absolute and beside the installed module
+        self.assertTrue(os.path.isabs(KEYS_DIR_PRODUZIONE), KEYS_DIR_PRODUZIONE)
+        self.assertEqual(os.path.dirname(KEYS_DIR_PRODUZIONE), os.path.dirname(os.path.abspath(self.AB.__file__)))
         cartella = tempfile.mkdtemp(prefix="chems-doc-"); self.addCleanup(shutil.rmtree, cartella, True)
         shutil.copytree(altro + "/keys", cartella + "/.audit_keys")
         with open(cartella + "/doc.json", "w") as fh:

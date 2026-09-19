@@ -171,7 +171,8 @@ leaves outside the signed bytes are bound), and the verifying key as a public JW
 `Composition.attester` (mode `professional` for a pre-alert, `legal` for the final protocol — the eCH-0207 use case)
 *inside* the signed bytes. `fhir_chems.verifica_firma_documento(doc)` (also `chems_validate.py --verify-signature
 doc.json`) gives a five-state verdict, structure before cryptography: **OK_REGISTRATA** (the bytes verify *and* the
-embedded key equals the operator's registered key in the verifying machine's `.audit_keys/`: the only state a consumer
+embedded key equals the operator's registered key in the verifying machine's registry, `.audit_keys/` beside the installed
+module, never the current directory: the only state a consumer
 may accept; the CLI exits 0 only there, unless `--allow-unregistered` is passed — CI passes it for the public-key sample
 and asserts that the default exit is non-zero), **OK_CHIAVE_NON_REGISTRATA** (the bytes verify against the key carried in the
 header — anyone can produce that with a fresh key, so it proves integrity, not who), NON_VALIDA, NON_VERIFICATA (no
@@ -196,7 +197,8 @@ whatever a local registry says.
 **Identified patient at handover (0.7.3, opt-in)** — `missione.paziente` = {cognome, nome, sesso, data_nascita,
 identificatore {system: local MPI OID, value}} renders a `ch-core-patient-epr`-conformant Patient (id `paziente`, not
 `anon`); EPR-SPID and AHVN13 are refused (the profile forbids them in a document), an AHVN13-shaped value (756 + 10 digits,
-with or without dots) is refused under any system, the identity goes into that document only (the ledger stays digest-only — tested on the anchoring path; the board never
+with or without dots) is refused under any system, the identity goes into that document only (the ledger stays digest-only — tested on the fallback ledger; the private Part 11
+engine's record is declared digest-only, not tested here; the board never
 receives `missione`, by construction: no server endpoint builds the document; the ablation document is synthetic). Measured 2026-09-19 (`examples/chems_conformance/release_0.7.3/abl-identified-patient*`):
 with the identity the three `ch-ems-epr-*` warnings disappear (3 warnings remain: IVR `MN` and the OMEGA code system)
 and the document validates directly against `ch-core-document-epr` with 0 errors (one extra warning there: LOINC

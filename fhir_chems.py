@@ -151,6 +151,8 @@ def _paziente_identificato(spec: Dict, base: Dict) -> Dict:
         raise ValueError("CH EMS: paziente.identificatore must be {system: 'urn:oid:…' of the local patient index, value: token}")
     if ident["system"] in (OID_EPR_SPID, OID_AHVN13):
         raise ValueError("CH EMS: EPR-SPID and AHVN13 must not be carried in a document (ch-core-patient-epr: max 0)")
+    if len(ident["value"]) > 64:
+        raise ValueError("CH EMS: paziente.identificatore.value must be at most 64 characters")
     if re.fullmatch(r"756\d{10}", re.sub(r"\D", "", ident["value"])):        # 756.1234.5678.97, with spaces or hyphens too: the digits of
         raise ValueError("CH EMS: identificatore.value looks like an AHVN13 (756 + 10 digits): refused under any system")   # an AHVN13 under any system
     if not re.fullmatch(r"urn:oid:[0-2](\.(0|[1-9]\d*))+", ident["system"]) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", ident["value"]):
