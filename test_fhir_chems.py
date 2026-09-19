@@ -459,15 +459,17 @@ class TestFirmaDocumento(unittest.TestCase):
 
 
 class TestVerificaSenzaFirmatario(unittest.TestCase):
-    """Runs with or without `cryptography`: RFC 8785 vectors, rejections, and the verdict on the PUBLISHED signed sample."""
+    """Runs with or without `cryptography`: the registry default (fresh interpreter), RFC 8785 vectors, rejections, and the
+    verdict on the PUBLISHED signed sample."""
     def test_registry_default_is_beside_the_module_not_the_cwd(self):
         """A fresh interpreter started from an unrelated directory must compute the same registry path as ours: the default
         is derived from the module's __file__, not from the CWD at import (review Opus r5: the in-process assertion could
         not tell the two apart when the suite starts from the repo root)."""
         import subprocess, sys, tempfile
         modulo = os.path.dirname(os.path.abspath(_AB_import.__file__))
-        out = subprocess.run([sys.executable, "-c", "import audit_bridge; print(audit_bridge.KEYS_DIR)"], cwd=tempfile.mkdtemp(),
-                             env={**os.environ, "PYTHONPATH": modulo, "OMEGA_PACKAGE_DIR": "/nonexistent"}, capture_output=True, text=True, timeout=60)
+        with tempfile.TemporaryDirectory() as cwd:
+            out = subprocess.run([sys.executable, "-c", "import audit_bridge; print(audit_bridge.KEYS_DIR)"], cwd=cwd,
+                                 env={**os.environ, "PYTHONPATH": modulo, "OMEGA_PACKAGE_DIR": "/nonexistent"}, capture_output=True, text=True, timeout=60)
         self.assertEqual(out.returncode, 0, out.stderr[-400:])
         self.assertEqual(out.stdout.strip(), os.path.join(modulo, ".audit_keys"))
         self.assertEqual(out.stdout.strip(), KEYS_DIR_PRODUZIONE)
