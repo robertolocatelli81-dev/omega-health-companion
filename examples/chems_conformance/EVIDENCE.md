@@ -117,3 +117,4 @@ the local id `priorita-paziente`; the id is now `stato-paziente`, because the va
 `priorita` in a communication-only document. Only `omega-full` changes (4 lines: the id and the references to it), new
 sha256 `3c2426762f124c9c…`; `omega-minimal` has no such observation and is byte-identical (`9e9bb8185b31d625…`).
 validator_cli 6.10.4 re-run on both: 0 errors, 8 and 6 warnings (same set as 0.6.1; logs in `release_0.7.2/`).
+Matchbox (test.ahdis.ch/matchboxv3, 2026-09-19 08:45 CEST) on the same two documents: 0 errors, 7 and 4 warnings (unchanged set); OperationOutcome files in `release_0.7.2/`.
