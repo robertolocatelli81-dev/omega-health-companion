@@ -1,0 +1,1015 @@
+{
+ "resourceType": "Bundle",
+ "id": "chems-8cf64ae3-c0c6-53de-9f08-074ae9ee3fbd",
+ "meta": {
+  "profile": [
+   "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-document"
+  ],
+  "tag": [
+   {
+    "system": "https://omega.example/fhir/CodeSystem/prealert",
+    "code": "prealert-ambulanza"
+   }
+  ]
+ },
+ "identifier": {
+  "system": "urn:ietf:rfc:3986",
+  "value": "urn:uuid:fb2f0ce5-c922-5ee3-ba54-e0b7d3a000ed"
+ },
+ "type": "document",
+ "timestamp": "2026-09-19T09:10:00+02:00",
+ "entry": [
+  {
+   "fullUrl": "urn:uuid:72e69f37-51ba-5aca-ab52-aa3d192148ff",
+   "resource": {
+    "resourceType": "Composition",
+    "id": "composition",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-composition"
+     ]
+    },
+    "identifier": {
+     "system": "urn:ietf:rfc:3986",
+     "value": "urn:uuid:0327e7a2-c813-5960-8384-1f254b593b7a"
+    },
+    "language": "de",
+    "status": "preliminary",
+    "confidentiality": "N",
+    "_confidentiality": {
+     "extension": [
+      {
+       "url": "http://fhir.ch/ig/ch-core/StructureDefinition/ch-ext-epr-confidentialitycode",
+       "valueCodeableConcept": {
+        "coding": [
+         {
+          "system": "http://snomed.info/sct",
+          "code": "17621005"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    "type": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "67796-3"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "date": "2026-09-19T09:10:00+02:00",
+    "author": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ],
+    "title": "Einsatzprotokoll Rettungsdienst",
+    "custodian": {
+     "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+    },
+    "section": [
+     {
+      "title": "Einsatz",
+      "code": {
+       "coding": [
+        {
+         "system": "http://fhir.ch/ig/ch-ems/CodeSystem/IVR",
+         "code": "1100001",
+         "display": "intervention"
+        }
+       ]
+      },
+      "text": {
+       "status": "generated",
+       "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Einsatz ZH-2026-000123 · Rettungsdienst Beispiel · angefordert von Sanitätsnotrufzentrale 144 Beispiel · Zeiten: alarm 2026-09-16T10:12:00+02:00, rollout 2026-09-16T10:14:00+02:00, arrival on scene 2026-09-16T10:25:00+02:00, arrival patient 2026-09-16T10:27:00+02:00, departure from scene 2026-09-16T10:38:00+02:00</div>"
+      },
+      "entry": [
+       {
+        "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+       },
+       {
+        "reference": "urn:uuid:970ce4b9-47d9-5483-b73b-d5bfd23082b3"
+       },
+       {
+        "reference": "urn:uuid:713e7eb5-4df1-5acd-9911-d84307a68d11"
+       },
+       {
+        "reference": "urn:uuid:7495bb25-598f-5aa8-bda2-7cef67a792ea"
+       },
+       {
+        "reference": "urn:uuid:2e34c96a-1bc1-5738-94d0-692b2b5d7287"
+       },
+       {
+        "reference": "urn:uuid:0a26b06c-c408-58ec-923d-74f55b085868"
+       }
+      ]
+     },
+     {
+      "title": "Befund",
+      "code": {
+       "coding": [
+        {
+         "system": "http://fhir.ch/ig/ch-ems/CodeSystem/IVR",
+         "code": "1100006",
+         "display": "findings"
+        }
+       ]
+      },
+      "text": {
+       "status": "generated",
+       "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Vitalparameter während des Transports</div>"
+      },
+      "entry": [
+       {
+        "reference": "urn:uuid:d17ea33c-dbc2-5b94-981d-35c4d30fe335"
+       },
+       {
+        "reference": "urn:uuid:c2563765-c6d8-5481-9bc9-12e5d192fadd"
+       },
+       {
+        "reference": "urn:uuid:2bd93214-5368-553b-bd44-21ec250b0da0"
+       }
+      ],
+      "section": [
+       {
+        "title": "Circulation",
+        "text": {
+         "status": "generated",
+         "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Herzfrequenz und Blutdruck im Rettungswagen gemessen</div>"
+        },
+        "entry": [
+         {
+          "reference": "urn:uuid:7759eccb-5193-56ff-8436-33d8dc85f7d5"
+         },
+         {
+          "reference": "urn:uuid:bbc36602-abac-5d91-ad4f-a61d1089cd90"
+         }
+        ]
+       },
+       {
+        "title": "Disability",
+        "text": {
+         "status": "generated",
+         "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">AVPU: Patient wach (A)</div>"
+        },
+        "entry": [
+         {
+          "reference": "urn:uuid:3c819f2d-7abf-5e6a-90d2-8982a1c1f6e2"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "title": "Übergabe",
+      "code": {
+       "coding": [
+        {
+         "system": "http://fhir.ch/ig/ch-ems/CodeSystem/IVR",
+         "code": "1100011",
+         "display": "handover"
+        }
+       ]
+      },
+      "text": {
+       "status": "generated",
+       "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Patientenpriorität · Zielspital USZ</div>"
+      },
+      "entry": [
+       {
+        "reference": "urn:uuid:9edc7a94-597b-5df6-842d-a91dfbe6cd85"
+       },
+       {
+        "reference": "urn:uuid:aef674e1-8e9d-5efe-8cf5-ebbf6c5814d9"
+       }
+      ]
+     },
+     {
+      "title": "Kommentar",
+      "code": {
+       "coding": [
+        {
+         "system": "http://loinc.org",
+         "code": "48767-8"
+        }
+       ]
+      },
+      "text": {
+       "status": "generated",
+       "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Profil Kommunikation: keine Scores berechnet; Vitalwerte wie übermittelt; die Beurteilung obliegt der Klinik</div>"
+      }
+     }
+    ],
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"de\" xml:lang=\"de\">Einsatzprotokoll Rettungsdienst — ZH-2026-000123 (preliminary)</div>"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d",
+   "resource": {
+    "resourceType": "Patient",
+    "id": "anon",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-patient"
+     ]
+    },
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Muster, Petra · 1959-03-04</div>"
+    },
+    "identifier": [
+     {
+      "system": "urn:oid:2.16.756.5.30.1.999.2",
+      "value": "MPI-000123"
+     }
+    ],
+    "name": [
+     {
+      "family": "Muster",
+      "given": [
+       "Petra"
+      ]
+     }
+    ],
+    "gender": "female",
+    "birthDate": "1959-03-04"
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07",
+   "resource": {
+    "resourceType": "Organization",
+    "id": "soccorso",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-organization"
+     ]
+    },
+    "identifier": [
+     {
+      "system": "urn:oid:2.51.1.3",
+      "value": "7601002155939"
+     }
+    ],
+    "name": "Rettungsdienst Beispiel",
+    "address": [
+     {
+      "line": [
+       "Musterstrasse 1"
+      ],
+      "city": "Zürich",
+      "postalCode": "8005",
+      "country": "CH"
+     }
+    ],
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Organization soccorso — missione ZH-2026-000123</div>"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:aef674e1-8e9d-5efe-8cf5-ebbf6c5814d9",
+   "resource": {
+    "resourceType": "Organization",
+    "id": "destinazione",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-organization"
+     ]
+    },
+    "identifier": [
+     {
+      "system": "urn:oid:2.51.1.3",
+      "value": "7601002155939"
+     }
+    ],
+    "name": "USZ",
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Organization destinazione — missione ZH-2026-000123</div>"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9",
+   "resource": {
+    "resourceType": "Encounter",
+    "id": "missione",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-encounter"
+     ]
+    },
+    "identifier": [
+     {
+      "type": {
+       "coding": [
+        {
+         "system": "http://fhir.ch/ig/ch-ems/CodeSystem/IVR",
+         "code": "MN",
+         "display": "Mission number"
+        }
+       ]
+      },
+      "system": "urn:oid:2.16.756.5.30.1.999.1",
+      "value": "ZH-2026-000123"
+     },
+     {
+      "type": {
+       "coding": [
+        {
+         "system": "https://omega.example/fhir/CodeSystem/prealert",
+         "code": "EVENT",
+         "display": "OMEGA incident (event) id"
+        }
+       ]
+      },
+      "system": "https://omega.example/fhir/CodeSystem/prealert/incident",
+      "value": "42"
+     }
+    ],
+    "status": "in-progress",
+    "class": {
+     "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+     "code": "AMB"
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "basedOn": [
+     {
+      "reference": "urn:uuid:47122e80-bc9d-584d-9bfd-7c2d8b45e653"
+     }
+    ],
+    "period": {
+     "start": "2026-09-16T10:12:00+02:00"
+    },
+    "priority": {
+     "coding": [
+      {
+       "system": "http://fhir.ch/ig/ch-ems/CodeSystem/IVR",
+       "code": "1000007",
+       "display": "with siren"
+      }
+     ]
+    },
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Encounter missione — missione ZH-2026-000123</div>"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:47122e80-bc9d-584d-9bfd-7c2d8b45e653",
+   "resource": {
+    "resourceType": "ServiceRequest",
+    "id": "richiesta",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-servicerequest"
+     ]
+    },
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Einsatzanforderung von Sanitätsnotrufzentrale 144 Beispiel</div>"
+    },
+    "contained": [
+     {
+      "resourceType": "Organization",
+      "id": "centrale",
+      "meta": {
+       "profile": [
+        "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-organization"
+       ]
+      },
+      "identifier": [
+       {
+        "system": "urn:oid:2.51.1.3",
+        "value": "7601002155939"
+       }
+      ],
+      "name": "Sanitätsnotrufzentrale 144 Beispiel"
+     }
+    ],
+    "status": "active",
+    "intent": "order",
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "requester": {
+     "reference": "#centrale"
+    }
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:d17ea33c-dbc2-5b94-981d-35c4d30fe335",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "vit-rr",
+    "status": "final",
+    "category": [
+     {
+      "coding": [
+       {
+        "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+        "code": "vital-signs"
+       }
+      ]
+     }
+    ],
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "9279-1",
+       "display": "Respiratory rate"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "effectiveDateTime": "2026-09-19T09:10:00+02:00",
+    "valueQuantity": {
+     "value": 28.0,
+     "unit": "/min",
+     "system": "http://unitsofmeasure.org",
+     "code": "/min"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation"
+     ]
+    },
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation vit-rr (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+    },
+    "performer": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:7759eccb-5193-56ff-8436-33d8dc85f7d5",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "vit-hr",
+    "status": "final",
+    "category": [
+     {
+      "coding": [
+       {
+        "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+        "code": "vital-signs"
+       }
+      ]
+     }
+    ],
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "8867-4",
+       "display": "Heart rate"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "effectiveDateTime": "2026-09-19T09:10:00+02:00",
+    "valueQuantity": {
+     "value": 135.0,
+     "unit": "/min",
+     "system": "http://unitsofmeasure.org",
+     "code": "/min"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-heartrate"
+     ]
+    },
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation vit-hr (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+    },
+    "performer": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:bbc36602-abac-5d91-ad4f-a61d1089cd90",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "vit-sbp",
+    "status": "final",
+    "category": [
+     {
+      "coding": [
+       {
+        "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+        "code": "vital-signs"
+       }
+      ]
+     }
+    ],
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "85354-9",
+       "display": "Blood pressure panel with all children optional"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "effectiveDateTime": "2026-09-19T09:10:00+02:00",
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-bloodpressure"
+     ]
+    },
+    "component": [
+     {
+      "code": {
+       "coding": [
+        {
+         "system": "http://loinc.org",
+         "code": "8480-6",
+         "display": "Systolic blood pressure"
+        }
+       ]
+      },
+      "valueQuantity": {
+       "value": 85.0,
+       "unit": "mm[Hg]",
+       "system": "http://unitsofmeasure.org",
+       "code": "mm[Hg]"
+      }
+     },
+     {
+      "code": {
+       "coding": [
+        {
+         "system": "http://loinc.org",
+         "code": "8462-4",
+         "display": "Diastolic blood pressure"
+        }
+       ]
+      },
+      "dataAbsentReason": {
+       "coding": [
+        {
+         "system": "http://terminology.hl7.org/CodeSystem/data-absent-reason",
+         "code": "not-performed",
+         "display": "Not Performed"
+        }
+       ]
+      }
+     }
+    ],
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation vit-sbp (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+    },
+    "performer": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:c2563765-c6d8-5481-9bc9-12e5d192fadd",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "vit-spo2",
+    "status": "final",
+    "category": [
+     {
+      "coding": [
+       {
+        "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+        "code": "vital-signs"
+       }
+      ]
+     }
+    ],
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "2708-6",
+       "display": "Oxygen saturation in Arterial blood"
+      },
+      {
+       "system": "http://loinc.org",
+       "code": "59408-5",
+       "display": "Oxygen saturation in Arterial blood by Pulse oximetry"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "effectiveDateTime": "2026-09-19T09:10:00+02:00",
+    "valueQuantity": {
+     "value": 89.0,
+     "unit": "%",
+     "system": "http://unitsofmeasure.org",
+     "code": "%"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation"
+     ]
+    },
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation vit-spo2 (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+    },
+    "performer": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:2bd93214-5368-553b-bd44-21ec250b0da0",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "vit-temp",
+    "status": "final",
+    "category": [
+     {
+      "coding": [
+       {
+        "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+        "code": "vital-signs"
+       }
+      ]
+     }
+    ],
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "8310-5",
+       "display": "Body temperature"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "effectiveDateTime": "2026-09-19T09:10:00+02:00",
+    "valueQuantity": {
+     "value": 39.4,
+     "unit": "Cel",
+     "system": "http://unitsofmeasure.org",
+     "code": "Cel"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation"
+     ]
+    },
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation vit-temp (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+    },
+    "performer": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:3c819f2d-7abf-5e6a-90d2-8982a1c1f6e2",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "vit-avpu",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-avpu"
+     ]
+    },
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "11454-6"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "effectiveDateTime": "2026-09-19T09:10:00+02:00",
+    "valueCodeableConcept": {
+     "coding": [
+      {
+       "system": "http://fhir.ch/ig/ch-ems/CodeSystem/IVR",
+       "code": "A",
+       "display": "wach, ansprechbar und orientiert"
+      }
+     ]
+    },
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation vit-avpu (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+    },
+    "performer": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:970ce4b9-47d9-5483-b73b-d5bfd23082b3",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "tempo-allarme",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-missiontimestatus"
+     ]
+    },
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://fhir.ch/ig/ch-ems/CodeSystem/IVR",
+       "code": "1000033",
+       "display": "alarm"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "effectiveDateTime": "2026-09-16T10:12:00+02:00",
+    "valueDateTime": "2026-09-16T10:12:00+02:00",
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation tempo-allarme (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+    },
+    "performer": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:713e7eb5-4df1-5acd-9911-d84307a68d11",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "tempo-partenza",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-missiontimestatus"
+     ]
+    },
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://fhir.ch/ig/ch-ems/CodeSystem/IVR",
+       "code": "1000035",
+       "display": "rollout"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "effectiveDateTime": "2026-09-16T10:14:00+02:00",
+    "valueDateTime": "2026-09-16T10:14:00+02:00",
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation tempo-partenza (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+    },
+    "performer": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:7495bb25-598f-5aa8-bda2-7cef67a792ea",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "tempo-arrivo-sul-posto",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-missiontimestatus"
+     ]
+    },
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://fhir.ch/ig/ch-ems/CodeSystem/IVR",
+       "code": "1000036",
+       "display": "arrival on scene"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "effectiveDateTime": "2026-09-16T10:25:00+02:00",
+    "valueDateTime": "2026-09-16T10:25:00+02:00",
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation tempo-arrivo-sul-posto (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+    },
+    "performer": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:2e34c96a-1bc1-5738-94d0-692b2b5d7287",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "tempo-arrivo-paziente",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-missiontimestatus"
+     ]
+    },
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://fhir.ch/ig/ch-ems/CodeSystem/IVR",
+       "code": "1000037",
+       "display": "arrival patient"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "effectiveDateTime": "2026-09-16T10:27:00+02:00",
+    "valueDateTime": "2026-09-16T10:27:00+02:00",
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation tempo-arrivo-paziente (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+    },
+    "performer": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:0a26b06c-c408-58ec-923d-74f55b085868",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "tempo-partenza-dal-posto",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-missiontimestatus"
+     ]
+    },
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://fhir.ch/ig/ch-ems/CodeSystem/IVR",
+       "code": "1000038",
+       "display": "departure from scene"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "effectiveDateTime": "2026-09-16T10:38:00+02:00",
+    "valueDateTime": "2026-09-16T10:38:00+02:00",
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation tempo-partenza-dal-posto (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+    },
+    "performer": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "urn:uuid:9edc7a94-597b-5df6-842d-a91dfbe6cd85",
+   "resource": {
+    "resourceType": "Observation",
+    "id": "stato-paziente",
+    "meta": {
+     "profile": [
+      "http://fhir.ch/ig/ch-ems/StructureDefinition/ch-ems-observation-statuspriority"
+     ]
+    },
+    "status": "final",
+    "code": {
+     "coding": [
+      {
+       "system": "http://loinc.org",
+       "code": "77941-3"
+      }
+     ]
+    },
+    "subject": {
+     "reference": "urn:uuid:c75a7499-93dc-5be6-8cea-53d633c7a99d"
+    },
+    "encounter": {
+     "reference": "urn:uuid:0130308a-efbc-5253-88ad-5f85b96785f9"
+    },
+    "effectiveDateTime": "2026-09-19T09:10:00+02:00",
+    "valueCodeableConcept": {
+     "coding": [
+      {
+       "system": "http://snomed.info/sct",
+       "code": "371240000",
+       "display": "red"
+      }
+     ]
+    },
+    "text": {
+     "status": "generated",
+     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Observation stato-paziente (OMEGA pre-alert, missione ZH-2026-000123)</div>"
+    },
+    "performer": [
+     {
+      "reference": "urn:uuid:bb203f3b-cc1f-5d0f-94f0-b629ee823e07"
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -89,3 +89,27 @@ low-entropy texts). Older records carry bare `sha256` fingerprints everywhere.
 `alg` is part of the signed record. The only value today is `ed25519`; a verifier refuses any other. A
 post-quantum scheme (e.g. ML-DSA-65) would be a new value, not a new format. NIST IR 8547 (draft) proposes
 disallowing Ed25519 after 2035 — inside the retention windows of clinical records.
+
+## CH EMS document signature (`Bundle.signature`, 0.7.3)
+
+Carrier: FHIR R4 `Bundle.signature` (`Signature` datatype). `type` = ASTM E1762-95 `1.2.840.10065.1.12.1.1` (Author's
+Signature); `when` = signing instant; `who` = the responding organisation's entry (`fullUrl`); `targetFormat` =
+`application/fhir+json;canonicalization=http://hl7.org/fhir/canonicalization/json`; `sigFormat` = `application/jose`;
+`data` = base64 of a compact JWS `<protected>..<signature>` with the payload **detached** (RFC 7515 App. F) and
+**unencoded** (RFC 7797: `b64: false`, `crit: ["b64"]`).
+
+Signed bytes: `ASCII(BASE64URL(protected header)) || '.' || JCS(Bundle without the "signature" member)`, JCS per RFC 8785
+(keys sorted by UTF-16 code units, no whitespace, ES6 numbers — `39.4` and `39.40` are the same value). The root
+`id` and `meta` ARE signed (plain variant, not `#document`). `Composition.attester` is added before signing, so it is
+covered.
+
+Protected header: `{"alg":"EdDSA","b64":false,"crit":["b64"],"kid":"omega:fb-<slug>","sigT":"<when>",
+"srCms":[{"commId":{"id":"urn:oid:1.2.840.10065.1.12.1.1","desc":"Author's Signature"}}],
+"jwk":{"kty":"OKP","crv":"Ed25519","x":"<base64url 32 bytes>"}}` (sorted keys, no whitespace). `sigT` must equal
+`Signature.when`.
+
+Verification (`fhir_chems.verifica_firma_documento`): parse strictly (duplicate keys refused) → check the carrier and
+the header → rebuild the payload from the Bundle → Ed25519 verify with the embedded JWK → verdict OK / NON_VALIDA /
+NON_VERIFICATA (no Ed25519 implementation) / ASSENTE; then, separately, TRUST: is the JWK the registered key of the
+operator named in `kid` (`.audit_keys/fb-<slug>.pub`)? The signature proves the bytes; the registry proves who.
+Independent check: any JWS library with EdDSA and detached-payload support (jwcrypto is the oracle in the tests).

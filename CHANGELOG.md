@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.7.3 — 2026-09-19 — where we were wrong, developed: document signature and EPR identity (CH EMS)
+
+Two of the five corrections sent to the CH EMS editor on 18 September were "declared": the document-level EPR warning
+"not analysed further", and "the guide has no mechanism to bind the document bytes". Both are now measured and built.
+
+- **`Bundle.signature` over the document bytes** (`fhir_chems.firma_documento`): detached JWS (RFC 7515 App. F) with
+  unencoded payload (RFC 7797), EdDSA/Ed25519 (RFC 8037), over the RFC 8785 canonical form of the Bundle without the
+  `signature` element; `targetFormat` names the canonicalization as the FHIR "Digital Signatures" page asks; header
+  with `kid`, `sigT` = `Signature.when`, `srCms` = the ASTM purpose of `Signature.type`, and the verifying key as a JWK.
+  The same call adds `Composition.attester` (`professional` for a pre-alert, `legal` for the final protocol) inside the
+  signed bytes. `verifica_firma_documento` (and `chems_validate.py --verify-signature`) returns OK / NON_VALIDA /
+  NON_VERIFICATA / ASSENTE plus whether the key is the operator's registered key. Measured 2026-09-19: signed document
+  0 errors on validator_cli 6.10.4 (it inspects the JOSE signature; one warning: it verifies only against X.509
+  certificates and cannot parse an Ed25519 certificate — "Unsupported key type: EdDSA", measured with a self-signed
+  `x5c`, so none is embedded) and 0 errors on Matchbox; nine tamperings each give NON_VALIDA; jwcrypto verifies the
+  same JWS and refuses a tampered payload (test, and CI installs it). Declared: JCS signs numbers, not spellings; the
+  FHIR R6 draft moves this to `Provenance.signature` (CH EMS is R4). The published `chems_document_sample_signed.json`
+  is signed with a key derived from a public sentence (format proof, not identity) and is byte-deterministic (test).
+- **Identified patient at handover, opt-in** (`missione.paziente`): a `ch-core-patient-epr`-conformant Patient (local
+  MPI identifier, name, gender, birth date); EPR-SPID and AHVN13 refused; identity in that document only. Measured
+  2026-09-19: the three `ch-ems-epr-*` warnings disappear with the identity (ablation) and the document validates
+  against `ch-core-document-epr` with 0 errors — the EPR warnings of the default document have exactly one cause, the
+  anonymous patient. The document-level warning is no longer "not analysed".
+- Reader (`chems_ingest.leggi_documento`): reports `attestazioni` (Composition.attester) and `firma` (the four-state
+  verdict) for any CH EMS document; on the IG's Bundle-2 example: attester `legal`, signature ASSENTE. The list of
+  missing vitals (`mancanti`) already existed: on Bundle-2/2b it names rr, spo2, sbp, hr, temp.
+- 2 new test classes, 10 tests, 210 in the suite (positive controls: the verifier broken to "always valid" makes the suite red).
+
 ## 0.7.2 — 2026-09-18 — default profile is `comunicazione`
 
 - **Breaking, on purpose (author's decision after the whole-product judgement):** the server's default `OMEGA_PROFILO` is now

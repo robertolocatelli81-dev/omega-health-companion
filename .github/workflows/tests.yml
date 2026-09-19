@@ -89,13 +89,23 @@ jobs:
         with:
           path: ~/.fhir
           key: fhir-validator-6.10.4-ch-ems-2.0.0-ballot
-      - name: "Structural tests of the CH EMS exporter and reader (null controls included)"
+      - name: "Structural tests of the CH EMS exporter and reader (null controls included; jwcrypto = independent JWS oracle)"
         run: |
-          pip install cryptography
+          pip install cryptography jwcrypto
           python3 test_fhir_chems.py
           python3 test_chems_ingest.py
       - name: "Official validator - the full and the minimal pre-alert documents must have 0 errors"
         run: python3 chems_validate.py --strict
+      - name: "Official validator - the SIGNED sample (Bundle.signature + attester) must have 0 errors; a tampered copy must fail our verifier"
+        run: |
+          python3 chems_validate.py --strict --doc examples/chems_document_sample_signed.json
+          python3 chems_validate.py --verify-signature examples/chems_document_sample_signed.json
+          python3 - <<'EOF'
+          import json
+          d = json.load(open("examples/chems_document_sample_signed.json")); d["entry"][1]["resource"]["text"]["div"] = d["entry"][1]["resource"]["text"]["div"].upper()
+          json.dump(d, open("tampered.json", "w"))
+          EOF
+          if python3 chems_validate.py --verify-signature tampered.json; then echo "::error::tampered signed document accepted"; exit 1; fi
       - name: "Official validator - a document without Composition must FAIL (positive control)"
         run: |
           python3 - <<'EOF'

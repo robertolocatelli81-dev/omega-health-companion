@@ -73,3 +73,8 @@ audit trail, which the controller manages under its staff-data policies.
 Questions about this software's data handling: open an issue on the repository.
 Questions about a specific deployment's data handling: contact the deploying
 organisation (the data controller).
+
+- **Identified patient at handover (0.7.3, opt-in):** `missione.paziente` puts the patient's local MPI identifier, name,
+  gender and birth date into the CH EMS document that the receiving hospital asked for — into that document only. The
+  ledger keeps digests, the board keeps no identity, EPR-SPID and AHVN13 are refused. Whoever produces that document
+  handles a health record: the same duties as for the paper protocol.

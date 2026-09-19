@@ -26,6 +26,8 @@ HONEST SCOPE
 from __future__ import annotations
 import base64
 import binascii
+import json
+import os
 import re
 from datetime import datetime, timezone
 import uuid
@@ -44,6 +46,8 @@ CS_IVR = f"{IG_URL}/CodeSystem/IVR"
 SNOMED = "http://snomed.info/sct"
 LOINC_SYS = "http://loinc.org"
 OID_GLN = "urn:oid:2.51.1.3"
+OID_EPR_SPID = "urn:oid:2.16.756.5.30.1.127.3.10.3"     # forbidden in a document (ch-core-patient-epr)
+OID_AHVN13 = "urn:oid:2.16.756.5.32"                   # idem
 
 TITLES = {  # wording suggested by the profile's short descriptions per language (free 1..1 strings; only the
             # findings/procedures sub-section titles "Circulation", "Disability", … are fixedString in the IG)
@@ -119,6 +123,256 @@ def _xhtml(text: str, lang: Optional[str] = None) -> Dict:
     return {"status": "generated", "div": f'<div xmlns="http://www.w3.org/1999/xhtml"{attrs}>{esc}</div>'}
 
 
+_NOME = re.compile(r"[^\x00-\x1f<>&\"]{1,80}")
+
+
+def _paziente_identificato(spec: Dict, base: Dict) -> Dict:
+    """Handover stage, OPT-IN (0.7.3): the crew identified the patient and the receiving hospital wants an EPR-conformant
+    document. `spec` = {cognome, nome, sesso male|female|other|unknown, data_nascita YYYY-MM-DD, identificatore
+    {system: 'urn:oid:…' of the local MPI, value}}. What ch-core-patient-epr requires (identifier 1..*, name with family,
+    gender, birthDate) is validated here; EPR-SPID and AHVN13 are REFUSED (the profile forbids them in a document,
+    max 0). The identity goes into THIS document only — the OMEGA ledger stays digest-only, the board stays PII-free."""
+    if not isinstance(spec, dict):
+        raise ValueError("CH EMS: paziente must be an object")
+    cog, nom, sesso, dn, ident = spec.get("cognome"), spec.get("nome"), spec.get("sesso"), spec.get("data_nascita"), spec.get("identificatore")
+    if not isinstance(cog, str) or not _NOME.fullmatch(cog.strip()):
+        raise ValueError("CH EMS: paziente.cognome (family name) is required: 1-80 printable characters")
+    if nom is not None and (not isinstance(nom, str) or not _NOME.fullmatch(nom.strip())):
+        raise ValueError("CH EMS: paziente.nome must be 1-80 printable characters")
+    if sesso not in ("male", "female", "other", "unknown"):
+        raise ValueError("CH EMS: paziente.sesso must be male | female | other | unknown (FHIR administrative-gender)")
+    if not isinstance(dn, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", dn):
+        raise ValueError("CH EMS: paziente.data_nascita must be YYYY-MM-DD")
+    try:
+        datetime.strptime(dn, "%Y-%m-%d")
+    except ValueError:
+        raise ValueError("CH EMS: paziente.data_nascita is not a calendar date") from None
+    if not isinstance(ident, dict) or not isinstance(ident.get("system"), str) or not isinstance(ident.get("value"), str) \
+            or not re.fullmatch(r"urn:oid:[0-2](\.(0|[1-9]\d*))+", ident["system"]) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", ident["value"]):
+        raise ValueError("CH EMS: paziente.identificatore must be {system: 'urn:oid:…' of the local patient index, value: token}")
+    if ident["system"] in (OID_EPR_SPID, OID_AHVN13):
+        raise ValueError("CH EMS: EPR-SPID and AHVN13 must not be carried in a document (ch-core-patient-epr: max 0)")
+    nome_txt = (cog.strip() + (", " + nom.strip() if nom else ""))
+    out = dict(base)
+    out["identifier"] = [{"system": ident["system"], "value": ident["value"]}]
+    out["name"] = [{"family": cog.strip(), **({"given": [nom.strip()]} if nom else {})}]
+    out["gender"] = sesso
+    out["birthDate"] = dn
+    out["text"] = _xhtml(nome_txt + " · " + dn)
+    return out
+
+
+# ── JCS (RFC 8785) — copied from omega-evidence interop/aat.py (2026-09-14, checked against RFC 8785 Appendix B there) ──
+def _es6_number(f: float) -> str:
+    if f == 0:
+        return "0"
+    sign = "-" if f < 0 else ""
+    r = repr(abs(f))
+    if "e" in r:
+        mant, exp = r.split("e"); exp = int(exp)
+    else:
+        mant, exp = r, 0
+    ip, fp = (mant.split(".") + [""])[:2]
+    fp = fp.rstrip("0") if fp != "0" else ""
+    digits = (ip + fp).lstrip("0")
+    n = len(ip.lstrip("0")) + exp if ip.lstrip("0") else exp - (len(fp) - len(fp.lstrip("0")))
+    if not ip.lstrip("0"):
+        digits = fp.lstrip("0")
+    digits = digits.rstrip("0") or "0"
+    k = len(digits)
+    if k <= n <= 21:
+        out = digits + "0" * (n - k)
+    elif 0 < n <= 21:
+        out = digits[:n] + "." + digits[n:]
+    elif -6 < n <= 0:
+        out = "0." + "0" * (-n) + digits
+    else:
+        e = n - 1
+        out = (digits[0] + ("." + digits[1:] if k > 1 else "")) + "e" + ("+" if e >= 0 else "-") + str(abs(e))
+    return sign + out
+
+
+def jcs(obj: Any) -> bytes:
+    """JSON Canonicalization Scheme (RFC 8785): keys sorted by UTF-16 code units, no whitespace, ES6 numbers."""
+    def enc(x: Any) -> str:
+        if x is None:
+            return "null"
+        if x is True:
+            return "true"
+        if x is False:
+            return "false"
+        if isinstance(x, int):
+            if abs(x) > 2 ** 53:
+                raise ValueError("JCS: integers beyond 2^53 lose precision in ES6")
+            return str(x)
+        if isinstance(x, float):
+            if x != x or x in (float("inf"), float("-inf")):
+                raise ValueError("JCS: NaN/Infinity are not JSON")
+            return _es6_number(x)
+        if isinstance(x, str):
+            return json.dumps(x, ensure_ascii=False)
+        if isinstance(x, (list, tuple)):
+            return "[" + ",".join(enc(i) for i in x) + "]"
+        if isinstance(x, dict):
+            return "{" + ",".join(json.dumps(k, ensure_ascii=False) + ":" + enc(x[k]) for k in sorted(x, key=lambda k: k.encode("utf-16-be"))) + "}"
+        raise TypeError(f"JCS: unsupported type {type(x).__name__}")
+    return enc(obj).encode("utf-8")
+
+
+# ── Bundle.signature (0.7.3): a FHIR Signature OVER THE DOCUMENT BYTES, verifiable offline ─────────────────────────
+# Base FHIR defines Bundle.signature (0..1) and the Signature datatype; CH EMS 2.0.0-ballot does not profile or require
+# it. The signed bytes are the JCS canonical form of the Bundle WITHOUT the `signature` element (as the FHIR
+# "Digital Signatures" guidance: the signature covers the resource with the signature removed). Format: a detached
+# JWS (RFC 7515 Appendix F) with unencoded payload (RFC 7797, "b64": false), alg EdDSA (RFC 8037, Ed25519), the public
+# key embedded as a JWK in the header so any JWS library can verify; TRUST is a separate question the verifier answers
+# by looking the key up in the OMEGA operator registry (fb-<slug>.pub). This is not the OMEGA audit-record signature
+# (which stays in Provenance as entities): it is a signature of THIS document by the operator's key.
+SIG_TYPE = {"system": "urn:iso-astm:E1762-95:2013", "code": "1.2.840.10065.1.12.1.1", "display": "Author's Signature"}
+# canonicalization named in targetFormat as the spec asks; the signed bytes are the whole Bundle (root id and meta.profile
+# INCLUDED — the plain variant, not #document) minus the `signature` element itself, in RFC 8785 form
+TARGET_FORMAT = "application/fhir+json;canonicalization=http://hl7.org/fhir/canonicalization/json"
+
+
+def _b64u(b: bytes) -> str:
+    return base64.urlsafe_b64encode(b).rstrip(b"=").decode("ascii")
+
+
+def _b64u_dec(s: str) -> bytes:
+    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+
+def firma_documento(doc: Dict, operatore: str, ts: str, who_id: str = "soccorso", attester: Optional[str] = "professional") -> Dict:
+    """Return a copy of `doc` with Bundle.signature by the operator's registered Ed25519 key (audit_bridge registry) and,
+    unless attester=None, a Composition.attester by the same party (mode professional for a pre-alert, legal for the
+    final protocol — the eCH-0207 use case). Refuses to sign a Bundle that already carries a signature (one signature
+    per document; re-signing is an explicit act, not a silent overwrite)."""
+    import audit_bridge as AB
+    if not AB.FIRMA_LOCALE_DISPONIBILE:
+        raise AB.FirmaNonDisponibile("Bundle.signature needs the local Ed25519 signer (`cryptography`)")
+    if not isinstance(doc, dict) or doc.get("resourceType") != "Bundle":
+        raise ValueError("firma_documento: a Bundle is required")
+    if "signature" in doc:
+        raise ValueError("firma_documento: the Bundle already carries a signature")
+    if not _ISO.match(ts or ""):
+        raise ValueError("firma_documento: ts must be an ISO 8601 instant with timezone")
+    if attester not in (None, "professional", "legal"):
+        raise ValueError("firma_documento: attester must be professional | legal | None")
+    sk = AB._fb_key(operatore)
+    pub = sk.public_key().public_bytes(AB._ser.Encoding.Raw, AB._ser.PublicFormat.Raw)
+    slug = AB._slug(operatore) or "anonimo"
+    # header per FHIR "Digital Signatures" (build of 2026-09, normative track; R4 text is looser): kid (no X.509 here),
+    # sigT equal to Signature.when, srCms = the same ASTM purpose as Signature.type (JAdES-shaped; no JAdES
+    # conformance is claimed), the verifying key as a JWK so any JWS library can check the bytes
+    header = {"alg": "EdDSA", "b64": False, "crit": ["b64"], "kid": f"omega:fb-{slug}", "sigT": ts,
+              "srCms": [{"commId": {"id": "urn:oid:" + SIG_TYPE["code"], "desc": SIG_TYPE["display"]}}],
+              "jwk": {"kty": "OKP", "crv": "Ed25519", "x": _b64u(pub)}}
+    h = _b64u(json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8"))
+    payload = jcs(doc)
+    sig = sk.sign(h.encode("ascii") + b"." + payload)
+    jws = f"{h}..{_b64u(sig)}"                       # detached: payload omitted, reconstructed by the verifier from the Bundle
+    who = None
+    for e in doc.get("entry", []):
+        if e.get("resource", {}).get("id") == who_id:
+            who = {"reference": e["fullUrl"]}
+    if who is None:
+        raise ValueError(f"firma_documento: signer resource {who_id!r} not in the Bundle")
+    out = json.loads(json.dumps(doc))                    # deep copy: the caller's Bundle is never mutated
+    if attester:                                          # the attestation is INSIDE the signed bytes: computed before signing
+        comp = out["entry"][0]["resource"]
+        if comp.get("resourceType") != "Composition":
+            raise ValueError("firma_documento: entry[0] must be the Composition")
+        comp.setdefault("attester", []).append({"mode": attester, "time": ts, "party": who})
+        payload = jcs(out)
+        sig = sk.sign(h.encode("ascii") + b"." + payload)
+        jws = f"{h}..{_b64u(sig)}"
+    out["signature"] = {"type": [dict(SIG_TYPE)], "when": ts, "who": who, "targetFormat": TARGET_FORMAT,
+                        "sigFormat": "application/jose", "data": base64.b64encode(jws.encode("ascii")).decode("ascii")}
+    return out
+
+
+def verifica_firma_documento(doc: Any, keys_dir: Optional[str] = None) -> Dict:
+    """Four-state verdict on Bundle.signature: OK (valid against the embedded key, plus whether that key is REGISTERED
+    in the operator registry), NON_VALIDA (present but does not verify / malformed), NON_VERIFICATA (present, no Ed25519
+    implementation here), ASSENTE (no signature).
+    `doc` may be the parsed Bundle or its raw bytes (strict JSON: duplicate keys refused)."""
+    out = {"stato": "ASSENTE", "kid": None, "chiave_registrata": None, "motivo": None}
+    try:
+        if isinstance(doc, (bytes, bytearray)):
+            doc = json.loads(bytes(doc).decode("utf-8"), object_pairs_hook=_no_dup)
+        if not isinstance(doc, dict) or doc.get("resourceType") != "Bundle":
+            out.update(stato="NON_VALIDA", motivo="not a Bundle"); return out
+        sig = doc.get("signature")
+        if sig is None:
+            return out
+        if not isinstance(sig, dict) or sig.get("sigFormat") != "application/jose" or not isinstance(sig.get("data"), str):
+            out.update(stato="NON_VALIDA", motivo="signature is not an application/jose Signature with data"); return out
+        jws = base64.b64decode(sig["data"], validate=True).decode("ascii")
+        parts = jws.split(".")
+        if len(parts) != 3 or parts[1] != "":
+            out.update(stato="NON_VALIDA", motivo="not a detached compact JWS (header..signature)"); return out
+        header = json.loads(_b64u_dec(parts[0]).decode("utf-8"), object_pairs_hook=_no_dup)
+        out["kid"] = header.get("kid")
+        if header.get("alg") != "EdDSA" or header.get("b64") is not False or "b64" not in (header.get("crit") or []):
+            out.update(stato="NON_VALIDA", motivo="header must be alg EdDSA with b64:false in crit"); return out
+        if not str(sig.get("targetFormat", "")).startswith("application/fhir+json"):
+            out.update(stato="NON_VALIDA", motivo="targetFormat must be application/fhir+json[;canonicalization=…]"); return out
+        if "sigT" in header and sig.get("when") is not None and header["sigT"] != sig["when"]:
+            out.update(stato="NON_VALIDA", motivo="sigT in the header and Signature.when disagree"); return out
+        jwk = header.get("jwk") or {}
+        if jwk.get("kty") != "OKP" or jwk.get("crv") != "Ed25519" or not isinstance(jwk.get("x"), str):
+            out.update(stato="NON_VALIDA", motivo="header must embed an OKP/Ed25519 JWK"); return out
+        pub = _b64u_dec(jwk["x"])
+        if len(pub) != 32:
+            out.update(stato="NON_VALIDA", motivo="JWK x is not a 32-byte Ed25519 key"); return out
+        senza = {k: v for k, v in doc.items() if k != "signature"}
+        payload = jcs(senza)
+        raw_sig = _b64u_dec(parts[2])
+        if len(raw_sig) != 64:
+            out.update(stato="NON_VALIDA", motivo="signature is not 64 bytes"); return out
+        ok = _ed25519_verify(pub, raw_sig, parts[0].encode("ascii") + b"." + payload)
+        if ok is None:                                    # no Ed25519 implementation here: NOT verified, never "valid"/"invalid"
+            out.update(stato="NON_VERIFICATA", motivo="no Ed25519 implementation available (`cryptography` missing)"); return out
+        if not ok:
+            out.update(stato="NON_VALIDA", motivo="Ed25519 verification failed over JCS(Bundle without signature)"); return out
+        out["stato"] = "OK"
+        # trust: is this key the registered key of the operator named in kid?
+        out["chiave_registrata"] = False
+        kid = header.get("kid") or ""
+        if kid.startswith("omega:fb-") and re.fullmatch(r"[a-z0-9-]{1,64}", kid[9:]):
+            import audit_bridge as AB
+            path = os.path.join(keys_dir or AB.KEYS_DIR, f"fb-{kid[9:]}.pub")
+            if os.path.exists(path):
+                try:
+                    out["chiave_registrata"] = base64.b64decode(open(path).read().strip()) == pub
+                except Exception:      # noqa: BLE001 — a corrupt registry file is "not registered", never a crash
+                    out["chiave_registrata"] = False
+        return out
+    except Exception as e:             # noqa: BLE001 — input from the network: every malformation is a verdict
+        out.update(stato="NON_VALIDA", motivo=f"{type(e).__name__}: {str(e)[:120]}"); return out
+
+
+def _no_dup(pairs):
+    d = {}
+    for k, v in pairs:
+        if k in d:
+            raise ValueError(f"duplicate key {k!r}")
+        d[k] = v
+    return d
+
+
+def _ed25519_verify(pub: bytes, sig: bytes, msg: bytes) -> Optional[bool]:
+    """True / False, or None when no Ed25519 implementation is available (same contract as health_verify._ed_verify)."""
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        from cryptography.exceptions import InvalidSignature
+    except ImportError:
+        return None
+    try:
+        Ed25519PublicKey.from_public_bytes(pub).verify(sig, msg); return True
+    except (InvalidSignature, ValueError):
+        return False
+
+
 def _org(oid_: str, spec: Dict, what: str) -> Dict:
     nome, gln = spec.get("nome"), spec.get("gln")
     if not isinstance(nome, str) or not nome.strip():
@@ -171,6 +425,8 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
     eta = p.get("eta_paziente")
     patient = {"resourceType": "Patient", "id": "anon", "meta": {"profile": [PROFILE["patient"]]},
                "text": _xhtml(X["patient"].format(age=X["age"].format(eta=eta) if isinstance(eta, int) and not isinstance(eta, bool) else ""))}
+    if missione.get("paziente") is not None:
+        patient = _paziente_identificato(missione["paziente"], patient)
     soccorso = _org("soccorso", missione.get("organizzazione") or {}, "organizzazione (responding EMS)")
     centrale = _org("centrale", missione.get("richiedente") or {}, "richiedente (requesting organisation)")
     entries: List[Dict] = []

@@ -86,17 +86,43 @@ def validate(path: str, out_json: str) -> dict:
                          for i in issues if i["severity"] == "warning"]}
 
 
+SAMPLE_KEY_SEED = b"omega-health-companion published sample key - NOT A SECRET - anyone can derive it from this sentence"
+
+
+def build_signed_sample() -> dict:
+    """The full sample with Composition.attester and Bundle.signature (0.7.3), signed by a key DERIVED FROM A PUBLIC
+    SENTENCE so that the published file is deterministic and verifiable by anyone (the JWK travels in the header).
+    That key proves the format, never an identity: `chiave_registrata` is False outside a registry that lists it."""
+    import hashlib, tempfile, shutil, base64 as b64
+    import audit_bridge as AB
+    d = build_sample()
+    tmp = tempfile.mkdtemp(prefix="omega-sample-key-"); orig = AB.KEYS_DIR
+    try:
+        AB.KEYS_DIR = tmp
+        with open(os.path.join(tmp, "fb-esempio.key"), "w") as f:
+            f.write(b64.b64encode(hashlib.sha256(SAMPLE_KEY_SEED).digest()).decode())
+        return C.firma_documento(d, "esempio", "2026-09-19T09:11:00+02:00")
+    finally:
+        AB.KEYS_DIR = orig; shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sample", help="write the sample CH EMS document here and exit")
+    ap.add_argument("--sample", help="write the sample CH EMS documents (full, minimal, signed) here and exit")
+    ap.add_argument("--verify-signature", help="print the four-state verdict on Bundle.signature of this document and exit (0 = OK)")
     ap.add_argument("--strict", action="store_true", help="run the validator; exit 1 on any error")
     ap.add_argument("--doc", help="validate this document instead of the built sample")
     a = ap.parse_args(argv)
+    if a.verify_signature:
+        v = C.verifica_firma_documento(open(a.verify_signature, "rb").read())
+        print(json.dumps(v, ensure_ascii=False)); return 0 if v["stato"] == "OK" else 1
     if a.sample:
         json.dump(build_sample(), open(a.sample, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         mp = a.sample.replace(".json", "_minimal.json")
         json.dump(build_minimal(), open(mp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-        print("samples written:", a.sample, mp)
+        sp = a.sample.replace(".json", "_signed.json")
+        json.dump(build_signed_sample(), open(sp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        print("samples written:", a.sample, mp, sp)
         return 0
     docs = [a.doc] if a.doc else []
     if not a.doc:

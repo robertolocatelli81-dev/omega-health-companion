@@ -204,5 +204,133 @@ class TestChemsDocument(unittest.TestCase):
         self.assertFalse(r["urn:uuid:00000000-0000-0000-0000-000000000001"]); self.assertEqual(sum(1 for v in r.values() if not v), 1)
 
 
+class TestFirmaDocumento(unittest.TestCase):
+    """0.7.3 — Bundle.signature (detached JWS EdDSA over JCS of the Bundle without `signature`) and Composition.attester.
+    Every negative here is a POSITIVE CONTROL of the verifier: a change of one value, one key, one entry, one signature
+    byte, or the attestation must give NON_VALIDA; without an Ed25519 implementation the verdict is NON_VERIFICATA."""
+    def setUp(self):
+        import audit_bridge as AB, tempfile, shutil
+        self.AB = AB; self._orig = (AB.KEYS_DIR, AB.FALLBACK_LEDGER, AB.MOTORE_DISPONIBILE)
+        self.d = tempfile.mkdtemp(prefix="chems-sig-"); AB.KEYS_DIR = self.d + "/keys"; AB.FALLBACK_LEDGER = self.d + "/fb.jsonl"; AB.MOTORE_DISPONIBILE = False
+        self.addCleanup(lambda: (setattr(AB, "KEYS_DIR", self._orig[0]), setattr(AB, "FALLBACK_LEDGER", self._orig[1]), setattr(AB, "MOTORE_DISPONIBILE", self._orig[2]), shutil.rmtree(self.d, ignore_errors=True)))
+        if not AB.FIRMA_LOCALE_DISPONIBILE:
+            self.skipTest("cryptography missing: no local Ed25519 signer")
+        self.doc = build_sample()
+        self.signed = C.firma_documento(self.doc, "equipaggio-118-alfa", "2026-09-19T09:11:00+02:00")
+
+    def test_sign_verify_and_caller_untouched(self):
+        self.assertNotIn("signature", self.doc); self.assertNotIn("attester", self.doc["entry"][0]["resource"])   # deep copy
+        v = C.verifica_firma_documento(self.signed)
+        self.assertEqual((v["stato"], v["kid"], v["chiave_registrata"]), ("OK", "omega:fb-equipaggio-118-alfa", True))
+        raw = json.dumps(self.signed, ensure_ascii=False, indent=2).encode("utf-8")          # any serialisation of the same JSON
+        self.assertEqual(C.verifica_firma_documento(raw)["stato"], "OK")
+        sig = self.signed["signature"]
+        self.assertEqual(sig["type"][0]["code"], "1.2.840.10065.1.12.1.1"); self.assertEqual(sig["sigFormat"], "application/jose")
+        self.assertTrue(sig["targetFormat"].endswith("canonicalization=http://hl7.org/fhir/canonicalization/json"))
+        att = self.signed["entry"][0]["resource"]["attester"]
+        self.assertEqual([a["mode"] for a in att], ["professional"]); self.assertEqual(att[0]["party"], sig["who"])
+        import base64
+        jws = base64.b64decode(sig["data"]).decode(); h = json.loads(C._b64u_dec(jws.split(".")[0]))
+        self.assertEqual((h["alg"], h["b64"], h["crit"], h["sigT"]), ("EdDSA", False, ["b64"], sig["when"]))
+        self.assertEqual(h["srCms"][0]["commId"]["id"], "urn:oid:1.2.840.10065.1.12.1.1"); self.assertEqual(h["jwk"]["crv"], "Ed25519")
+        self.assertEqual(jws.split(".")[1], "")                                                # detached payload
+        self.assertEqual(C.verifica_firma_documento(self.doc)["stato"], "ASSENTE")
+        self.assertEqual(C.verifica_firma_documento(self.signed, keys_dir=self.d + "/nessuno")["chiave_registrata"], False)
+
+    def test_every_tampering_is_non_valida(self):
+        casi = {}
+        t = copy.deepcopy(self.signed); t["entry"][1]["resource"]["text"]["div"] = t["entry"][1]["resource"]["text"]["div"].upper(); casi["valore"] = t
+        t = copy.deepcopy(self.signed); t["entry"].append({"fullUrl": "urn:uuid:x", "resource": {"resourceType": "Basic", "id": "x"}}); casi["entry aggiunta"] = t
+        t = copy.deepcopy(self.signed); del t["entry"][-1]; casi["entry tolta"] = t
+        t = copy.deepcopy(self.signed); t["entry"][0]["resource"]["attester"][0]["mode"] = "legal"; casi["attester"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["when"] = "2026-09-19T09:12:00+02:00"; casi["when≠sigT"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["data"] = t["signature"]["data"][:-8] + "AAAAAAAA"; casi["byte firma"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["sigFormat"] = "application/pkcs7-mime"; casi["sigFormat"] = t
+        t = json.loads(json.dumps(self.signed).replace('"status"', '"status2"', 1)); casi["chiave rinominata"] = t
+        t = copy.deepcopy(self.signed); t["meta"]["profile"] = ["http://example.org/other"]; casi["meta.profile (firmato: variante piena, non #document)"] = t
+        for nome, x in casi.items():
+            self.assertEqual(C.verifica_firma_documento(x)["stato"], "NON_VALIDA", nome)
+        self.assertEqual(C.verifica_firma_documento(b"{\"resourceType\": \"Bundle\", \"resourceType\": \"Bundle\"}")["stato"], "NON_VALIDA")   # duplicate keys
+        self.assertEqual(C.verifica_firma_documento({"resourceType": "Patient"})["stato"], "NON_VALIDA")
+        with self.assertRaises(ValueError):
+            C.firma_documento(self.signed, "equipaggio-118-alfa", "2026-09-19T09:11:00+02:00")   # one signature per document
+
+    def test_same_number_different_text_is_the_same_document(self):
+        """JCS signs NUMBERS, not their spelling: 39.4 and 39.40 are one value (RFC 8785 §3.2.2.3) — declared, not a hole."""
+        raw = json.dumps(self.signed); self.assertIn("39.4", raw)
+        self.assertEqual(C.verifica_firma_documento(json.loads(raw.replace("39.4", "39.40", 1)))["stato"], "OK")
+
+    def test_senza_ed25519_non_verificata(self):
+        from unittest import mock
+        with mock.patch.object(C, "_ed25519_verify", return_value=None):
+            v = C.verifica_firma_documento(self.signed)
+        self.assertEqual(v["stato"], "NON_VERIFICATA"); self.assertIsNone(v["chiave_registrata"])
+
+    def test_independent_jws_library_agrees(self):
+        """Oracle: a standard JWS library (jwcrypto, EdDSA, detached payload) verifies the same bytes — and refuses a
+        tampered payload. Skipped when jwcrypto is not installed (CI installs it in the conformance job)."""
+        try:
+            from jwcrypto import jws as J, jwk as K
+        except ImportError:
+            self.skipTest("jwcrypto not installed")
+        import base64
+        raw = base64.b64decode(self.signed["signature"]["data"]).decode()
+        h = json.loads(C._b64u_dec(raw.split(".")[0])); key = K.JWK(**h["jwk"])
+        payload = C.jcs({k: v for k, v in self.signed.items() if k != "signature"})
+        j = J.JWS(); j.deserialize(raw); j.verify(key, detached_payload=payload)
+        with self.assertRaises(Exception):
+            j2 = J.JWS(); j2.deserialize(raw); j2.verify(key, detached_payload=payload + b" ")
+
+    def test_jcs_vectors(self):
+        """RFC 8785 Appendix B number vectors (subset) and key ordering by UTF-16 code units."""
+        for f, want in ((1e21, "1e+21"), (1e-7, "1e-7"), (0.000001, "0.000001"), (295147905179352830000.0, "295147905179352830000"), (-0.0, "0"), (100.0, "100"), (39.4, "39.4")):
+            self.assertEqual(C._es6_number(f), want, f)
+        self.assertEqual(C.jcs({"b": 1, "a": [True, None, 1.5, "x"], "\u20ac": 0}), b'{"a":[true,null,1.5,"x"],"b":1,"\u20ac":0}'.replace(b"\\u20ac", "\u20ac".encode()))
+
+    def test_reader_reports_attester_and_signature(self):
+        import chems_ingest as I
+        r = I.leggi_documento(json.dumps(self.signed).encode())
+        self.assertEqual(r["firma"]["stato"], "OK"); self.assertEqual(r["attestazioni"][0]["mode"], "professional")
+        r2 = I.leggi_documento(json.dumps(self.doc).encode()); self.assertEqual(r2["firma"]["stato"], "ASSENTE"); self.assertEqual(r2["attestazioni"], [])
+        for f in ("examples/chems_conformance/ig-Bundle-2-Einsatzprotokoll.json",):     # the IG example: attester legal, no signature
+            r3 = I.leggi_documento(open(f, "rb").read()); self.assertEqual(r3["attestazioni"][0]["mode"], "legal"); self.assertEqual(r3["firma"]["stato"], "ASSENTE")
+
+    def test_published_signed_sample_is_deterministic_and_verifies(self):
+        from chems_validate import build_signed_sample
+        a, b = build_signed_sample(), build_signed_sample()
+        self.assertEqual(a, b); self.assertEqual(C.verifica_firma_documento(a)["stato"], "OK")
+        self.assertEqual(json.load(open("examples/chems_document_sample_signed.json")), a)   # the committed file IS the build
+
+
+class TestPazienteIdentificato(unittest.TestCase):
+    """0.7.3 — handover stage, opt-in identity for an EPR-conformant document (measured 2026-09-19: the three
+    ch-ems-epr-* warnings disappear; evidence in examples/chems_conformance/release_0.7.3/)."""
+    PAZ = {"cognome": "Muster", "nome": "Petra", "sesso": "female", "data_nascita": "1959-03-04",
+           "identificatore": {"system": "urn:oid:2.16.756.5.30.1.999.2", "value": "MPI-000123"}}
+
+    def _doc(self, paz):
+        p = A.valuta_paziente({"rr": 18, "spo2": 97, "su_ossigeno": False, "sbp": 120, "hr": 80, "alert_coscienza": True, "temp": 36.8}, [], 67, 8)["PRE_ALERT_INTEGRATO"]
+        return C.prealert_to_chems_document(p, p["vitali"], "2026-09-19T09:10:00+02:00", dict(SAMPLE_MISSION, paziente=paz))
+
+    def test_identified_patient_has_what_epr_requires(self):
+        pat = self._doc(self.PAZ)["entry"][1]["resource"]
+        self.assertEqual(pat["identifier"], [{"system": "urn:oid:2.16.756.5.30.1.999.2", "value": "MPI-000123"}])
+        self.assertEqual(pat["name"], [{"family": "Muster", "given": ["Petra"]}]); self.assertEqual((pat["gender"], pat["birthDate"]), ("female", "1959-03-04"))
+        self.assertEqual(set(pat), {"resourceType", "id", "meta", "text", "identifier", "name", "gender", "birthDate"})
+        self.assertIn("Muster", pat["text"]["div"]); self.assertNotIn("<b>", pat["text"]["div"])
+        anon = self._doc(None)["entry"][1]["resource"]; self.assertEqual(set(anon), {"resourceType", "id", "meta", "text"})   # default unchanged
+
+    def test_refusals(self):
+        for bad, why in (({**self.PAZ, "identificatore": {"system": C.OID_EPR_SPID, "value": "761337610411265304"}}, "EPR-SPID"),
+                         ({**self.PAZ, "identificatore": {"system": C.OID_AHVN13, "value": "7561234567897"}}, "AHVN13"),
+                         ({**self.PAZ, "data_nascita": "1959-02-30"}, "calendar"), ({**self.PAZ, "data_nascita": "04.03.1959"}, "YYYY-MM-DD"),
+                         ({**self.PAZ, "cognome": "<script>"}, "printable"), ({k: v for k, v in self.PAZ.items() if k != "cognome"}, "family"),
+                         ({**self.PAZ, "sesso": "F"}, "administrative-gender"), ({**self.PAZ, "identificatore": {"system": "http://x", "value": "1"}}, "urn:oid"),
+                         ("Muster", "object")):
+            with self.assertRaises(ValueError, msg=why) as cm:
+                self._doc(bad)
+            self.assertIn(why, str(cm.exception))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

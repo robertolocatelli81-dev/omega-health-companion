@@ -114,8 +114,17 @@ def leggi_documento(src) -> Dict[str, Any]:
         avvisi.append("sorgente dict: chiavi duplicate non verificabili (già collassate dal parser del chiamante); digest sul JSON canonico")
     if C.PROFILE["document"] not in (bundle.get("meta") or {}).get("profile", []):
         avvisi.append("il Bundle non dichiara il profilo CHEmsDocument (letto comunque: la conformità la misura il validatore)")
+    # 0.7.3: what the document says about who stands behind it — Composition.attester (who attested, in which mode)
+    # and Bundle.signature (a FHIR Signature over the bytes: verified here, four-state verdict, trust from the registry)
+    attestazioni = []
+    for a in (comp.get("attester") or []) if isinstance(comp.get("attester"), list) else []:
+        if isinstance(a, dict):
+            party = a.get("party") if isinstance(a.get("party"), dict) else {}
+            attestazioni.append({"mode": a.get("mode"), "time": a.get("time"), "party": party.get("reference") or party.get("display")})
+    firma = C.verifica_firma_documento(raw if raw is not None else bundle)
     return {"bundle": bundle, "bytes_sha256": hashlib.sha256(raw).hexdigest() if raw is not None else None,
-            "profili": profili, "composition": comp, "per_tipo": per_tipo, "avvisi": avvisi, "_by_url": by_url}
+            "profili": profili, "composition": comp, "per_tipo": per_tipo, "avvisi": avvisi, "_by_url": by_url,
+            "attestazioni": attestazioni, "firma": firma}
 
 
 # ── 2. vitals extraction ─────────────────────────────────────────────────────────────────────────────────────────
