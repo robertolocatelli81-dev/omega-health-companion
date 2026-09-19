@@ -19,7 +19,7 @@ meet its own obligations.
 - **The provenance ledger stores SHA-256 digests only — never health data.** It proves
   *that* a pre-alert existed at a time, unaltered, without containing it (see
   `scores_emergenza.ancora_prealert`, default `payload="digest"`).
-- **The FHIR export is anonymised**: age only; no name, no identifiers, no birth date.
+- **The FHIR export is anonymised by default**: age only; no name, no identifiers, no birth date. The only exception is the opt-in identified patient of the CH EMS handover document (0.7.3, below), which never reaches the ledger or the board.
   Identity linkage happens inside the hospital's own systems, in the care flow.
 - **Confirmation signatures** bind operator name, time and meaning to a record digest —
   professional accountability data (staff, not patients), retained in the audit trail.

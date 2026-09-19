@@ -98,8 +98,10 @@ operator whose key signed); `targetFormat` = `application/fhir+json;canonicaliza
 `application/jose`; `data` = base64 of a compact JWS `<protected>..<signature>` with the payload **detached** (RFC 7515
 App. F) and **unencoded** (RFC 7797: `b64: false`, `crit: ["b64"]` exactly).
 
-`CANON_URI` = `https://omega.example/fhir/canonicalization/rfc8785-bundle-without-signature` (defined here, not by HL7: FHIR
-R4's "canonical JSON" is not RFC 8785 and does not remove the signature member; the R6 build adopts RFC 8785).
+`CANON_URI` = `https://omega.example/fhir/canonicalization/rfc8785-bundle-without-signature` (defined here, not by HL7).
+Declared from hl7.org/fhir/R4/json.html and build.fhir.org/signatures.html, read 2026-09-19: R4's "canonical JSON" is not
+RFC 8785 (alphabetical properties, no number rules) and its base URI does not remove the signature member (the
+`#document` variant removes the root `id` and `meta`, not the signature); the R6 build adopts RFC 8785.
 Signed bytes: `ASCII(BASE64URL(protected header)) || '.' || JCS(Bundle without the "signature" member)`, JCS per RFC 8785
 (keys sorted by UTF-16 code units, no whitespace, ES6 numbers — `39.4` and `39.40` are the same value). The root `id`
 and `meta` ARE signed (not the `#document` variant). `Composition.attester` is added before signing, so it is covered.
@@ -118,6 +120,9 @@ Organization entry of the Bundle, any `Composition.attester` at the signing time
 JWK) → registry lookup (`<keys_dir>/fb-<slug>.pub` equals the JWK) → Ed25519 over the rebuilt payload. Verdict:
 `OK_REGISTRATA` (the only accepting state) / `OK_CHIAVE_NON_REGISTRATA` (integrity only: anyone can sign with a fresh key)
 / `NON_VALIDA` / `NON_VERIFICATA` (no Ed25519 implementation; structural failures still give `NON_VALIDA`) / `ASSENTE`.
-The registry is the LOCAL operator record of the verifying machine; there is no key distribution. Independent check: any
-JWS library with EdDSA and detached-payload support, given the payload rule above (jwcrypto is the oracle in the tests,
-against the registered key file, not the header's).
+The registry is the LOCAL operator record of the verifying machine; there is no key distribution. Independent check: a JWS
+library with EdDSA, detached-payload AND RFC 7797 (`b64: false`) support — a library without RFC 7797 MUST reject the JWS
+(`crit`) — given the payload rule above (jwcrypto is the oracle in the tests, against the registered key file, not the
+header's). The Signature element must consist of exactly `type`, `when`, `who{reference}`, `targetFormat`, `sigFormat`,
+`data`: any other member (`onBehalfOf`, `who.display`, a second `type` coding…) is unsigned and makes the verdict NON_VALIDA.
+The published sample's public key is pinned in the verifier and never reported as registered.

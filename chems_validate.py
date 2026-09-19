@@ -86,7 +86,7 @@ def validate(path: str, out_json: str) -> dict:
                          for i in issues if i["severity"] == "warning"]}
 
 
-SAMPLE_KEY_SEED = b"omega-health-companion published sample key - NOT A SECRET - anyone can derive it from this sentence"
+SAMPLE_KEY_SEED = C.SAMPLE_KEY_SEED        # the public sentence lives next to the verifier, which never trusts this key
 
 
 def build_signed_sample() -> dict:

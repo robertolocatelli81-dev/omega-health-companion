@@ -212,7 +212,7 @@ class TestFirmaDocumento(unittest.TestCase):
     def setUp(self):
         import audit_bridge as AB, tempfile, shutil
         self.AB = AB; self._orig = (AB.KEYS_DIR, AB.FALLBACK_LEDGER, AB.MOTORE_DISPONIBILE)
-        self._prod_keys = set(os.listdir(AB.KEYS_DIR)) if os.path.isdir(AB.KEYS_DIR) else None      # isolation: measured, not assumed
+        self._prod_keys = self._snapshot(AB.KEYS_DIR)                                                # isolation: measured by CONTENT, not names
         self.d = tempfile.mkdtemp(prefix="chems-sig-"); AB.KEYS_DIR = self.d + "/keys"; AB.FALLBACK_LEDGER = self.d + "/fb.jsonl"; AB.MOTORE_DISPONIBILE = False
         self.addCleanup(lambda: (setattr(AB, "KEYS_DIR", self._orig[0]), setattr(AB, "FALLBACK_LEDGER", self._orig[1]), setattr(AB, "MOTORE_DISPONIBILE", self._orig[2]), shutil.rmtree(self.d, ignore_errors=True)))
         if not AB.FIRMA_LOCALE_DISPONIBILE:
@@ -220,10 +220,47 @@ class TestFirmaDocumento(unittest.TestCase):
         self.doc = build_sample()
         self.signed = C.firma_documento(self.doc, "equipaggio-118-alfa", "2026-09-19T09:11:00+02:00")
 
+    @staticmethod
+    def _snapshot(d):
+        import hashlib
+        if not os.path.isdir(d):
+            return None
+        return {n: hashlib.sha256(open(os.path.join(d, n), "rb").read()).hexdigest() for n in sorted(os.listdir(d)) if os.path.isfile(os.path.join(d, n))}
+
     def tearDown(self):
-        prod = set(os.listdir(self._orig[0])) if os.path.isdir(self._orig[0]) else None
-        self.assertEqual(prod, self._prod_keys, "the test wrote into the production key store")
+        self.assertEqual(self._snapshot(self._orig[0]), self._prod_keys, "the test wrote into the production key store")
         self.assertTrue(os.path.exists(self.d + "/keys/fb-equipaggio-118-alfa.pub"), "the sandbox registry was not used")
+
+    def _casi_header_e_metadati(self):
+        """Tamperings that must be refused by STRUCTURE (header rules, unsigned Signature metadata), not by the mathematics."""
+        casi = {}
+        jws = self._jws(); h, _, sg = jws.split(".")
+        def _hdr(**mod):
+            hd = json.loads(C._b64u_dec(h)); hd.update(mod); hd = {k: v for k, v in hd.items() if v is not None}
+            return self._rewrap(self.signed, C._b64u(json.dumps(hd, separators=(",", ":"), sort_keys=True).encode()) + ".." + sg)
+        casi["alg none"] = _hdr(alg="none"); casi["alg HS256"] = _hdr(alg="HS256"); casi["crv Ed448"] = _hdr(jwk={"kty": "OKP", "crv": "Ed448", "x": "AA"})
+        casi["b64 true"] = _hdr(b64=True); casi["crit extra"] = _hdr(crit=["b64", "exp"]); casi["crit assente"] = _hdr(crit=None)
+        casi["sigT assente"] = _hdr(sigT=None); casi["canon diversa"] = _hdr(canon="http://hl7.org/fhir/canonicalization/json")
+        casi["who nel header diverso"] = _hdr(who="urn:uuid:altro"); casi["kid traversal"] = _hdr(kid="omega:fb-../../etc/passwd")
+        casi["kid non stringa"] = _hdr(kid=["omega:fb-x"]); casi["srCms codice diverso"] = _hdr(srCms=[{"commId": {"id": "urn:oid:1.2.840.10065.1.12.1.5"}}])
+        casi["jwk con chiave privata"] = _hdr(jwk={"kty": "OKP", "crv": "Ed25519", "x": json.loads(C._b64u_dec(h))["jwk"]["x"], "d": "AA"})
+        t = copy.deepcopy(self.signed); t["signature"]["when"] = "2026-09-19T09:12:00+02:00"; casi["when≠sigT"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["sigFormat"] = "application/pkcs7-mime"; casi["sigFormat"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["targetFormat"] = "application/fhir+json"; casi["targetFormat non firmato"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["type"][0]["code"] = "1.2.840.10065.1.12.1.5"; casi["type ≠ srCms"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["type"].append({"system": "http://example.org", "code": "x"}); casi["type: seconda coding non firmata"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["type"][0]["display"] = "Verification Signature"; casi["type display"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["onBehalfOf"] = {"reference": "urn:uuid:altro"}; casi["onBehalfOf non firmato"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["who"]["display"] = "Dr. Evil"; casi["who.display non firmato"] = t
+        t = copy.deepcopy(self.signed); t["signature"]["id"] = "s1"; casi["signature.id"] = t
+        dest = next(e["fullUrl"] for e in self.signed["entry"] if e["resource"].get("id") == "destinazione")
+        t = copy.deepcopy(self.signed); t["signature"]["who"] = {"reference": dest}; casi["who → other Organization"] = t
+        pat = next(e["fullUrl"] for e in self.signed["entry"] if e["resource"]["resourceType"] == "Patient")
+        t = copy.deepcopy(self.signed); t["signature"]["who"] = {"reference": pat}
+        t = self._rewrap(t, C._b64u(json.dumps({**json.loads(C._b64u_dec(h)), "who": pat}, separators=(",", ":"), sort_keys=True).encode()) + ".." + sg)
+        casi["who → Patient entry (header agrees)"] = t
+        t = copy.deepcopy(self.signed); t["entry"][0]["resource"]["attester"][0]["party"] = {"reference": dest}; casi["attester party ≠ who"] = t
+        return casi
 
     def _jws(self, doc=None):
         import base64
@@ -268,44 +305,59 @@ class TestFirmaDocumento(unittest.TestCase):
         self.assertEqual(I.leggi_documento(json.dumps(rogue).encode())["firma"]["stato"], "OK_CHIAVE_NON_REGISTRATA")
 
     def test_every_tampering_is_non_valida(self):
-        import base64
+        """Signed-bytes tamperings: refused by the mathematics."""
         casi = {}
         t = copy.deepcopy(self.signed); t["entry"][1]["resource"]["text"]["div"] = t["entry"][1]["resource"]["text"]["div"].upper(); casi["valore"] = t
         t = copy.deepcopy(self.signed); t["entry"].append({"fullUrl": "urn:uuid:x", "resource": {"resourceType": "Basic", "id": "x"}}); casi["entry aggiunta"] = t
         t = copy.deepcopy(self.signed); del t["entry"][-1]; casi["entry tolta"] = t
         t = copy.deepcopy(self.signed); t["entry"][0]["resource"]["attester"][0]["mode"] = "legal"; casi["attester mode"] = t
-        t = copy.deepcopy(self.signed); t["signature"]["when"] = "2026-09-19T09:12:00+02:00"; casi["when≠sigT"] = t
-        t = copy.deepcopy(self.signed); t["signature"]["sigFormat"] = "application/pkcs7-mime"; casi["sigFormat"] = t
-        t = copy.deepcopy(self.signed); t["signature"]["targetFormat"] = "application/fhir+json"; casi["targetFormat non firmato"] = t
-        t = copy.deepcopy(self.signed); t["signature"]["type"][0]["code"] = "1.2.840.10065.1.12.1.5"; casi["type ≠ srCms"] = t
-        centrale = next(e["fullUrl"] for e in self.signed["entry"] if e["resource"].get("id") == "destinazione")
-        t = copy.deepcopy(self.signed); t["signature"]["who"] = {"reference": centrale}; casi["who → other Organization"] = t
         t = json.loads(json.dumps(self.signed).replace('"status"', '"status2"', 1)); casi["chiave rinominata"] = t
         t = copy.deepcopy(self.signed); t["meta"]["profile"] = ["http://example.org/other"]; casi["meta.profile (signed: plain variant, not #document)"] = t
         jws = self._jws(); h, _, sg = jws.split(".")
         raw = bytearray(C._b64u_dec(sg)); raw[10] ^= 0x01                                    # well-formed 64-byte signature, one bit wrong
         casi["un bit della firma"] = self._rewrap(self.signed, f"{h}..{C._b64u(bytes(raw))}")
         casi["firma troncata"] = self._rewrap(self.signed, f"{h}..{sg[:-8]}")
-        def _hdr(**mod):
-            hd = json.loads(C._b64u_dec(h)); hd.update(mod); hd = {k: v for k, v in hd.items() if v is not None}
-            return self._rewrap(self.signed, C._b64u(json.dumps(hd, separators=(",", ":"), sort_keys=True).encode()) + ".." + sg)
-        casi["alg none"] = _hdr(alg="none"); casi["alg HS256"] = _hdr(alg="HS256"); casi["crv Ed448"] = _hdr(jwk={"kty": "OKP", "crv": "Ed448", "x": "AA"})
-        casi["b64 true"] = _hdr(b64=True); casi["crit extra"] = _hdr(crit=["b64", "exp"]); casi["crit assente"] = _hdr(crit=None)
-        casi["sigT assente"] = _hdr(sigT=None); casi["canon diversa"] = _hdr(canon="http://hl7.org/fhir/canonicalization/json")
-        casi["who nel header diverso"] = _hdr(who="urn:uuid:altro"); casi["kid traversal"] = _hdr(kid="omega:fb-../../etc/passwd")
-        casi["jwk con chiave privata"] = _hdr(jwk={"kty": "OKP", "crv": "Ed25519", "x": json.loads(C._b64u_dec(h))["jwk"]["x"], "d": "AA"})
         for nome, x in casi.items():
             self.assertEqual(C.verifica_firma_documento(x)["stato"], "NON_VALIDA", nome)
-        # duplicate keys INSIDE a signed document (last-wins would equal the signed value): refused on the bytes
+        for nome, x in self._casi_header_e_metadati().items():
+            self.assertEqual(C.verifica_firma_documento(x)["stato"], "NON_VALIDA", nome)
+        # duplicate keys INSIDE a signed document (last-wins would equal the signed value): refused on the bytes, also by the reader
         raw = json.dumps(self.signed).replace('"status": "preliminary"', '"status": "final", "status": "preliminary"', 1)
         self.assertIn('"status": "final", "status": "preliminary"', raw)
         self.assertEqual(C.verifica_firma_documento(raw.encode())["stato"], "NON_VALIDA")
+        import chems_ingest as I
+        with self.assertRaises(I.DocumentoNonValido):
+            I.leggi_documento(raw.encode())
         self.assertEqual(C.verifica_firma_documento({"resourceType": "Patient"})["stato"], "NON_VALIDA")
-        self.assertEqual(C.verifica_firma_documento(b'{"resourceType":"Bundle","signature":{"sigFormat":"application/jose","data":"x","targetFormat":"' + C.TARGET_FORMAT.encode() + b'","x":"\\ud800"}}')["stato"], "NON_VALIDA")   # lone surrogate: a verdict, not a crash
+        # a lone surrogate INSIDE the signed payload (bytes path and dict path): a verdict, not a crash
+        raw = json.dumps(self.signed).replace('"preliminary"', '"prelim\\ud800"', 1); self.assertIn("\\ud800", raw)
+        self.assertEqual(C.verifica_firma_documento(raw.encode())["stato"], "NON_VALIDA")
+        self.assertEqual(C.verifica_firma_documento(json.loads(raw))["stato"], "NON_VALIDA")
         with self.assertRaises(ValueError):
             C.firma_documento(self.signed, "equipaggio-118-alfa", "2026-09-19T09:11:00+02:00")   # one signature per document
         k = json.loads(C._b64u_dec(self._jws(C.firma_documento(self.doc, "../x", "2026-09-19T09:11:00+02:00")).split(".")[0]))["kid"]
         self.assertRegex(k, r"^omega:fb-[a-z0-9-]{1,64}$"); self.assertNotIn("..", k)          # slug sanitised at the signer too
+
+    def test_structure_is_enforced_even_if_the_mathematics_lies(self):
+        """Under an oracle that calls every signature valid, every header/metadata rule must still give NON_VALIDA — so the
+        rules are enforced by the verifier, not by the signature happening to break too (review Opus r2)."""
+        from unittest import mock
+        with mock.patch.object(C, "_ed25519_verify", return_value=True):
+            self.assertEqual(C.verifica_firma_documento(self.signed)["stato"], "OK_REGISTRATA")   # the mock is live
+            for nome, x in self._casi_header_e_metadati().items():
+                self.assertEqual(C.verifica_firma_documento(x)["stato"], "NON_VALIDA", nome)
+
+    def test_registered_key_under_another_name_is_not_that_operator(self):
+        """Lookup is by kid: operator beta's registered key presented under alfa's kid is not registered for alfa."""
+        from unittest import mock
+        beta = C.firma_documento(self.doc, "equipaggio-118-beta", "2026-09-19T09:11:00+02:00")
+        self.assertEqual(C.verifica_firma_documento(beta)["stato"], "OK_REGISTRATA")
+        h, _, sg = self._jws(beta).split(".")
+        hd = json.loads(C._b64u_dec(h)); hd["kid"] = "omega:fb-equipaggio-118-alfa"
+        forged = self._rewrap(beta, C._b64u(json.dumps(hd, separators=(",", ":"), sort_keys=True).encode()) + ".." + sg)
+        with mock.patch.object(C, "_ed25519_verify", return_value=True):
+            v = C.verifica_firma_documento(forged)
+        self.assertEqual((v["stato"], v["chiave_registrata"]), ("OK_CHIAVE_NON_REGISTRATA", False))
 
     def test_structure_is_judged_before_cryptography(self):
         """Without Ed25519 a valid document is NON_VERIFICATA, but a malformed one is still NON_VALIDA."""
@@ -325,8 +377,8 @@ class TestFirmaDocumento(unittest.TestCase):
         self.assertEqual(C._es6_number(39.40), "39.4")
 
     def test_independent_jws_library_agrees(self):
-        """Oracle: jwcrypto (EdDSA, detached payload) verifies the same bytes against the REGISTERED public key file — not
-        the header's — and refuses a tampered payload and a base64url-encoded (b64:true) payload."""
+        """Oracle: jwcrypto (EdDSA, detached payload, RFC 7797) verifies the same bytes against the REGISTERED public key file —
+        not the header's — and refuses any payload that is not byte-identical, its base64url form included."""
         try:
             from jwcrypto import jws as J, jwk as K
         except ImportError:
@@ -357,25 +409,50 @@ class TestFirmaDocumento(unittest.TestCase):
         with open("examples/chems_document_sample_signed.json") as fh:
             self.assertEqual(json.load(fh), a)                                                  # the committed file IS the build
         self.assertFalse(os.path.exists(self.d + "/keys/fb-esempio.pub"), "the sample key must not enter the registry")
+        import base64
+        with open(self.d + "/keys/fb-esempio.pub", "w") as fh:                                  # even a registry that lists it: never trusted
+            fh.write(base64.b64encode(C.SAMPLE_PUBKEY).decode())
+        self.assertEqual(C.verifica_firma_documento(a)["stato"], "OK_CHIAVE_NON_REGISTRATA")
 
 
 class TestVerificaSenzaFirmatario(unittest.TestCase):
     """Runs with or without `cryptography`: RFC 8785 vectors, rejections, and the verdict on the PUBLISHED signed sample."""
     def test_jcs_vectors(self):
-        # RFC 8785 Appendix B (all rows) + the ES6 threshold neighbours
-        for f, want in ((5e-324, "5e-324"), (1.7976931348623157e+308, "1.7976931348623157e+308"), (0.0, "0"), (-0.0, "0"), (1e21, "1e+21"),
-                        (1e-7, "1e-7"), (0.000001, "0.000001"), (9.999999999999997e-7, "9.999999999999997e-7"), (1e23, "1e+23"),
-                        (9.999999999999997e+22, "9.999999999999997e+22"), (1.0000000000000001e+23, "1.0000000000000001e+23"), (295147905179352830000.0, "295147905179352830000"),
-                        (999999999999999900000.0, "999999999999999900000"), (333333333.33333325, "333333333.33333325"),
-                        (-0.0000033333333333333333, "-0.0000033333333333333333"), (0.05, "0.05"), (100.0, "100"), (39.4, "39.4")):
-            self.assertEqual(C._es6_number(f), want, repr(f))
+        """RFC 8785 Appendix B, all 24 finite rows, from the IEEE-754 bit patterns as the RFC gives them (rfc8785.txt,
+        sha256 63d52294eb0e3f00…); NaN/Infinity must raise; plus escaping and UTF-16 ordering."""
+        import struct
+        rows = """0000000000000000 0|8000000000000000 0|0000000000000001 5e-324|8000000000000001 -5e-324|7fefffffffffffff 1.7976931348623157e+308
+                  ffefffffffffffff -1.7976931348623157e+308|4340000000000000 9007199254740992|c340000000000000 -9007199254740992
+                  4430000000000000 295147905179352830000|44b52d02c7e14af5 9.999999999999997e+22|44b52d02c7e14af6 1e+23
+                  44b52d02c7e14af7 1.0000000000000001e+23|444b1ae4d6e2ef4e 999999999999999700000|444b1ae4d6e2ef4f 999999999999999900000
+                  444b1ae4d6e2ef50 1e+21|3eb0c6f7a0b5ed8c 9.999999999999997e-7|3eb0c6f7a0b5ed8d 0.000001|41b3de4355555553 333333333.3333332
+                  41b3de4355555554 333333333.33333325|41b3de4355555555 333333333.3333333|41b3de4355555556 333333333.3333334
+                  41b3de4355555557 333333333.33333343|becbf647612f3696 -0.0000033333333333333333|43143ff3c1cb0959 1424953923781206.2"""
+        n = 0
+        for row in rows.replace("\n", "|").split("|"):
+            if not row.strip():
+                continue
+            h, want = row.split(); f = struct.unpack(">d", bytes.fromhex(h))[0]
+            self.assertEqual(C._es6_number(f), want, h); n += 1
+        self.assertEqual(n, 24)
+        for h in ("7fffffffffffffff", "7ff0000000000000", "fff0000000000000"):            # NaN, +Inf, -Inf
+            with self.assertRaises(ValueError):
+                C.jcs({"x": struct.unpack(">d", bytes.fromhex(h))[0]})
+        with self.assertRaises(ValueError):
+            C.jcs({"x": 2 ** 53 + 1})
+        self.assertEqual(C.jcs({"x": 9007199254740992}), b'{"x":9007199254740992}')     # 2^53 itself is exact
         self.assertEqual(C.jcs({"b": 1, "a": [True, None, 1.5, "x"], "\u20ac": 0}), '{"a":[true,null,1.5,"x"],"b":1,"\u20ac":0}'.encode("utf-8"))
         self.assertEqual(C.jcs({"\ufb33": 1, "\U0001f600": 2}), '{"\U0001f600":2,"\ufb33":1}'.encode("utf-8"))   # UTF-16 code units: the surrogate pair sorts first
         self.assertEqual(C.jcs({"s": "\u001f\u007f\u2028\"\\"}), b'{"s":"\\u001f\x7f\xe2\x80\xa8\\"\\\\"}')
-        for bad in (float("nan"), float("inf"), 2 ** 53 + 1):
-            with self.assertRaises((ValueError, TypeError)):
-                C.jcs({"x": bad})
-        self.assertEqual(C.jcs({"x": 9007199254740992}), b'{"x":9007199254740992}')     # 2^53 itself is exact
+
+    def test_sample_pubkey_pinned_matches_the_public_sentence(self):
+        import audit_bridge as AB, hashlib
+        if not AB.FIRMA_LOCALE_DISPONIBILE:
+            self.skipTest("cryptography missing")
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives import serialization as ser
+        pub = Ed25519PrivateKey.from_private_bytes(hashlib.sha256(C.SAMPLE_KEY_SEED).digest()).public_key().public_bytes(ser.Encoding.Raw, ser.PublicFormat.Raw)
+        self.assertEqual(pub, C.SAMPLE_PUBKEY)
 
     def test_published_signed_sample_verdict(self):
         import audit_bridge as AB
@@ -413,14 +490,23 @@ class TestPazienteIdentificato(unittest.TestCase):
         self.addCleanup(lambda: (setattr(AB, "KEYS_DIR", orig[0]), setattr(AB, "FALLBACK_LEDGER", orig[1]), setattr(AB, "MOTORE_DISPONIBILE", orig[2]), shutil.rmtree(d, True)))
         doc = C.firma_documento(self._doc(dict(self.PAZ, cognome="D'Angelo & Figli")), "eq-1", "2026-09-19T09:11:00+02:00", attester="legal")
         pat = doc["entry"][1]["resource"]; self.assertEqual(pat["id"], "paziente")
-        self.assertIn("D'Angelo &amp; Figli", pat["text"]["div"]); self.assertNotIn("& ", pat["text"]["div"])       # escaped, never raw
+        self.assertIn("D'Angelo &amp; Figli", pat["text"]["div"]); self.assertNotRegex(pat["text"]["div"], r"&(?!amp;|lt;|gt;|quot;|#\d+;)")   # escaped, never raw
         self.assertEqual(doc["entry"][0]["resource"]["subject"]["reference"], doc["entry"][1]["fullUrl"])              # subject → the identified patient
         r = I.leggi_documento(json.dumps(doc, ensure_ascii=False).encode()); self.assertEqual(r["firma"]["stato"], "OK_REGISTRATA")
         self.assertEqual(r["attestazioni"][0]["mode"], "legal")
         rec = I.ancora_documento(json.dumps(doc, ensure_ascii=False).encode(), "eq-1")                                # anchoring keeps digests only
-        ledger = open(AB.FALLBACK_LEDGER, encoding="utf-8").read()
+        with open(AB.FALLBACK_LEDGER, encoding="utf-8") as fh:
+            righe = [json.loads(l) for l in fh.read().splitlines() if l.strip()]
         for pii in ("Angelo", "Petra", "MPI-000123", "1959-03-04"):
-            self.assertNotIn(pii, ledger, pii); self.assertNotIn(pii, json.dumps(rec), pii)
+            self.assertNotIn(pii, json.dumps(righe), pii); self.assertNotIn(pii, json.dumps(rec), pii)
+        doc_len = len(json.dumps(doc))
+        for r in righe:                                                                 # shape: digests and short fields, never a document in any encoding
+            self.assertTrue(all(isinstance(v, (str, int, float, bool, type(None), dict)) for v in r.values()))
+            self.assertLess(len(json.dumps(r)), doc_len / 4)
+            for v in r.values():
+                if isinstance(v, str):
+                    self.assertLessEqual(len(v), 128)
+        self.assertRegex(rec["doc_sha256"], r"^[0-9a-f]{64}$")
 
     def test_refusals(self):
         for bad, why in (({**self.PAZ, "identificatore": {"system": C.OID_EPR_SPID, "value": "761337610411265304"}}, "EPR-SPID"),
@@ -429,6 +515,7 @@ class TestPazienteIdentificato(unittest.TestCase):
                          ({**self.PAZ, "cognome": "<script>"}, "printable"), ({k: v for k, v in self.PAZ.items() if k != "cognome"}, "family"),
                          ({**self.PAZ, "sesso": "F"}, "administrative-gender"), ({**self.PAZ, "identificatore": {"system": "http://x", "value": "1"}}, "urn:oid"),
                          ({**self.PAZ, "identificatore": {"system": "urn:oid:2.16.756.5.30.1.999.2", "value": "7561234567897"}}, "AHVN13"),
+                         ({**self.PAZ, "identificatore": {"system": "urn:oid:2.16.756.5.30.1.999.2", "value": "756.1234.5678.97"}}, "AHVN13"),
                          ("Muster", "object")):
             with self.assertRaises(ValueError, msg=why) as cm:
                 self._doc(bad)

@@ -99,7 +99,7 @@ jobs:
       - name: "Official validator - the SIGNED sample (Bundle.signature + attester) must have 0 errors; a tampered copy must fail our verifier"
         run: |
           python3 chems_validate.py --strict --doc examples/chems_document_sample_signed.json
-          python3 chems_validate.py --verify-signature examples/chems_document_sample_signed.json --allow-unregistered   # public sample key: format, not trust
+          python3 chems_validate.py --verify-signature examples/chems_document_sample_signed.json --allow-unregistered | grep -q '"stato": "OK_CHIAVE_NON_REGISTRATA"'   # public sample key: format, not trust
           if python3 chems_validate.py --verify-signature examples/chems_document_sample_signed.json; then echo "::error::an unregistered key was accepted as trusted"; exit 1; fi
           python3 - <<'EOF'
           import json

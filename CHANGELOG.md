@@ -25,7 +25,16 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   single "OK" for a mathematically valid signature under an unregistered key and the CLI exited 0 on it — a key-substitution
   bypass; labelled the bytes with the FHIR canonical-JSON URI although the rules differ; left `who`/`type`/`targetFormat`
   unbound; kept the identified patient under id `anon`; a variable shadowing bug (`pid`) sent the Composition subject to a
-  wrong reference for identified patients (found by the sample hash changing). All fixed and measured. Declared: JCS signs numbers, not spellings; the
+  wrong reference for identified patients (found by the sample hash changing). All fixed and measured. Round 2 (Opus 5;
+  Gemini Pro: no material issues on code, tests and docs): the AHVN13 guard missed the dotted form `756.1234.5678.97`;
+  unsigned Signature members (`onBehalfOf`, `who.display`, a second `type` coding, `id`) rode along under an accepting
+  verdict → the Signature element must now be exactly {type, when, who{reference}, targetFormat, sigFormat, data}; every
+  header and metadata rule is now asserted under an oracle that calls every signature valid (before, they were refused only
+  because the header bytes had changed too); a registered key under another operator's `kid` is not that operator; a lone
+  surrogate inside the signed payload is a verdict on both the bytes and the dict path; the privacy test asserts the shape
+  of the ledger record, not the absence of four substrings; isolation is checked by file content; the RFC 8785 Appendix B
+  table is tested from the 24 IEEE-754 bit patterns; the sample's public key is pinned in the verifier and never reported
+  as registered; README now names `--allow-unregistered` and quotes the validator's warning verbatim. Declared: JCS signs numbers, not spellings; the
   FHIR R6 draft moves this to `Provenance.signature` (CH EMS is R4). The published `chems_document_sample_signed.json`
   is signed with a key derived from a public sentence (format proof, not identity) and is byte-deterministic (test).
 - **Identified patient at handover, opt-in** (`missione.paziente`): a `ch-core-patient-epr`-conformant Patient (local
@@ -33,10 +42,11 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   2026-09-19: the three `ch-ems-epr-*` warnings disappear with the identity (ablation) and the document validates
   against `ch-core-document-epr` with 0 errors — the EPR warnings of the default document have exactly one cause, the
   anonymous patient. The document-level warning is no longer "not analysed".
-- Reader (`chems_ingest.leggi_documento`): reports `attestazioni` (Composition.attester) and `firma` (the four-state
+- Reader (`chems_ingest.leggi_documento`): reports `attestazioni` (Composition.attester) and `firma` (the five-state
   verdict) for any CH EMS document; on the IG's Bundle-2 example: attester `legal`, signature ASSENTE. The list of
   missing vitals (`mancanti`) already existed: on Bundle-2/2b it names rr, spo2, sbp, hr, temp.
-- 3 new test classes, 14 tests, 214 in the suite; tests assert their own isolation (no key written to the production key store).
+- 3 new test classes, 17 tests in test_fhir_chems (26 in the file), 216 in the suite (measured: `unittest discover`); tests assert their
+  own isolation by file content (nothing written to the production key store).
 
 ## 0.7.2 — 2026-09-18 — default profile is `comunicazione`
 

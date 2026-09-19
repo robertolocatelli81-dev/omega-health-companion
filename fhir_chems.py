@@ -152,8 +152,8 @@ def _paziente_identificato(spec: Dict, base: Dict) -> Dict:
         raise ValueError("CH EMS: paziente.identificatore must be {system: 'urn:oid:…' of the local patient index, value: token}")
     if ident["system"] in (OID_EPR_SPID, OID_AHVN13):
         raise ValueError("CH EMS: EPR-SPID and AHVN13 must not be carried in a document (ch-core-patient-epr: max 0)")
-    if re.fullmatch(r"756\d{10}", ident["value"]):        # an AHVN13-shaped value under a "local" system is still the AHVN13
-        raise ValueError("CH EMS: identificatore.value looks like an AHVN13 (756 + 10 digits): refused under any system")
+    if re.fullmatch(r"756\d{10}", re.sub(r"[.\s-]", "", ident["value"])):   # 756.1234.5678.97 too: an AHVN13-shaped value under
+        raise ValueError("CH EMS: identificatore.value looks like an AHVN13 (756 + 10 digits): refused under any system")   # any system is still the AHVN13
     nome_txt = (cog.strip() + (", " + nom.strip() if nom else ""))
     out = dict(base)
     out["identifier"] = [{"system": ident["system"], "value": ident["value"]}]
@@ -238,6 +238,13 @@ SIG_TYPE = {"system": "urn:iso-astm:E1762-95:2013", "code": "1.2.840.10065.1.12.
 CANON_URI = "https://omega.example/fhir/canonicalization/rfc8785-bundle-without-signature"
 TARGET_FORMAT = "application/fhir+json;canonicalization=" + CANON_URI
 _KID = re.compile(r"omega:fb-([a-z0-9-]{1,64})")
+# the published sample is signed with a key derived from THIS public sentence (chems_validate.build_signed_sample): its
+# public half is recognised and never reported as registered, whatever a local registry says
+SAMPLE_KEY_SEED = b"omega-health-companion published sample key - NOT A SECRET - anyone can derive it from this sentence"
+
+
+# its public half (derived once, pinned here so the check also works without `cryptography`; a test re-derives it)
+SAMPLE_PUBKEY = bytes.fromhex("83b6678116a27a1cbd6329991e5e3236f8ad1cbcf9f133af5474120d2b0b04e7")
 
 
 def _b64u(b: bytes) -> str:
@@ -324,6 +331,8 @@ def verifica_firma_documento(doc: Any, keys_dir: Optional[str] = None) -> Dict:
             return _no("signature is not an application/jose Signature with data")
         if sig.get("targetFormat") != TARGET_FORMAT:
             return _no("targetFormat must be exactly " + TARGET_FORMAT)
+        if set(sig) != {"type", "when", "who", "targetFormat", "sigFormat", "data"}:      # nothing outside the signed header may ride along
+            return _no("Signature carries members not covered by the signed header (only type, when, who, targetFormat, sigFormat, data)")
         jws = base64.b64decode(sig["data"], validate=True).decode("ascii")
         parts = jws.split(".")
         if len(parts) != 3 or parts[1] != "":
@@ -347,9 +356,11 @@ def verifica_firma_documento(doc: Any, keys_dir: Optional[str] = None) -> Dict:
         comm = {str(c.get("commId", {}).get("id", "")).replace("urn:oid:", "", 1) for c in srcms if isinstance(c, dict) and isinstance(c.get("commId"), dict)}
         if not codes or codes != comm:
             return _no("Signature.type (ASTM E1762-95) and the header srCms commitments must carry the same codes")
+        if sig["type"] != [dict(SIG_TYPE)]:                                              # exact codings: no second, unsigned coding
+            return _no("Signature.type must be exactly the ASTM Author's Signature coding")
         who = sig.get("who") if isinstance(sig.get("who"), dict) else {}
-        if not isinstance(who.get("reference"), str) or header.get("who") != who["reference"]:
-            return _no("Signature.who.reference must equal the signed header who")
+        if set(who) != {"reference"} or not isinstance(who.get("reference"), str) or header.get("who") != who["reference"]:
+            return _no("Signature.who must be exactly {reference} equal to the signed header who")
         if not any(e.get("fullUrl") == who["reference"] and isinstance(e.get("resource"), dict) and e["resource"].get("resourceType") == "Organization"
                    for e in (doc.get("entry") or []) if isinstance(e, dict)):
             return _no("Signature.who must reference an Organization entry of this Bundle")
@@ -377,6 +388,8 @@ def verifica_firma_documento(doc: Any, keys_dir: Optional[str] = None) -> Dict:
                 registrata = base64.b64decode(open(path).read().strip()) == pub
             except Exception:      # noqa: BLE001 — a corrupt registry file is "not registered", never a crash
                 registrata = False
+        if pub == SAMPLE_PUBKEY:                          # the published sample key has a public private half: never trusted
+            registrata = False
         out["chiave_registrata"] = registrata
         ok = _ed25519_verify(pub, raw_sig, parts[0].encode("ascii") + b"." + payload)
         if ok is None:                                    # no Ed25519 implementation here: NOT verified, never "valid"/"invalid"
