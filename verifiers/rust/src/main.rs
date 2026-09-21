@@ -97,9 +97,14 @@ fn canon_bytes(v: &J, ascii_only: bool) -> Vec<u8> { let mut s = String::new(); 
 fn sha_hex(b: &[u8]) -> String { sha256::hex(b) }
 fn unhex(s: &str) -> Option<Vec<u8>> { if s.len() % 2 != 0 { return None; } (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).ok()).collect() }
 fn b64(s: &str) -> Option<Vec<u8>> {
-    let t: Vec<u8> = s.bytes().filter(|c| !c.is_ascii_whitespace()).collect(); let mut out = vec![]; let mut buf = 0u32; let mut n = 0;
-    for &c in &t { if c == b'=' { break; } let v = match c { b'A'..=b'Z' => c - b'A', b'a'..=b'z' => c - b'a' + 26, b'0'..=b'9' => c - b'0' + 52, b'+' => 62, b'/' => 63, _ => return None } as u32;
+    // 0.7.4: RFC 4648 strict — no whitespace, length a multiple of 4, canonical padding and trailing bits (a space inside the
+    // signature used to be skipped here, in Python and in JS while Go refused it)
+    let t = s.as_bytes(); if t.is_empty() || t.len() % 4 != 0 { return None; }
+    let pad = t.iter().rev().take_while(|&&c| c == b'=').count(); if pad > 2 { return None; }
+    let body = &t[..t.len() - pad]; let mut out = vec![]; let mut buf = 0u32; let mut n = 0;
+    for &c in body { let v = match c { b'A'..=b'Z' => c - b'A', b'a'..=b'z' => c - b'a' + 26, b'0'..=b'9' => c - b'0' + 52, b'+' => 62, b'/' => 63, _ => return None } as u32;
         buf = (buf << 6) | v; n += 6; if n >= 8 { n -= 8; out.push((buf >> n) as u8); buf &= (1 << n) - 1; } }
+    if n >= 6 || (buf & ((1 << n) - 1)) != 0 { return None; }   // wrong padding length or non-zero trailing bits (non-canonical)
     Some(out)
 }
 fn ed_ok(pub_b64: &str, sig_b64: &str, msg: &[u8]) -> bool {
@@ -209,8 +214,11 @@ fn main() {
     let (mut audit, mut verbale, mut keys, mut trust_vr): (Option<String>, Option<String>, Option<String>, bool) = (None, None, None, false); let mut chains = vec![];
     let usage = || { eprintln!("usage: health-verify [--audit f] [--chain f]... [--verbale f] [--keys dir] [--trust-verbale-registry]"); std::process::exit(2) };
     let mut i = 0;
-    while i < args.len() { let nx = |i: usize| args.get(i + 1).cloned().unwrap_or_else(|| usage());
-        match args[i].as_str() { "--audit" => { audit = Some(nx(i)); i += 1; } "--chain" => { chains.push(nx(i)); i += 1; } "--verbale" => { verbale = Some(nx(i)); i += 1; } "--keys" => { keys = Some(nx(i)); i += 1; } "--trust-verbale-registry" => trust_vr = true, _ => { usage(); } }
+    // 0.7.4: one CLI grammar in the four — a value flag with "" / no value / a flag as value is usage, --flag=value accepted
+    while i < args.len() { let (tok, eqv): (String, Option<String>) = match (args[i].starts_with("--"), args[i].find('=')) { (true, Some(p)) if p > 0 => (args[i][..p].to_string(), Some(args[i][p + 1..].to_string())), _ => (args[i].clone(), None) };
+        let step = if eqv.is_some() { 0 } else { 1 };
+        let nx = |i: usize| { let v = match &eqv { Some(v) => v.clone(), None => args.get(i + 1).cloned().unwrap_or_else(|| usage()) }; if v.is_empty() || v.starts_with('-') { usage(); } v };
+        match tok.as_str() { "--audit" => { audit = Some(nx(i)); i += step; } "--chain" => { chains.push(nx(i)); i += step; } "--verbale" => { verbale = Some(nx(i)); i += step; } "--keys" => { keys = Some(nx(i)); i += step; } "--trust-verbale-registry" if eqv.is_none() => trust_vr = true, _ => { usage(); } }
         i += 1; }
     let mut registry = load_registry(keys.as_deref()); let mut source = keys.as_ref().map(|k| format!("keys dir {k}")).unwrap_or_else(|| "none".into());
     if registry.is_empty() && trust_vr { if let Some(vp) = &verbale { if let Ok(t) = std::fs::read_to_string(vp) { if let Ok(J::Obj(vo)) = P::parse(&t) { if let Some(J::Obj(rc)) = vo.get("registro_chiavi") { registry = rc.iter().map(|(k, v)| (k.clone(), match v { J::Str(s) => s.clone(), _ => String::new() })).collect(); source = "the verbale's own registro_chiavi (NOT out-of-band: declared)".into(); } } } } }

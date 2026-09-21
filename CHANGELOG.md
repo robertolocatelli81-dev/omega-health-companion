@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.7.4 — 2026-09-21 — verifier hygiene: the four verifiers agree on hostile bytes and on one command-line grammar
+
+Propagation of the defect classes found by the cra-evidence 0.3.0 and omega-evidence 0.8.3 reviews (21 September 2026)
+to the four evidence verifiers (`health_verify.py`, `verifiers/js`, `verifiers/go`, `verifiers/rust`). Each defect
+was measured red on the 0.7.3 verifiers first, then fixed, then made a case of `verifiers/differential.py`
+(35 cases, 0 disagreements after; the same oracle against the four 0.7.3 verifiers: 12 divergences on 9 cases).
+
+- **JavaScript built parsed objects with `{}`**, so an own `__proto__` key set the prototype and vanished: a chain entry
+  with such a key added and `self_hash` untouched verified PASS in JS alone. Objects are now prototype-free
+  (`Object.create(null)`), and so are the copies hashed.
+- **JavaScript decoded files lossily** (`readFileSync(path, "utf-8")`): a raw non-UTF-8 byte where U+FFFD was hashed
+  verified PASS in JS alone. Strict `TextDecoder` (fatal, BOM kept); a malformed byte is a FAIL verdict.
+- **The Python reference had no lone-surrogate rule** and raised `UnicodeEncodeError` — no verdict, exit 1 with a
+  traceback — on a chain entry hashed over `"\ud800"`, while JS/Go/Rust answered FAIL. The linear pre-scan of the
+  three (`has_lone_surrogate`) now runs in `loads`; the oracle records a raising reference as `CRASH:<type>` instead of
+  dying with it.
+- **Base64 was three decoders**: a space inside `firma_ed25519_b64` was skipped by Python (`b64decode`), Node
+  (`Buffer.from`) and Rust and the record still verified; Go refused it. RFC 4648 strict in the four (`b64_strict`:
+  alphabet, length, canonical padding and trailing bits).
+- **One command-line grammar in the four**: `--audit ""` used to drop the audit silently (Python/JS/Go answered
+  NOT-TRUSTED with nothing verified; Rust FAIL); a flag as a value, an abbreviated flag (`--aud`), `-h`/`--help`
+  (argparse exited 0), a value on the boolean flag and a repeated value flag with a bad value first are now a usage
+  error (exit 2, no verdict) everywhere, at every occurrence; `--flag=value` is accepted by the four (three refused it).
+- Oracle: 10 CLI-grammar cases plus the five hostile-byte cases above; every new case measured red on 0.7.3.
+
+No verdict changes on an in-profile input with a well-formed command line: the oracle's intact fixtures (the three
+positive controls) verify as before in the four, and the 0.7.3 cases keep their verdicts.
+
 ## 0.7.3 — 2026-09-19 — where we were wrong, developed: document signature and EPR identity (CH EMS)
 
 Two of the five corrections sent to the CH EMS editor on 18 September were "declared": the document-level EPR warning

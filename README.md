@@ -40,7 +40,10 @@ with `OMEGA_HEALTH_ALLOW_UNSIGNED=1`) · **Author:** Roberto Locatelli, 2026
 - **Verifiable by third parties without this code:** `health_verify.py` and its independent
   re-implementations in JavaScript, Go and Rust (`verifiers/`) re-check the signed audit ledger, the
   hash-chained ledgers and a verbale; the byte-exact profile is in `FORMAT.md`. Signed records carry an
-  `alg` field so a post-quantum scheme can be introduced without changing the format.
+  `alg` field so a post-quantum scheme can be introduced without changing the format. The four are held to the
+  same verdict by `verifiers/differential.py` (35 cases incl. hostile bytes — `__proto__` keys, non-UTF-8, lone
+  surrogates, non-canonical base64 — and 10 command-line grammar cases; 0 disagreements, measured 2026-09-21;
+  the same oracle is red on 9 cases against the 0.7.3 verifiers — CHANGELOG 0.7.4).
 - Implausible vitals (broken sensor, °F/fraction unit confusion) are **rejected with
   the offending fields named** — never turned into a plausible-looking score. Since 2026-09-11 this
   is also **type-strict**: a clinical flag must be a JSON boolean (a string `"no"` used to be read as

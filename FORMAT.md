@@ -37,7 +37,9 @@ signature     = Ed25519( sk_operator, raw 32-byte digest )            # base64, 
 ```
 
 The signature is over the **raw digest bytes**, not over the hex string and not over the record. It is
-verified against the **registered** key of the operator (`.audit_keys/fb-<slug>.pub`, base64 raw 32 bytes,
+verified against the **registered** key of the operator (`.audit_keys/fb-<slug>.pub`, base64 raw 32 bytes — RFC 4648
+strict in every verifier since 0.7.4: alphabet only, length a multiple of 4, canonical padding and trailing bits; a
+`\uD800`–`\uDFFF` escape that is not part of a pair is refused by the four,
 `slug` = lowercase, non-alphanumerics → `-`, max 40 chars), never against `pubkey_b64` in the line. With no
 registry (or no Ed25519 implementation) the verdict is *NOT-TRUSTED*, never PASS and never FAIL: FAIL is reserved
 for verified falsity (a digest that does not match, a registered key that does not sign, a line whose key set is

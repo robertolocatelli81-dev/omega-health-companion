@@ -138,7 +138,45 @@ def cases(base):
             return [s] + ls[1:]
         rewrite(f["audit"], fn)
     case("intact_rewritten_lines", neg_zero, keys=True)
+    # 0.7.4 (21/09/2026, propagated from the cra-evidence / omega-evidence reviews; every case measured red on 0.7.3 first)
+    import hashlib
+    def chain_hash(e):
+        return hashlib.sha256(json.dumps({k: v for k, v in e.items() if k != "self_hash"}, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+    def relink(ls, first):   # rewrite line 0 and re-link line 1 to it
+        nxt = json.loads(ls[1]); nxt["prev_hash"] = first["self_hash"]; nxt.pop("self_hash"); nxt["self_hash"] = chain_hash(nxt)
+        return [json.dumps(first, ensure_ascii=False), json.dumps(nxt, ensure_ascii=False)] + ls[2:]
+    def chain_proto(f):      # an own "__proto__" key added, self_hash untouched: JS built objects with {} and the key vanished (PASS alone)
+        rewrite(f["chains"][0], lambda ls: ['{"__proto__": {"evil": 1}, ' + ls[0][1:]] + ls[1:])
+    case("chain_proto_key_hash_untouched", chain_proto, keys=True)
+    def chain_fffd(f):       # a raw non-UTF-8 byte where U+FFFD was hashed: a lossy decoder reads exactly the hashed text (JS PASS alone)
+        ls = [l for l in open(f["chains"][0], encoding="utf-8").read().split("\n") if l.strip()]
+        e = json.loads(ls[0]); e["note"] = "\ufffd"; e.pop("self_hash"); e["self_hash"] = chain_hash(e); out = relink(ls, e)
+        open(f["chains"][0], "wb").write(("\n".join(out) + "\n").encode("utf-8").replace("\ufffd".encode("utf-8"), b"\xff", 1))
+    case("chain_raw_byte_hashed_as_fffd", chain_fffd, keys=True)
+    def chain_lone(f):       # a lone surrogate escape with a hash over it: the Python reference had no rule and raised UnicodeEncodeError
+        def fn(ls):
+            e = json.loads(ls[0]); e["note"] = "\ud800"; e.pop("self_hash")
+            e["self_hash"] = hashlib.sha256(json.dumps(e, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8", "surrogatepass")).hexdigest()
+            out = relink(ls, e); out[0] = json.dumps(e); return out
+        rewrite(f["chains"][0], fn)
+    case("chain_lone_surrogate_hashed", chain_lone, keys=True)
+    def audit_raw_key(f):    # a raw byte in a key: a verdict, never a traceback
+        b = open(f["audit"], "rb").read(); open(f["audit"], "wb").write(b.replace(b'"ts"', b'"t\xffs"', 1))
+    case("audit_raw_byte_in_key", audit_raw_key, keys=True)
+    def sig_space(f):        # a space inside the base64 signature: Python/JS/Rust decoders skipped it and verified, Go refused
+        def fn(ls):
+            e = json.loads(ls[0]); e["firma_ed25519_b64"] = e["firma_ed25519_b64"][:10] + " " + e["firma_ed25519_b64"][10:]; return [json.dumps(e, ensure_ascii=False)] + ls[1:]
+        rewrite(f["audit"], fn)
+    case("audit_signature_b64_space", sig_space, keys=True)
     return out
+
+
+# 0.7.4: one CLI grammar in the four — every entry is a usage error (exit 2, no verdict) in every CLI; "eq-form" is a verdict
+CLI_CASES = {"cli_unknown_flag": ["--audit", "AUDIT", "--no-such"], "cli_audit_empty": ["--audit", "", "--verbale", "VERBALE"],
+             "cli_audit_missing_value": ["--verbale", "VERBALE", "--audit"], "cli_flag_as_value": ["--audit", "--trust-verbale-registry", "--verbale", "VERBALE"],
+             "cli_abbreviation": ["--aud", "AUDIT"], "cli_positional": ["AUDIT"], "cli_double_dash": ["--audit", "AUDIT", "--"], "cli_help": ["--help"],
+             "cli_bool_with_value": ["--trust-verbale-registry=1", "--audit", "AUDIT"], "cli_repeated_empty_first": ["--audit", "", "--audit", "AUDIT"],
+             "cli_eq_form_verdict": ["--audit=AUDIT", "--keys=KEYS"]}
 
 
 def run_cli(cmd, f, opts):
@@ -178,7 +216,10 @@ def main():
     diverg, n = [], 0
     try:
         for name, f, opts in cases(base):
-            ref = HV.run(f["audit"], f["chains"], f["verbale"], f["keys"] if opts.get("keys") else None, bool(opts.get("trust_vr")))
+            try:
+                ref = HV.run(f["audit"], f["chains"], f["verbale"], f["keys"] if opts.get("keys") else None, bool(opts.get("trust_vr")))
+            except Exception as e:  # noqa: BLE001 — 0.7.4: a reference that raises is a divergence, not the end of the oracle (0.7.3 raised UnicodeEncodeError)
+                ref = {"ok": False, "verdict": f"CRASH:{type(e).__name__}"}
             exp = (ref["ok"], ref["verdict"])
             row = {"python": exp[1]}
             for lang, cmd in vs.items():
@@ -187,6 +228,23 @@ def main():
                 row[lang] = got[1]
                 if got != exp or (r.get("exit", 1) == 0) != ref["ok"]:
                     diverg.append((name, lang, exp, r))
+            n += 1
+            print(f"{name:32s} " + " ".join(f"{k}={v}" for k, v in row.items()))
+        # CLI grammar section (the Python CLI runs as a subprocess here, like the three)
+        d_cli = os.path.join(base, "cli"); os.makedirs(d_cli); f_cli = build(d_cli)
+        cmds = dict(vs); cmds["python"] = [sys.executable, os.path.join(ROOT, "health_verify.py")]
+        for name, argv in CLI_CASES.items():
+            args = [x.replace("AUDIT", f_cli["audit"]).replace("VERBALE", f_cli["verbale"]).replace("KEYS", f_cli["keys"]) for x in argv]
+            row = {}
+            for lang, cmd in cmds.items():
+                r = subprocess.run(list(cmd) + args, capture_output=True, text=True, timeout=120)
+                try:
+                    row[lang] = "verdict:" + json.loads(r.stdout)["verdict"]
+                except ValueError:
+                    row[lang] = "usage" if r.returncode == 2 else f"exit{r.returncode}"
+            want = "verdict:PASS" if name.endswith("_verdict") else "usage"
+            if any(v != want for v in row.values()):
+                diverg.append((name, "cli", want, row))
             n += 1
             print(f"{name:32s} " + " ".join(f"{k}={v}" for k, v in row.items()))
     finally:

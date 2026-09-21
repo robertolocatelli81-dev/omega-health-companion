@@ -60,11 +60,63 @@ def _no_dup(pairs):
     return d
 
 
+def _hex4(s: str, i: int):
+    h = s[i:i + 4]
+    return int(h, 16) if len(h) == 4 and all(c in "0123456789abcdefABCDEF" for c in h) else None
+
+
+def has_lone_surrogate(text: str) -> bool:
+    """Linear scan of the raw JSON text for a \\uD800-\\uDBFF escape not followed by \\uDC00-\\uDFFF, or a low surrogate on
+    its own — the rule the JS/Go/Rust verifiers apply. 0.7.4: the reference had none and raised UnicodeEncodeError (no verdict)
+    on a chain entry hashed over a lone surrogate while the three answered FAIL."""
+    i, n = 0, len(text)
+    while i < n:
+        if text[i] != "\\":
+            i += 1
+            continue
+        if i + 1 < n and text[i + 1] == "u" and i + 5 < n:
+            cp = _hex4(text, i + 2)
+            if cp is None:
+                i += 2
+                continue
+            if 0xD800 <= cp <= 0xDBFF:
+                if i + 7 >= n or text[i + 6] != "\\" or text[i + 7] != "u":
+                    return True
+                lo = _hex4(text, i + 8)
+                if lo is None or not (0xDC00 <= lo <= 0xDFFF):
+                    return True
+                i += 12
+                continue
+            if 0xDC00 <= cp <= 0xDFFF:
+                return True
+            i += 6
+            continue
+        i += 2
+    return False
+
+
 def loads(text: str):
-    """Strict: duplicate keys refused, NaN/Infinity refused, numbers keep their text."""
+    """Strict: duplicate keys refused, NaN/Infinity refused, lone surrogate escapes refused, numbers keep their text."""
     def bad(name):
         raise ValueError(f"non-JSON constant {name}")
+    if has_lone_surrogate(text):
+        raise ValueError("lone surrogate escape")
     return json.loads(text, object_pairs_hook=_no_dup, parse_float=RawNumber, parse_int=RawInt, parse_constant=bad)
+
+
+_B64 = re.compile(r"^[A-Za-z0-9+/]*={0,2}$")
+
+
+def b64_strict(s: str) -> Optional[bytes]:
+    """RFC 4648 base64, canonical: alphabet only, length a multiple of 4, re-encodes to the same text. 0.7.4: b64decode
+    dropped a space inside the signature and the record still verified here, in JS and in Rust, while Go refused it."""
+    if not isinstance(s, str) or not s or len(s) % 4 or not _B64.match(s):
+        return None
+    try:
+        raw = base64.b64decode(s, validate=True)
+    except (ValueError, TypeError):
+        return None
+    return raw if base64.b64encode(raw).decode() == s else None
 
 
 def _canon_value(v: Any, ascii_only: bool) -> str:
@@ -123,7 +175,10 @@ def _ed_verify(pub_b64: str, sig_b64: str, msg: bytes) -> Optional[bool]:
     except ImportError:
         return None
     try:
-        Ed25519PublicKey.from_public_bytes(base64.b64decode(pub_b64)).verify(base64.b64decode(sig_b64), msg)
+        pub, sig = b64_strict(pub_b64), b64_strict(sig_b64)
+        if pub is None or sig is None or len(pub) != 32 or len(sig) != 64:
+            return False
+        Ed25519PublicKey.from_public_bytes(pub).verify(sig, msg)
         return True
     except Exception:  # noqa: BLE001 — any failure is one verdict
         return False
@@ -297,11 +352,32 @@ def run(audit: Optional[str], chains: List[str], verbale: Optional[str], keys: O
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(description="offline verification of omega-health-companion evidence")
+    p = argparse.ArgumentParser(description="offline verification of omega-health-companion evidence", allow_abbrev=False, add_help=False)
     p.add_argument("--audit"); p.add_argument("--chain", action="append", default=[]); p.add_argument("--verbale")
     p.add_argument("--keys", help="directory of registered operator keys (fb-<slug>.pub)")
     p.add_argument("--trust-verbale-registry", action="store_true", help="accept the registry embedded in the verbale (declared, not out-of-band)")
-    a = p.parse_args(argv)
+    # 0.7.4: one CLI grammar in the four verifiers — a value flag with "" / no value / a flag as value (at EVERY occurrence),
+    # an abbreviation, the "--" terminator, -h/--help, a value on the boolean flag = usage error (exit 2, no verdict).
+    # `--audit ""` used to drop the audit silently and answer NOT-TRUSTED.
+    raw = list(sys.argv[1:] if argv is None else argv)
+    VALUE = ("--audit", "--chain", "--verbale", "--keys")
+    if "--" in raw or any(x.startswith("--trust-verbale-registry=") for x in raw):
+        p.error("unexpected argument")
+    i = 0
+    while i < len(raw):
+        tok = raw[i]
+        if tok in VALUE:
+            v = raw[i + 1] if i + 1 < len(raw) else None
+            if v is None or v == "" or v.startswith("-"):
+                p.error(f"{tok} needs a value (got {v!r})")
+            i += 2
+            continue
+        if tok.split("=", 1)[0] in VALUE:
+            v = tok.split("=", 1)[1]
+            if v == "" or v.startswith("-"):
+                p.error(f"{tok.split('=', 1)[0]} needs a value (got {v!r})")
+        i += 1
+    a = p.parse_args(raw)
     r = run(a.audit, a.chain, a.verbale, a.keys, a.trust_verbale_registry)
     print(json.dumps(r, ensure_ascii=False, indent=1))
     return 0 if r["ok"] else 1

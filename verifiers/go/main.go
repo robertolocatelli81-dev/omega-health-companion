@@ -529,28 +529,55 @@ func main() {
 	var chains []string
 	trustVR := false
 	args := os.Args[1:]
+	usage := func() {
+		fmt.Fprintln(os.Stderr, "usage: health-verify [--audit f] [--chain f]... [--verbale f] [--keys dir] [--trust-verbale-registry]")
+		os.Exit(2)
+	}
+	// 0.7.4: one CLI grammar in the four — a value flag with "" / no value / a flag as value is usage, --flag=value accepted
+	eqv := ""
+	hasEq := false
 	next := func(i int) string {
-		if i+1 >= len(args) {
-			fmt.Fprintln(os.Stderr, "usage: health-verify [--audit f] [--chain f]... [--verbale f] [--keys dir] [--trust-verbale-registry]")
-			os.Exit(2)
+		if hasEq {
+			if eqv == "" || strings.HasPrefix(eqv, "-") {
+				usage()
+			}
+			return eqv
+		}
+		if i+1 >= len(args) || args[i+1] == "" || strings.HasPrefix(args[i+1], "-") {
+			usage()
 		}
 		return args[i+1]
 	}
 	for i := 0; i < len(args); i++ {
-		switch args[i] {
+		tok := args[i]
+		eqv, hasEq = "", false
+		if strings.HasPrefix(tok, "--") {
+			if eq := strings.IndexByte(tok, '='); eq > 0 {
+				eqv, hasEq, tok = tok[eq+1:], true, tok[:eq]
+			}
+		}
+		step := func() {
+			if !hasEq {
+				i++
+			}
+		}
+		switch tok {
 		case "--audit":
 			audit = next(i)
-			i++
+			step()
 		case "--chain":
 			chains = append(chains, next(i))
-			i++
+			step()
 		case "--verbale":
 			verbale = next(i)
-			i++
+			step()
 		case "--keys":
 			keys = next(i)
-			i++
+			step()
 		case "--trust-verbale-registry":
+			if hasEq {
+				usage()
+			}
 			trustVR = true
 		default:
 			fmt.Fprintln(os.Stderr, "unknown argument", args[i])

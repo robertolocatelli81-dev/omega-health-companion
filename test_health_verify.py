@@ -57,6 +57,33 @@ class TestHealthVerify(unittest.TestCase):
             else:
                 self.assertEqual(r["verdict"], "FAIL", (name, r["layers"]))
 
+    def test_lone_surrogate_and_base64_rules_0_7_4(self):
+        # 0.7.4: the reference had no lone-surrogate rule and raised UnicodeEncodeError (no verdict) on a chain entry hashed
+        # over one, while JS/Go/Rust answered FAIL; base64 with a space inside the signature verified here (Go refused it)
+        with self.assertRaises(ValueError):
+            HV.loads('{"s": "\\ud800"}')
+        with self.assertRaises(ValueError):
+            HV.loads('{"s": "\\udc00"}')
+        self.assertEqual(HV.loads('{"s": "\\ud83d\\ude00"}')["s"], "\U0001F600")
+        good = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+        self.assertEqual(len(HV.b64_strict(good)), 32)
+        for bad in (good[:10] + " " + good[10:], good[:-1], good + "=", "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh9=", ""):
+            self.assertIsNone(HV.b64_strict(bad), bad)
+
+    def test_cli_grammar_is_one_in_the_four(self):
+        # every hostile command line is a usage error (exit 2, no verdict): "" / missing / flag-like value at any occurrence,
+        # abbreviation, positional, "--", -h/--help, a value on the boolean flag; --flag=value is accepted
+        import subprocess
+        HERE = os.path.dirname(os.path.abspath(__file__))
+        a = os.path.join(self.base, "a.jsonl"); open(a, "w").write("")
+        for extra in (["--audit", "", "--verbale", a], ["--verbale", a, "--audit"], ["--audit", "--trust-verbale-registry"], ["--aud", a], [a],
+                      ["--audit", a, "--"], ["--help"], ["-h"], ["--trust-verbale-registry=1", "--audit", a], ["--audit", "", "--audit", a], ["--no-such"]):
+            r = subprocess.run([sys.executable, os.path.join(HERE, "health_verify.py")] + extra, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 2, (extra, r.stdout[:80], r.stderr[-120:]))
+            self.assertEqual(r.stdout, "")
+        r = subprocess.run([sys.executable, os.path.join(HERE, "health_verify.py"), "--audit=" + a], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 1); self.assertEqual(json.loads(r.stdout)["verdict"], "FAIL")   # empty ledger: a verdict
+
     def test_integer_lexeme_kept(self):
         self.assertEqual(HV.canonical(HV.loads('{"n": -0, "m": 7}'), True).decode(), '{"m":7,"n":-0}')
 

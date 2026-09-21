@@ -23,7 +23,7 @@ function parse(text) {
   const err = (m) => { throw new Error(m + " at " + i); };
   function value() {
     ws(); const c = text[i];
-    if (c === "{") { if (++depth > 512) err("too deep"); i++; const o = {}; ws(); if (text[i] === "}") { i++; depth--; return o; }
+    if (c === "{") { if (++depth > 512) err("too deep"); i++; const o = Object.create(null); ws(); if (text[i] === "}") { i++; depth--; return o; }
       for (;;) { ws(); if (text[i] !== '"') err("key"); const k = str(); ws(); if (text[i] !== ":") err("colon"); i++; if (Object.prototype.hasOwnProperty.call(o, k)) err("duplicate key " + k); o[k] = value(); ws(); if (text[i] === ",") { i++; continue; } if (text[i] === "}") { i++; depth--; return o; } err("object"); } }
     if (c === "[") { if (++depth > 512) err("too deep"); i++; const a = []; ws(); if (text[i] === "]") { i++; depth--; return a; }
       for (;;) { a.push(value()); ws(); if (text[i] === ",") { i++; continue; } if (text[i] === "]") { i++; depth--; return a; } err("array"); } }
@@ -66,10 +66,13 @@ function canon(v, asciiOnly) {
 }
 const sha256 = (b) => createHash("sha256").update(b).digest();
 const slug = (op) => [...String(op).trim().toLowerCase()].map((c) => (/[\p{L}\p{N}]/u.test(c) || c === "-" || c === "_") ? c : "-").join("").slice(0, 40);
-function edOk(pubB64, sigB64, msg) { try { return edVerify(null, msg, createPublicKey({ key: Buffer.concat([SPKI, Buffer.from(pubB64, "base64")]), format: "der", type: "spki" }), Buffer.from(sigB64, "base64")); } catch { return false; } }
+const b64Strict = (s, n) => { if (typeof s !== "string" || s.length % 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(s)) return null; const raw = Buffer.from(s, "base64"); return raw.length === n && raw.toString("base64") === s ? raw : null; };   // 0.7.4: Buffer.from dropped a space inside the signature and still verified (Go refused)
+function edOk(pubB64, sigB64, msg) { const pub = b64Strict(pubB64, 32), sig = b64Strict(sigB64, 64); if (!pub || !sig) return false; try { return edVerify(null, msg, createPublicKey({ key: Buffer.concat([SPKI, pub]), format: "der", type: "spki" }), sig); } catch { return false; } }
 const L = (layer, status, detail = "") => ({ layer, status, detail });
-function readLines(path) { const out = []; readFileSync(path, "utf-8").split("\n").forEach((line, idx) => { if (line.trim()) out.push([idx + 1, parse(line)]); }); return out; }
-function loadRegistry(dir) { const reg = {}; if (dir && existsSync(dir)) for (const n of readdirSync(dir).sort()) if (n.startsWith("fb-") && n.endsWith(".pub")) reg[n.slice(3, -4)] = readFileSync(join(dir, n), "utf-8").trim(); return reg; }
+const UTF8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });   // 0.7.4: strict — a raw byte where U+FFFD was hashed verified PASS here alone with the lossy "utf-8" read
+const readText = (path) => UTF8.decode(readFileSync(path));
+function readLines(path) { const out = []; readText(path).split("\n").forEach((line, idx) => { if (line.trim()) out.push([idx + 1, parse(line)]); }); return out; }
+function loadRegistry(dir) { const reg = {}; if (dir && existsSync(dir)) for (const n of readdirSync(dir).sort()) if (n.startsWith("fb-") && n.endsWith(".pub")) reg[n.slice(3, -4)] = readText(join(dir, n)).trim(); return reg; }
 
 function verifyAudit(path, registry, source) {
   const records = {}; let lines;
@@ -102,7 +105,7 @@ function verifyChain(path) {
   for (const [n, r] of lines) {
     if (r === null || typeof r !== "object" || Array.isArray(r)) { failures.push(`line ${n}: not an object`); break; }
     if (r.prev_hash !== prev) failures.push(`line ${n}: prev_hash does not link`);
-    const body = {}; for (const k of Object.keys(r)) if (k !== "self_hash") body[k] = r[k];
+    const body = Object.create(null); for (const k of Object.keys(r)) if (k !== "self_hash") body[k] = r[k];   // 0.7.4: keeps an own "__proto__" key
     let h; try { h = sha256(Buffer.from(canon(body, false), "utf-8")).toString("hex"); } catch { failures.push(`line ${n}: not canonicalisable`); continue; }
     if (h !== r.self_hash) failures.push(`line ${n}: self_hash mismatch`);
     if (typeof r.self_hash === "string") prev = r.self_hash;
@@ -112,10 +115,10 @@ function verifyChain(path) {
 }
 function verifyVerbale(path, auditRecords, registryPresent) {
   const layers = []; let v;
-  try { v = parse(readFileSync(path, "utf-8")); } catch (e) { return [L("verbale-json", "FAIL", e.message.slice(0, 100))]; }
+  try { v = parse(readText(path)); } catch (e) { return [L("verbale-json", "FAIL", e.message.slice(0, 100))]; }
   if (v === null || typeof v !== "object" || Array.isArray(v) || v.kind !== "verbale_probatorio_prealert") return [L("verbale-json", "FAIL", "not a verbale_probatorio_prealert object")];
   layers.push(L("verbale-json", "PASS"));
-  const body = {}; for (const k of Object.keys(v)) if (k !== "digest_verbale_sha256") body[k] = v[k];
+  const body = Object.create(null); for (const k of Object.keys(v)) if (k !== "digest_verbale_sha256") body[k] = v[k];
   try { const d = sha256(Buffer.from(canon(body, false), "utf-8")).toString("hex"); layers.push(L("verbale-digest", d === v.digest_verbale_sha256 ? "PASS" : "FAIL", `declared ${String(v.digest_verbale_sha256).slice(0, 16)}… computed ${d.slice(0, 16)}…`)); }
   catch { layers.push(L("verbale-digest", "FAIL", "not canonicalisable")); }
   const events = Array.isArray(v.eventi) ? v.eventi : [];
@@ -137,7 +140,7 @@ function verifyVerbale(path, auditRecords, registryPresent) {
 }
 export function run({ audit = null, chains = [], verbale = null, keys = null, trustVerbaleRegistry = false }) {
   const layers = []; let registry = loadRegistry(keys), source = keys ? `keys dir ${keys}` : "none";
-  if (!Object.keys(registry).length && verbale && trustVerbaleRegistry) { try { const vv = parse(readFileSync(verbale, "utf-8")); if (vv && typeof vv.registro_chiavi === "object" && vv.registro_chiavi !== null) { registry = {}; for (const k of Object.keys(vv.registro_chiavi)) registry[k] = String(vv.registro_chiavi[k]); source = "the verbale's own registro_chiavi (NOT out-of-band: declared)"; } } catch { /* declared below */ } }
+  if (!Object.keys(registry).length && verbale && trustVerbaleRegistry) { try { const vv = parse(readText(verbale)); if (vv && typeof vv.registro_chiavi === "object" && vv.registro_chiavi !== null) { registry = {}; for (const k of Object.keys(vv.registro_chiavi)) registry[k] = String(vv.registro_chiavi[k]); source = "the verbale's own registro_chiavi (NOT out-of-band: declared)"; } } catch { /* declared below */ } }
   let auditRecords = null;
   if (audit) { const [lay, recs] = verifyAudit(audit, registry, source); layers.push(lay); auditRecords = recs; }
   for (const c of chains) layers.push(verifyChain(c));
@@ -148,8 +151,11 @@ export function run({ audit = null, chains = [], verbale = null, keys = null, tr
 }
 function main(argv) {
   const a = argv.slice(2); const o = { chains: [] };
-  for (let i = 0; i < a.length; i++) { const nx = () => { if (i + 1 >= a.length) { console.error("usage: health-verify.mjs [--audit f] [--chain f]... [--verbale f] [--keys dir] [--trust-verbale-registry]"); process.exit(2); } return a[++i]; };
-    if (a[i] === "--audit") o.audit = nx(); else if (a[i] === "--chain") o.chains.push(nx()); else if (a[i] === "--verbale") o.verbale = nx(); else if (a[i] === "--keys") o.keys = nx(); else if (a[i] === "--trust-verbale-registry") o.trustVerbaleRegistry = true; else { console.error("unknown argument " + a[i]); return 2; } }
+  const usage = () => { console.error("usage: health-verify.mjs [--audit f] [--chain f]... [--verbale f] [--keys dir] [--trust-verbale-registry]"); process.exit(2); };
+  // 0.7.4: one CLI grammar in the four — a value flag with "" / no value / a flag as value, --flag=value accepted, "--" and -h refused
+  for (let i = 0; i < a.length; i++) { let tok = a[i], eqv = null; const eq = tok.indexOf("="); if (eq > 0 && tok.startsWith("--")) { eqv = tok.slice(eq + 1); tok = tok.slice(0, eq); }
+    const nx = () => { const v = eqv !== null ? eqv : a[++i]; if (v === undefined || v === "" || v.startsWith("-")) usage(); return v; };
+    if (tok === "--audit") o.audit = nx(); else if (tok === "--chain") o.chains.push(nx()); else if (tok === "--verbale") o.verbale = nx(); else if (tok === "--keys") o.keys = nx(); else if (tok === "--trust-verbale-registry" && eqv === null) o.trustVerbaleRegistry = true; else { console.error("unknown argument " + a[i]); return 2; } }
   const r = run(o); console.log(JSON.stringify(r, null, 1)); return r.ok ? 0 : 1;
 }
 if (process.argv[1] && /health-verify\.mjs$/.test(process.argv[1])) process.exit(main(process.argv));
