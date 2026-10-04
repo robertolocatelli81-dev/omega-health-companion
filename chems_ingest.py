@@ -533,7 +533,8 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     if a.anchor:
         AB.esigi_firma_o_optin("chems_ingest --anchor")   # fail-closed (0.6.1): say it before reading, not at the end
-    raw = open(a.doc, "rb").read()                 # read ONCE: scoring, validation and anchor see the same bytes
+    with open(a.doc, "rb") as fh:                  # read ONCE: scoring, validation and anchor see the same bytes
+        raw = fh.read()
     doc = leggi_documento(raw)
     out: Dict[str, Any] = {"letto": {k: v for k, v in doc.items() if k in ("bytes_sha256", "profili", "per_tipo", "avvisi")}}
     out["valutazione"] = valuta_documento(doc, a.eta_arrivo_min, a.eta)

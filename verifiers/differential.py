@@ -39,9 +39,11 @@ def build(d):
 
 
 def rewrite(path, fn):
-    lines = [l for l in open(path, encoding="utf-8").read().split("\n") if l.strip()]
+    with open(path, encoding="utf-8") as fh:
+        lines = [l for l in fh.read().split("\n") if l.strip()]
     out = fn(lines)
-    open(path, "w", encoding="utf-8").write("\n".join(out) + "\n")
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(out) + "\n")
 
 
 def cases(base):
@@ -81,7 +83,8 @@ def cases(base):
     case("audit_resigned_with_foreign_key", resign_with_other_key, keys=True)
     def wrong_registry(f):
         for n in os.listdir(f["keys"]):
-            open(os.path.join(f["keys"], n), "w").write(base64.b64encode(b"\x11" * 32).decode())
+            with open(os.path.join(f["keys"], n), "w") as fh:
+                fh.write(base64.b64encode(b"\x11" * 32).decode())
     case("registry_keys_wrong", wrong_registry, keys=True)
     def nan_line(f):
         rewrite(f["audit"], lambda ls: ls + ['{"kind": "audit_locale", "target": "x", "azione": "y", "dettaglio": {"v": NaN}, "operatore": "o", "ts": "t", "prev_sha256": "z", "record_sha256": "w", "firma_ed25519_b64": "", "pubkey_b64": ""}'])
@@ -98,8 +101,11 @@ def cases(base):
         rewrite(f["chains"][1], lambda ls: [ls[0], ls[2], ls[1]])
     case("chain_reordered", chain_reorder, keys=True)
     def verbale_edit(f):
-        v = json.load(open(f["verbale"])); v["firme_tutte_verificate"] = True; v["n_eventi"] = 99
-        json.dump(v, open(f["verbale"], "w"), ensure_ascii=False, indent=1)
+        with open(f["verbale"]) as fh:
+            v = json.load(fh)
+        v["firme_tutte_verificate"] = True; v["n_eventi"] = 99
+        with open(f["verbale"], "w") as fh:
+            json.dump(v, fh, ensure_ascii=False, indent=1)
     case("verbale_edited", verbale_edit, keys=True)
     def verbale_event_missing(f):
         rewrite(f["audit"], lambda ls: ls[:2] + ls[3:])     # drop the conferma line the verbale lists
@@ -126,11 +132,14 @@ def cases(base):
         rewrite(f["audit"], fn)
     case("audit_line_amputated", amputated)
     def honest_verbale_no_registry(f):   # a verbale that does NOT claim verified signatures, checked without a registry → NOT-TRUSTED
-        v = json.load(open(f["verbale"])); v["firme_tutte_verificate"] = False
+        with open(f["verbale"]) as fh:
+            v = json.load(fh)
+        v["firme_tutte_verificate"] = False
         import hashlib
         body = {k: x for k, x in v.items() if k != "digest_verbale_sha256"}
         v["digest_verbale_sha256"] = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
-        json.dump(v, open(f["verbale"], "w"), ensure_ascii=False, indent=1)
+        with open(f["verbale"], "w") as fh:
+            json.dump(v, fh, ensure_ascii=False, indent=1)
     case("honest_verbale_no_registry", honest_verbale_no_registry)
     def neg_zero(f):        # integer lexeme kept: `-0` must round-trip (FORMAT.md)
         def fn(ls):
@@ -149,9 +158,11 @@ def cases(base):
         rewrite(f["chains"][0], lambda ls: ['{"__proto__": {"evil": 1}, ' + ls[0][1:]] + ls[1:])
     case("chain_proto_key_hash_untouched", chain_proto, keys=True)
     def chain_fffd(f):       # a raw non-UTF-8 byte where U+FFFD was hashed: a lossy decoder reads exactly the hashed text (JS PASS alone)
-        ls = [l for l in open(f["chains"][0], encoding="utf-8").read().split("\n") if l.strip()]
+        with open(f["chains"][0], encoding="utf-8") as fh:
+            ls = [l for l in fh.read().split("\n") if l.strip()]
         e = json.loads(ls[0]); e["note"] = "\ufffd"; e.pop("self_hash"); e["self_hash"] = chain_hash(e); out = relink(ls, e)
-        open(f["chains"][0], "wb").write(("\n".join(out) + "\n").encode("utf-8").replace("\ufffd".encode("utf-8"), b"\xff", 1))
+        with open(f["chains"][0], "wb") as fh:
+            fh.write(("\n".join(out) + "\n").encode("utf-8").replace("\ufffd".encode("utf-8"), b"\xff", 1))
     case("chain_raw_byte_hashed_as_fffd", chain_fffd, keys=True)
     def chain_lone(f):       # a lone surrogate escape with a hash over it: the Python reference had no rule and raised UnicodeEncodeError
         def fn(ls):
@@ -161,7 +172,10 @@ def cases(base):
         rewrite(f["chains"][0], fn)
     case("chain_lone_surrogate_hashed", chain_lone, keys=True)
     def audit_raw_key(f):    # a raw byte in a key: a verdict, never a traceback
-        b = open(f["audit"], "rb").read(); open(f["audit"], "wb").write(b.replace(b'"ts"', b'"t\xffs"', 1))
+        with open(f["audit"], "rb") as fh:
+            b = fh.read()
+        with open(f["audit"], "wb") as fh:
+            fh.write(b.replace(b'"ts"', b'"t\xffs"', 1))
     case("audit_raw_byte_in_key", audit_raw_key, keys=True)
     def sig_space(f):        # a space inside the base64 signature: Python/JS/Rust decoders skipped it and verified, Go refused
         def fn(ls):

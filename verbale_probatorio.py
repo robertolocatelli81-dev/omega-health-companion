@@ -370,8 +370,15 @@ def marca_temporale_rfc3161(digest_hex: str, tsa_url: str, timeout: int = 20) ->
             req = f.read()
         http = urllib.request.Request(tsa_url, data=req, method="POST",
                                       headers={"Content-Type": "application/timestamp-query"})
-        resp = urllib.request.urlopen(http, timeout=timeout).read()  # nosec B310 - schema validato sopra
-        return {"anchored": True, "tsa": tsa_url, "tsr_b64": base64.b64encode(resp).decode(),
+        with urllib.request.urlopen(http, timeout=timeout) as rh:  # nosec B310 - schema validato sopra
+            resp = rh.read()
+        tsr_b64 = base64.b64encode(resp).decode()
+        # ancorata solo se la risposta è un token con impronta = QUESTO digest e firma CMS integra (03/10/2026:
+        # qualsiasi corpo HTTP — pagina d'errore, rifiuto, token per un altro digest — era registrato anchored: True)
+        chk = verifica_marca(tsr_b64, digest_hex, timeout)
+        if not (chk.get("imprint_ok") and chk.get("firma_cms_ok")):   # token solo su esito concesso: openssl rifiuta un rifiuto che ne porta uno
+            return {"anchored": False, "tsa": tsa_url, "note": "la risposta della TSA non è un token concesso per questo digest"}
+        return {"anchored": True, "tsa": tsa_url, "tsr_b64": tsr_b64,
                 "livello_marca": "rfc3161-non-qualificata", "note": QTSP_NOTE}
     except Exception as e:  # noqa: BLE001
         return {"anchored": False, "note": f"{type(e).__name__}: {str(e)[:80]}"}
@@ -472,9 +479,11 @@ def banco_controllo() -> Dict:
                                   ts_emissione=_utc())
         v1 = verbale("prealert-7")
         # manomissione: cambio la risposta attuata nella riga di ricezione → la firma NON deve reggere
-        lines = open(AB.FALLBACK_LEDGER, encoding="utf-8").read().splitlines()
+        with open(AB.FALLBACK_LEDGER, encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
         lines[-1] = lines[-1].replace("revisione_senior_immediata", "resus")
-        open(AB.FALLBACK_LEDGER, "w", encoding="utf-8").write("\n".join(lines) + "\n")
+        with open(AB.FALLBACK_LEDGER, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
         v2 = verbale("prealert-7")
         # cancellazione di una riga IN MEZZO (la ricezione, prima invisibile): la catena la rileva.
         # Limite dichiarato: troncare la CODA e ri-appendere resta coerente con prev_sha256; quel caso lo

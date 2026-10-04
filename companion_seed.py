@@ -75,7 +75,8 @@ def contesto_epidemiologico(area: str = "") -> Dict:
     import os, json, glob
     for p in sorted(glob.glob(os.path.expanduser("~/progetti/omega-epiwatch/*latest*.json"))):
         try:
-            r = json.load(open(p, encoding="utf-8"))
+            with open(p, encoding="utf-8") as fh:
+                r = json.load(fh)
             d = r.get("data") or r.get("verdict") or "segnale presente"
             return {"disponibile": True, "segnale": str(d)[:120],
                     "nota": "contesto da fonti aperte (epiwatch), non riferito a te personalmente"}

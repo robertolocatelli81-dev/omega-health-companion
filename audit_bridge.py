@@ -106,7 +106,8 @@ def _fb_key(operatore: str) -> "_EdSk":
     os.makedirs(KEYS_DIR, exist_ok=True)
     path = os.path.join(KEYS_DIR, f"fb-{slug}.key")
     if os.path.exists(path):
-        raw = base64.b64decode(open(path).read().strip())
+        with open(path) as fh:
+            raw = base64.b64decode(fh.read().strip())
         sk = _EdSk.from_private_bytes(raw)
         if not os.path.exists(os.path.join(KEYS_DIR, f"fb-{slug}.pub")):
             _fb_registra_pubkey(slug, sk)          # chiave nata prima del registro (13/09)
@@ -138,7 +139,8 @@ def fb_pubkey_registrata(operatore: str) -> Optional[str]:
         # chiave privata presente ma .pub mancante (installazioni precedenti al 13/09): derivala una volta
         kpath = os.path.join(KEYS_DIR, f"fb-{slug}.key")
         if os.path.exists(kpath) and FIRMA_LOCALE_DISPONIBILE:
-            _fb_registra_pubkey(slug, _EdSk.from_private_bytes(base64.b64decode(open(kpath).read().strip())))
+            with open(kpath) as fh:
+                _fb_registra_pubkey(slug, _EdSk.from_private_bytes(base64.b64decode(fh.read().strip())))
         else:
             return None
     with open(path) as f:
@@ -484,7 +486,8 @@ def banco_controllo() -> Dict:
         es_falso = dataclasses.replace(es, signer_printed_name="impostore")
         nullo = not _get_trail().verify_signature(es_falso)
         # niente dati sanitari nel trail: solo digest
-        blob = open(os.path.join(tmp, "trail.jsonl")).read()
+        with open(os.path.join(tmp, "trail.jsonl")) as fh:
+            blob = fh.read()
         no_phi = "prealert_sha256" in blob and '"vitali"' not in blob
         return {"motore": True, "positivo_firme_verificate": positivo,
                 "nullo_firma_manomessa_respinta": nullo, "solo_digest_nel_trail": no_phi,

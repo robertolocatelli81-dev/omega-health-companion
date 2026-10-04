@@ -391,7 +391,8 @@ def verifica_firma_documento(doc: Any, keys_dir: Optional[str] = None) -> Dict:
         registrata = False
         if os.path.exists(path):
             try:
-                registrata = base64.b64decode(open(path).read().strip()) == pub
+                with open(path) as fh:
+                    registrata = base64.b64decode(fh.read().strip()) == pub
             except Exception:      # noqa: BLE001 — a corrupt registry file is "not registered", never a crash
                 registrata = False
         if pub == SAMPLE_PUBKEY:                          # the published sample key has a public private half: never trusted

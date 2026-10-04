@@ -110,8 +110,8 @@ class FascicoloMissione:
     def _righe(self) -> List[dict]:
         if not os.path.exists(self.ledger_path):
             return []
-        return [json.loads(l) for l in open(self.ledger_path, encoding="utf-8")
-                if l.strip()]
+        with open(self.ledger_path, encoding="utf-8") as fh:
+            return [json.loads(l) for l in fh if l.strip()]
 
     def _append(self, body: Dict[str, Any], precheck=None) -> dict:
         """Append sotto LOCK ESCLUSIVO (colpo Gemini Pro: due processi che

@@ -183,7 +183,8 @@ def allega_ecg(path_ecg: str, ts: str) -> Dict:
     la lettura resta a chi la sa fare (l'onestà qui è il confine)."""
     if not os.path.isfile(path_ecg):
         return {"allegato": False, "errore": "file ECG inesistente"}
-    raw = open(path_ecg, "rb").read()
+    with open(path_ecg, "rb") as fh:
+        raw = fh.read()
     sha = hashlib.sha256(raw).hexdigest()
     return {"allegato": True, "sha256": sha, "bytes": len(raw),
             "document_reference": {

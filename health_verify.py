@@ -288,7 +288,8 @@ def verify_chain(path: str) -> Dict[str, str]:
 def verify_verbale(path: str, audit_records: Optional[Dict[str, Dict]], registry_present: bool) -> List[Dict[str, str]]:
     layers = []
     try:
-        v = loads(open(path, encoding="utf-8").read())
+        with open(path, encoding="utf-8") as fh:
+            v = loads(fh.read())
     except (OSError, ValueError, RecursionError) as e:
         return [_layer("verbale-json", "FAIL", f"{type(e).__name__}: {str(e)[:100]}")]
     if not isinstance(v, dict) or v.get("kind") != "verbale_probatorio_prealert":
@@ -330,7 +331,8 @@ def run(audit: Optional[str], chains: List[str], verbale: Optional[str], keys: O
     registry, source = load_registry(keys), (f"keys dir {keys}" if keys else "none")
     if not registry and verbale and trust_verbale_registry:
         try:
-            vv = loads(open(verbale, encoding="utf-8").read())
+            with open(verbale, encoding="utf-8") as fh:
+                vv = loads(fh.read())
             if isinstance(vv, dict) and isinstance(vv.get("registro_chiavi"), dict):
                 registry = {str(k): str(x) for k, x in vv["registro_chiavi"].items()}
                 source = "the verbale's own registro_chiavi (NOT out-of-band: declared)"

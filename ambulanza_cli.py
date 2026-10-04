@@ -31,7 +31,8 @@ def _token(args) -> str:
         return env
     tf = os.path.join(_HERE, "team_token.txt")
     if os.path.exists(tf):
-        return open(tf).read().strip()
+        with open(tf) as fh:
+            return fh.read().strip()
     sys.exit("token mancante: usa --token, OMEGA_TEAM_TOKEN o team_token.txt")
 
 
@@ -79,7 +80,8 @@ def main(argv=None) -> int:
                                  headers={"Content-Type": "application/json",
                                           "X-Omega-Token": _token(a)})
     try:
-        r = json.loads(urllib.request.urlopen(req, timeout=15).read())
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            r = json.loads(resp.read())
     except Exception as e:  # noqa: BLE001 — sul mezzo serve l'errore, non il traceback
         print(json.dumps({"ok": False, "errore": f"{type(e).__name__}: {e}",
                           "fallback": "comunicazione VOCALE diretta col PS"}, ensure_ascii=False))

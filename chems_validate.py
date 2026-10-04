@@ -74,7 +74,8 @@ def validate(path: str, out_json: str) -> dict:
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
     if not os.path.exists(out_json):
         return {"ran": False, "returncode": r.returncode, "stderr": (r.stdout + r.stderr)[-2000:]}
-    oo = json.load(open(out_json, encoding="utf-8"))
+    with open(out_json, encoding="utf-8") as fh:
+        oo = json.load(fh)
     issues = oo.get("issue", [])
     sev = {}
     for i in issues:
@@ -121,17 +122,22 @@ def main(argv=None) -> int:
         accettati = ("OK_REGISTRATA", "OK_CHIAVE_NON_REGISTRATA") if a.allow_unregistered else ("OK_REGISTRATA",)
         return 0 if v["stato"] in accettati else 1
     if a.sample:
-        json.dump(build_sample(), open(a.sample, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        with open(a.sample, "w", encoding="utf-8") as fh:
+            json.dump(build_sample(), fh, ensure_ascii=False, indent=1)
         mp = a.sample.replace(".json", "_minimal.json")
-        json.dump(build_minimal(), open(mp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        with open(mp, "w", encoding="utf-8") as fh:
+            json.dump(build_minimal(), fh, ensure_ascii=False, indent=1)
         sp = a.sample.replace(".json", "_signed.json")
-        json.dump(build_signed_sample(), open(sp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        with open(sp, "w", encoding="utf-8") as fh:
+            json.dump(build_signed_sample(), fh, ensure_ascii=False, indent=1)
         print("samples written:", a.sample, mp, sp)
         return 0
     docs = [a.doc] if a.doc else []
     if not a.doc:
         for name, builder in (("chems_document.json", build_sample), ("chems_document_minimal.json", build_minimal)):
-            json.dump(builder(), open(name, "w", encoding="utf-8"), ensure_ascii=False, indent=1); docs.append(name)
+            with open(name, "w", encoding="utf-8") as fh:
+                json.dump(builder(), fh, ensure_ascii=False, indent=1)
+            docs.append(name)
     rc = 0
     for path in docs:
         res = validate(path, "chems_validation.json")
