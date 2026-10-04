@@ -182,6 +182,64 @@ def cases(base):
             e = json.loads(ls[0]); e["firma_ed25519_b64"] = e["firma_ed25519_b64"][:10] + " " + e["firma_ed25519_b64"][10:]; return [json.dumps(e, ensure_ascii=False)] + ls[1:]
         rewrite(f["audit"], fn)
     case("audit_signature_b64_space", sig_space, keys=True)
+    # 0.8.0: with a registry, the key a line names must be the operator's registered key (the signature still verifies
+    # against the registry: these lines are signed by the right operator but state a false key)
+    def line_key(value):
+        def m(f):
+            rewrite(f["audit"], lambda ls: [json.dumps({**json.loads(ls[0]), "pubkey_b64": value}, ensure_ascii=False)] + ls[1:])
+        return m
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives import serialization as _ser
+    other = base64.b64encode(Ed25519PrivateKey.generate().public_key().public_bytes(_ser.Encoding.Raw, _ser.PublicFormat.Raw)).decode()
+    case("audit_line_key_null", line_key(None), keys=True)
+    case("audit_line_key_number", line_key(7), keys=True)
+    case("audit_line_key_empty", line_key(""), keys=True)
+    case("audit_line_key_other_valid_key", line_key(other), keys=True)
+    # 0.8.0 review: the rule is STRING FOR STRING — a verifier that strips, decodes leniently or compares loosely must be red
+    def line_key_fn(fn):
+        def m(f):
+            def rw(ls):
+                e = json.loads(ls[0]); e["pubkey_b64"] = fn(e["pubkey_b64"]); return [json.dumps(e, ensure_ascii=False)] + ls[1:]
+            rewrite(f["audit"], rw)
+        return m
+    def noncanonical(s):   # the same bytes for a lenient decoder, non-zero trailing bits: not RFC 4648 canonical
+        A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+        n = len(s.rstrip("=")); i = A.index(s[n - 1]); mask = 0b11 if len(s) - n == 1 else 0b1111
+        return s[:n - 1] + A[(i & ~mask) | ((i & mask) ^ 1)] + s[n:]
+    case("audit_line_key_trailing_space", line_key_fn(lambda k: k + " "), keys=True)
+    case("audit_line_key_noncanonical_b64", line_key_fn(noncanonical), keys=True)
+    case("audit_line_key_list_holding_key", line_key_fn(lambda k: [k]), keys=True)     # JS: String([k]) === k
+    # Go decoded non-zero trailing bits and skipped a newline inside the base64, then verified: PASS alone (0.7.4 claimed strict in the four)
+    def sig_fn(fn):
+        def m(f):
+            def rw(ls):
+                e = json.loads(ls[0]); e["firma_ed25519_b64"] = fn(e["firma_ed25519_b64"]); return [json.dumps(e, ensure_ascii=False)] + ls[1:]
+            rewrite(f["audit"], rw)
+        return m
+    case("audit_signature_b64_noncanonical", sig_fn(noncanonical), keys=True)
+    case("audit_signature_b64_newlines_inside", sig_fn(lambda s: s[:20] + "\r\n\r\n" + s[20:]), keys=True)   # four chars: the length guard alone does not catch them
+    def registry_noncanonical(f):   # the registered key written in non-canonical base64: Go verified with it (0.7.4), the three refused
+        with open(f["audit"], encoding="utf-8") as fh:
+            e = json.loads(fh.readline())
+        for n in os.listdir(f["keys"]):
+            p = os.path.join(f["keys"], n)
+            if n.endswith(".pub") and open(p).read().strip() == e["pubkey_b64"]:
+                with open(p, "w") as fh:
+                    fh.write(noncanonical(e["pubkey_b64"]))
+    case("registry_key_noncanonical_b64", registry_noncanonical, keys=True)
+    def verbale_registry_list(f):   # registro_chiavi entry = [key]; digest re-sealed (it is not signed): Python/Go FAIL, JS PASS, Rust NOT-TRUSTED before
+        import hashlib
+        with open(f["audit"], encoding="utf-8") as fh:
+            e = json.loads(fh.readline())
+        with open(f["verbale"], encoding="utf-8") as fh:
+            v = json.load(fh)
+        slug = next(k for k, x in v["registro_chiavi"].items() if x == e["pubkey_b64"])
+        v["registro_chiavi"][slug] = [e["pubkey_b64"]]
+        body = {k: x for k, x in v.items() if k != "digest_verbale_sha256"}
+        v["digest_verbale_sha256"] = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+        with open(f["verbale"], "w", encoding="utf-8") as fh:
+            json.dump(v, fh, ensure_ascii=False, indent=1)
+    case("verbale_registry_entry_is_a_list", verbale_registry_list, trust_vr=True)
     return out
 
 

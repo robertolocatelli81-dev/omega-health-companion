@@ -38,13 +38,21 @@ signature     = Ed25519( sk_operator, raw 32-byte digest )            # base64, 
 
 The signature is over the **raw digest bytes**, not over the hex string and not over the record. It is
 verified against the **registered** key of the operator (`.audit_keys/fb-<slug>.pub`, base64 raw 32 bytes — RFC 4648
-strict in every verifier since 0.7.4: alphabet only, length a multiple of 4, canonical padding and trailing bits; a
+strict in every verifier: alphabet only, length a multiple of 4, canonical padding and trailing bits — since 0.7.4 in
+Python, JS and Rust, since 0.8.0 in Go, whose decoder skipped `\r`/`\n` inside the text and accepted non-zero trailing
+bits until then, so such a signature verified PASS in Go alone; a
 `\uD800`–`\uDFFF` escape that is not part of a pair is refused by the four,
-`slug` = lowercase, non-alphanumerics → `-`, max 40 chars), never against `pubkey_b64` in the line. With no
-registry (or no Ed25519 implementation) the verdict is *NOT-TRUSTED*, never PASS and never FAIL: FAIL is reserved
-for verified falsity (a digest that does not match, a registered key that does not sign, a line whose key set is
-not the signed one — mandatory keys missing or extra keys present). The registry embedded in a verbale
-(`registro_chiavi`) may be accepted only on explicit request and is declared as not out-of-band. Operators from
+`slug` = lowercase, non-alphanumerics → `-`, max 40 chars), never against `pubkey_b64` in the line. Since 0.8.0,
+when the operator has a registered key, `pubkey_b64` in the line must be that key, string for string: a line that
+names another key (or `null`, a number, an empty string) is FAIL even when the signature verifies against the
+registry — the line states something false. With no registry, or with no Ed25519 implementation, no signature is
+verified and the verdict is never PASS: it is *NOT-TRUSTED* unless something that needs no signature is false, because
+FAIL is reserved for verified falsity (a digest that does not match, a registered key that does not sign, a line
+naming a key that is not the registered one — a string comparison, made even without an Ed25519 implementation —, a
+line whose key set is not the signed one — mandatory keys missing or extra keys present). The registry embedded in a
+verbale (`registro_chiavi`) may be accepted only on explicit request and is declared as not out-of-band; an entry
+whose value is not a string is no key (that operator is unregistered, since 0.8.0 in the four: before, Python and Go
+stringified it, JS turned a one-element list into its key, Rust ignored it). Operators from
 installations older than 13/09/2026 that have a `.key` but no `.pub` are enrolled only by an explicit command
 (`python3 audit_bridge.py --enrol-legacy`), never during verification.
 

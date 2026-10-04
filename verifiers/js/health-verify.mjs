@@ -91,6 +91,7 @@ function verifyAudit(path, registry, source) {
     let digest; try { digest = sha256(Buffer.from(canon(rec, true), "utf-8")); } catch (ex) { failures.push(`line ${n}: not canonicalisable`); continue; }
     const okDigest = digest.toString("hex") === e.record_sha256; if (!okDigest) failures.push(`line ${n}: record_sha256 does not match the canonical record`);
     const pub = registry[slug(e.operatore ?? "") || "anonimo"]; let s = null;
+    if (pub && e.pubkey_b64 !== pub) failures.push(`line ${n}: pubkey_b64 is not the REGISTERED key of ${e.operatore}`);
     if (pub) { s = edOk(pub, String(e.firma_ed25519_b64 ?? ""), digest); if (s) sigOk++; else failures.push(`line ${n}: signature invalid for the REGISTERED key of ${e.operatore}`); } else untrusted++;
     records[String(e.record_sha256)] = { ok: okDigest && Boolean(s), digestOk: okDigest, sigOk: s, registered: Boolean(pub) };
   }
@@ -140,7 +141,7 @@ function verifyVerbale(path, auditRecords, registryPresent) {
 }
 export function run({ audit = null, chains = [], verbale = null, keys = null, trustVerbaleRegistry = false }) {
   const layers = []; let registry = loadRegistry(keys), source = keys ? `keys dir ${keys}` : "none";
-  if (!Object.keys(registry).length && verbale && trustVerbaleRegistry) { try { const vv = parse(readText(verbale)); if (vv && typeof vv.registro_chiavi === "object" && vv.registro_chiavi !== null) { registry = {}; for (const k of Object.keys(vv.registro_chiavi)) registry[k] = String(vv.registro_chiavi[k]); source = "the verbale's own registro_chiavi (NOT out-of-band: declared)"; } } catch { /* declared below */ } }
+  if (!Object.keys(registry).length && verbale && trustVerbaleRegistry) { try { const vv = parse(readText(verbale)); if (vv && typeof vv.registro_chiavi === "object" && vv.registro_chiavi !== null) { registry = {}; for (const k of Object.keys(vv.registro_chiavi)) if (typeof vv.registro_chiavi[k] === "string") registry[k] = vv.registro_chiavi[k]; /* 0.8.0: String([key]) made a one-element list the key (PASS alone); a non-string entry is no key */ source = "the verbale's own registro_chiavi (NOT out-of-band: declared)"; } } catch { /* declared below */ } }
   let auditRecords = null;
   if (audit) { const [lay, recs] = verifyAudit(audit, registry, source); layers.push(lay); auditRecords = recs; }
   for (const c of chains) layers.push(verifyChain(c));

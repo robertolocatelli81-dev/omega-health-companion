@@ -41,9 +41,11 @@ with `OMEGA_HEALTH_ALLOW_UNSIGNED=1`) · **Author:** Roberto Locatelli, 2026
   re-implementations in JavaScript, Go and Rust (`verifiers/`) re-check the signed audit ledger, the
   hash-chained ledgers and a verbale; the byte-exact profile is in `FORMAT.md`. Signed records carry an
   `alg` field so a post-quantum scheme can be introduced without changing the format. The four are held to the
-  same verdict by `verifiers/differential.py` (35 cases incl. hostile bytes — `__proto__` keys, non-UTF-8, lone
-  surrogates, non-canonical base64 — and 10 command-line grammar cases; 0 disagreements, measured 2026-09-21;
-  the same oracle is red on 9 cases against the 0.7.3 verifiers — CHANGELOG 0.7.4).
+  same verdict by `verifiers/differential.py` (46 cases incl. hostile bytes — `__proto__` keys, non-UTF-8, lone
+  surrogates, non-canonical base64 in a signature and in a registered key —, seven audit lines whose `pubkey_b64` is not
+  the operator's registered key, a verbale registry entry that is not a string, and 10 command-line grammar cases;
+  0 disagreements, measured 2026-10-04; the same oracle is red on 9 cases against the 0.7.3 verifiers and on
+  11 cases against the 0.7.4 ones — CHANGELOG 0.7.4 and 0.8.0).
 - Implausible vitals (broken sensor, °F/fraction unit confusion) are **rejected with
   the offending fields named** — never turned into a plausible-looking score. Since 2026-09-11 this
   is also **type-strict**: a clinical flag must be a JSON boolean (a string `"no"` used to be read as
@@ -71,7 +73,7 @@ with `OMEGA_HEALTH_ALLOW_UNSIGNED=1`) · **Author:** Roberto Locatelli, 2026
 | `verbale_probatorio.py` | **Evidentiary record of the pre-alert** ("recorded line" made verifiable): signed ED *receipt* (who answered, role, response requested vs enacted, reason-by-digest if different, latency), per-pre-alert *verbale* that re-verifies every signature against the operator's registered key and the signed hash chain, detects tampering, re-signing and deletions, optional **RFC 3161 timestamp** on the verbale digest with CMS-signature verification and persisted bytes — level declared (`rfc3161-non-qualificata`: a QTSP on the EU Trusted List is needed for an eIDAS *qualified* timestamp) |
 | `coordinamento.py` | **What the field leaders do, done the OMEGA way** (compared online 2026-09-13 with Pulsara, Twiage, corpuls.mission, NIDA): patient type → team to alert (from the computed pathways and the 2025 conditions, closed vocabulary), en-route ETA/position updates, two-way crew↔ED messages, ECG/scene-photo/document attachments (magic-byte checked), "close the loop" clinical outcome, QA/QI metrics (latency, alternative responses, over/under-triage proxies), major incidents with several patients. Every event is signed; free text and bytes live only in memory with the board TTL; the ledger holds digests and closed values |
 | `test_input_types.py` | **31 tests** (23 distinct methods, 4 API cases re-run in three server contexts) — the hostile-input red-team cases of 2026-09-11 in three rounds (string flags in vitals, `clinica` and FAST signs, boolean vitals, missing/invalid age, malformed drug list, client-computed pre-alert, note persistence, board retention); 14 of them red on the code they were written against, the rest positive controls; unit + end-to-end over HTTP |
-| `test_health.py` | **21 tests**: unit benches (positive + null controls, incl. a bench-of-the-bench that must fail) + end-to-end over real HTTP (auth rejected, °F detected, ledger chain verified, CLI against live server) |
+| `test_health.py` | **23 tests**: unit benches (positive + null controls, incl. a bench-of-the-bench that must fail) + end-to-end over real HTTP (auth rejected, °F detected, ledger chain verified, CLI against live server) |
 
 ## Quick start
 
@@ -82,7 +84,7 @@ python3 test_input_types.py             # 31 tests — hostile input types (red-
 python3 test_news2_certificate.py       #  4 tests — NEWS2 certificate
 python3 test_prealert_2025.py           # 49 tests — RCEM/AACE 2025 criteria at the boundaries, ED receipt, verbale, tamper/re-sign/deletion detection
 python3 test_coordinamento.py           #  4 tests — patient types, incidents, ETA/position, messages, attachments, outcomes, metrics, expiry (end-to-end)
-# 128 tests in these six files; CI runs ALL fifteen test_*.py files (200 tests, run green 2026-09-18 in six configurations: with and without `cryptography`, `OMEGA_PROFILO` absent / exported as `comunicazione` / exported as `punteggi`, each file alone and all collected in one process) on every push, never with the private engine
+# 128 tests in these six files; CI runs ALL sixteen test_*.py files (222 tests, run green 2026-10-04 in six configurations: with and without `cryptography`, `OMEGA_PROFILO` absent / exported as `comunicazione` / exported as `punteggi`, each file alone and all collected in one process) on every push, never with the private engine
 # HEALTH_TSA_URL=https://freetsa.org/tsr HEALTH_TSA_CAFILE=cacert.pem python3 test_prealert_2025.py   # + 2 opt-in network tests: real RFC 3161 timestamp, trust chain, wrong CA refused
 python3 team_comms.py 8097              # ED board on http://127.0.0.1:8097/ — default profile: comunicazione (no scores)
 python3 ambulanza_cli.py --rr 28 --spo2 89 --o2 --sbp 85 --hr 135 --non-alert \

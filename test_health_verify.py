@@ -46,7 +46,8 @@ class TestHealthVerify(unittest.TestCase):
     @unittest.skipUnless(HAVE_CRYPTO, "cryptography assente: le fixture firmate non si producono (livello base)")
     def test_every_oracle_case_has_the_expected_verdict(self):
         expected_pass = {"intact_with_registry", "intact_registry_from_verbale", "intact_rewritten_lines"}
-        not_trusted = {"intact_no_registry", "honest_verbale_no_registry", "verbale_claim_no_registry"}   # unverifiable ≠ false (council r2)
+        not_trusted = {"intact_no_registry", "honest_verbale_no_registry", "verbale_claim_no_registry",   # unverifiable ≠ false (council r2)
+                       "verbale_registry_entry_is_a_list"}   # 0.8.0: a registro_chiavi entry that is not a string is no key → that operator is unregistered
         for name, f, opts in D.cases(self.base):
             r = HV.run(f["audit"], f["chains"], f["verbale"], f["keys"] if opts.get("keys") else None, bool(opts.get("trust_vr")))
             self.assertEqual(r["ok"], name in expected_pass, (name, r["layers"]))

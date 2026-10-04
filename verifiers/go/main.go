@@ -242,10 +242,24 @@ func slug(op string) string {
 	return string(rs)
 }
 
+// b64Strict: RFC 4648 canonical base64 of exactly n bytes — alphabet only, length a multiple of 4, canonical padding,
+// zero trailing bits, and it re-encodes to the same text. 0.8.0: base64.StdEncoding.DecodeString skipped "\r"/"\n" inside
+// the text and accepted non-zero trailing bits, so a signature altered that way still verified PASS in Go alone (the
+// three others refused it; 0.7.4 claimed strict decoding in the four — true for the alphabet only, as measured).
+func b64Strict(s string, n int) []byte {
+	if len(s)%4 != 0 {
+		return nil
+	}
+	raw, err := base64.StdEncoding.Strict().DecodeString(s)
+	if err != nil || len(raw) != n || base64.StdEncoding.EncodeToString(raw) != s {
+		return nil
+	}
+	return raw
+}
+
 func edOK(pubB64, sigB64 string, msg []byte) bool {
-	pub, e1 := base64.StdEncoding.DecodeString(pubB64)
-	sig, e2 := base64.StdEncoding.DecodeString(sigB64)
-	if e1 != nil || e2 != nil || len(pub) != ed25519.PublicKeySize || len(sig) != ed25519.SignatureSize {
+	pub, sig := b64Strict(pubB64, ed25519.PublicKeySize), b64Strict(sigB64, ed25519.SignatureSize)
+	if pub == nil || sig == nil {
 		return false
 	}
 	return ed25519.Verify(ed25519.PublicKey(pub), msg, sig)
@@ -377,6 +391,9 @@ func verifyAudit(path string, registry map[string]string, source string) (layer,
 		pub, registered := registry[sl]
 		sOk := false
 		if registered && pub != "" {
+			if lk, isStr := getS(e, "pubkey_b64"); !isStr || lk != pub {
+				failures = append(failures, fmt.Sprintf("line %d: pubkey_b64 is not the REGISTERED key of %s", n, op))
+			}
 			sig, _ := getS(e, "firma_ed25519_b64")
 			sOk = edOK(pub, sig, digest[:])
 			if sOk {
@@ -595,7 +612,9 @@ func main() {
 					if rc, ok := vo.Vals["registro_chiavi"].(*Object); ok {
 						registry = map[string]string{}
 						for _, k := range rc.Keys {
-							registry[k] = fmt.Sprint(rc.Vals[k])
+							if s, ok := rc.Vals[k].(string); ok { // 0.8.0: a non-string entry is no key (fmt.Sprint made "7" a key)
+								registry[k] = s
+							}
 						}
 						source = "the verbale's own registro_chiavi (NOT out-of-band: declared)"
 					}

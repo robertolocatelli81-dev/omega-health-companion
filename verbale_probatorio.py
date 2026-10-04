@@ -377,7 +377,7 @@ def marca_temporale_rfc3161(digest_hex: str, tsa_url: str, timeout: int = 20) ->
         # qualsiasi corpo HTTP — pagina d'errore, rifiuto, token per un altro digest — era registrato anchored: True)
         chk = verifica_marca(tsr_b64, digest_hex, timeout)
         if not (chk.get("imprint_ok") and chk.get("firma_cms_ok")):   # token solo su esito concesso: openssl rifiuta un rifiuto che ne porta uno
-            return {"anchored": False, "tsa": tsa_url, "note": "la risposta della TSA non è un token concesso per questo digest"}
+            return {"anchored": False, "tsa": tsa_url, "note": "la risposta della TSA non è un token concesso per questo digest con firma CMS integra"}
         return {"anchored": True, "tsa": tsa_url, "tsr_b64": tsr_b64,
                 "livello_marca": "rfc3161-non-qualificata", "note": QTSP_NOTE}
     except Exception as e:  # noqa: BLE001

@@ -155,7 +155,9 @@ fn verify_audit(path: &str, registry: &BTreeMap<String, String>, source: &str) -
         let op = gs(e, "operatore").unwrap_or(""); let mut sl = slug(op); if sl.is_empty() { sl = "anonimo".into(); }
         let mut s_ok = false; let mut registered = false;
         match registry.get(&sl) {
-            Some(pubk) if !pubk.is_empty() => { registered = true; s_ok = ed_ok(pubk, gs(e, "firma_ed25519_b64").unwrap_or(""), &unhex(&digest_hex).unwrap_or_default()); if s_ok { sig_ok += 1; } else { failures.push(format!("line {n}: signature invalid for the REGISTERED key of {op}")); } }
+            Some(pubk) if !pubk.is_empty() => { registered = true;
+                if gs(e, "pubkey_b64") != Some(pubk.as_str()) { failures.push(format!("line {n}: pubkey_b64 is not the REGISTERED key of {op}")); }
+                s_ok = ed_ok(pubk, gs(e, "firma_ed25519_b64").unwrap_or(""), &unhex(&digest_hex).unwrap_or_default()); if s_ok { sig_ok += 1; } else { failures.push(format!("line {n}: signature invalid for the REGISTERED key of {op}")); } }
             _ => { untrusted += 1; }
         }
         records.insert(rs, Rec { ok: ok_digest && s_ok, digest_ok: ok_digest, registered, sig_ok: s_ok });
@@ -221,7 +223,7 @@ fn main() {
         match tok.as_str() { "--audit" => { audit = Some(nx(i)); i += step; } "--chain" => { chains.push(nx(i)); i += step; } "--verbale" => { verbale = Some(nx(i)); i += step; } "--keys" => { keys = Some(nx(i)); i += step; } "--trust-verbale-registry" if eqv.is_none() => trust_vr = true, _ => { usage(); } }
         i += 1; }
     let mut registry = load_registry(keys.as_deref()); let mut source = keys.as_ref().map(|k| format!("keys dir {k}")).unwrap_or_else(|| "none".into());
-    if registry.is_empty() && trust_vr { if let Some(vp) = &verbale { if let Ok(t) = std::fs::read_to_string(vp) { if let Ok(J::Obj(vo)) = P::parse(&t) { if let Some(J::Obj(rc)) = vo.get("registro_chiavi") { registry = rc.iter().map(|(k, v)| (k.clone(), match v { J::Str(s) => s.clone(), _ => String::new() })).collect(); source = "the verbale's own registro_chiavi (NOT out-of-band: declared)".into(); } } } } }
+    if registry.is_empty() && trust_vr { if let Some(vp) = &verbale { if let Ok(t) = std::fs::read_to_string(vp) { if let Ok(J::Obj(vo)) = P::parse(&t) { if let Some(J::Obj(rc)) = vo.get("registro_chiavi") { registry = rc.iter().filter_map(|(k, v)| match v { J::Str(s) => Some((k.clone(), s.clone())), _ => None }).collect(); /* 0.8.0: a non-string entry is no key (was "" = unregistered: same verdict, now explicit) */ source = "the verbale's own registro_chiavi (NOT out-of-band: declared)".into(); } } } } }
     let mut layers = vec![]; let mut records = None;
     if let Some(a) = &audit { let (l, r) = verify_audit(a, &registry, &source); layers.push(l); records = Some(r); }
     for c in &chains { layers.push(verify_chain(c)); }

@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.8.0 — 2026-10-04 — RFC 3161 marks only for a valid token for this digest; a line's key must be the registered one
+
+- **`verbale_probatorio.marca_temporale_rfc3161` recorded any HTTP body as `anchored: True`** — an error page, a
+  rejection, a token for another digest — with those bytes as `tsr_b64`, and a verbale persisted with `?marca=1`
+  carried them. It now records a mark only when `verifica_marca` finds the token's imprint equal to the digest and its
+  CMS signature intact (a token exists only on a granted status, 0 or 1). `test_stamp_tsa_locale.py` builds a local TSA
+  with openssl: on 0.7.4 its five wrong replies (another digest, a rejection, an HTML page, a rejection carrying a valid
+  token, a broken CMS signature) are anchored; here none of them is, while the genuine token and a status-1 token are.
+- **Verdict change: a line naming a key that is not the operator's registered key is FAIL.** The four verifiers checked
+  the signature against the registered key and ignored `pubkey_b64` in the line, so a line saying `null`, a number, an
+  empty string or another valid key was PASS, while `verbale_probatorio` and `chems_receipt` refused the same line. With a
+  registry, `pubkey_b64` must now be the registered key, string for string, in Python, JS, Go and Rust (`FORMAT.md`).
+  Seven oracle cases (`null`, a number, an empty string, another valid key, the key with a trailing space, the same key
+  in non-canonical base64, a list holding the key): PASS in the four on 0.7.4, FAIL in the four here. Without a registry
+  nothing changes (NOT-TRUSTED); without `cryptography` the comparison is still made (FAIL on a mismatch, NOT-TRUSTED on
+  a match).
+- **Go verified a signature in non-canonical base64 (PASS alone).** `base64.StdEncoding.DecodeString` accepts non-zero
+  trailing bits and skips `\r`/`\n` inside the text; the three others refused such a signature, and 0.7.4 said "RFC 4648
+  strict base64 in the four" — true for the alphabet (a space is refused), not for the trailing bits nor for a newline
+  inside. The Go verifier now
+  decodes strictly and requires the re-encoding to equal the text, so the four refuse the same texts. Three oracle cases
+  (signature with
+  non-zero trailing bits, signature with `\r\n\r\n` inside, registered key in non-canonical base64): Go PASS on 0.7.4,
+  FAIL in the four here.
+- **A `registro_chiavi` entry that is not a string is no key, in the four.** With `--trust-verbale-registry`, Python and
+  Go stringified it, JS made a one-element list its key (a verbale whose registry held `[key]` verified PASS in JS alone),
+  Rust ignored it. One oracle case: NOT-TRUSTED in the four here (on 0.7.4: FAIL in Python and Go, PASS in JS,
+  NOT-TRUSTED in Rust).
+- Every file and HTTP response the package and `verifiers/differential.py` open is closed (`with`); under
+  `-X tracemalloc` none is allocated by them. A TSA refusal note says the CMS signature must be intact too.
+- README: the test counts of `test_health.py` (23) and of the CI run (sixteen files, 222 tests) are the measured ones.
+
+Measured: the sixteen `test_*.py` files as scripts; `python3 -m unittest discover` 222 tests OK, also with
+`OMEGA_PROFILO` `comunicazione` and `punteggi`, on Python 3.11 with `cryptography`; without `cryptography` (Python 3.9
+and 3.13, `OMEGA_HEALTH_ALLOW_UNSIGNED=1`) 222 OK, 59 skipped; `verifiers/differential.py --require js,go,rust` 46 cases,
+0 disagreements (Go 1.24, Rust stable, Node 22).
+
 ## 0.7.4 — 2026-09-21 — verifier hygiene: the four verifiers agree on hostile bytes and on one command-line grammar
 
 Propagation of the defect classes found by the cra-evidence 0.3.0 and omega-evidence 0.8.3 reviews (21 September 2026)

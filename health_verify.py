@@ -10,7 +10,8 @@ What it checks, layer by layer (each PASS/FAIL/SKIP), and ONE verdict:
                                             kind/target/azione/dettaglio/operatore/ts/prev_sha256; the prev_sha256
                                             chain from "GENESIS"; every Ed25519 signature over the 32 raw digest
                                             bytes checked against the operator's REGISTERED key (--keys dir of
-                                            fb-<slug>.pub, base64 raw), never against the key the line carries.
+                                            fb-<slug>.pub, base64 raw), never against the key the line carries —
+                                            which, since 0.8.0, must be the registered key, string for string.
   * --chain  <ledger.jsonl> (repeatable)     a self_hash/prev_hash ledger (pre-alert anchors, mission case files):
                                             UTF-8 profile (ensure_ascii=False), genesis 64 zeros; numbers are kept
                                             exactly as written in the file (Python's repr), so a float never changes.
@@ -239,6 +240,8 @@ def verify_audit(path: str, registry: Dict[str, str], registry_source: str) -> T
         pub = registry.get(_slug(e.get("operatore", "")) or "anonimo")
         sig_ok = None
         if pub:
+            if e.get("pubkey_b64") != pub:     # the line names a key that is not the operator's registered one: a false statement
+                failures.append(f"line {n}: pubkey_b64 is not the REGISTERED key of {e.get('operatore')}")
             sig_ok = _ed_verify(pub, str(e.get("firma_ed25519_b64", "")), digest)
             if sig_ok is None:
                 n_sig_untrusted += 1
@@ -334,7 +337,7 @@ def run(audit: Optional[str], chains: List[str], verbale: Optional[str], keys: O
             with open(verbale, encoding="utf-8") as fh:
                 vv = loads(fh.read())
             if isinstance(vv, dict) and isinstance(vv.get("registro_chiavi"), dict):
-                registry = {str(k): str(x) for k, x in vv["registro_chiavi"].items()}
+                registry = {str(k): x for k, x in vv["registro_chiavi"].items() if isinstance(x, str)}   # 0.8.0: a non-string entry is no key (str(x) made "7"/"None" a key; the four now agree: unregistered)
                 source = "the verbale's own registro_chiavi (NOT out-of-band: declared)"
         except (OSError, ValueError):
             pass
