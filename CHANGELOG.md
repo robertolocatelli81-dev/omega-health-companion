@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `scores_emergenza` opened the ledger lock outside the `try` that released it, so a `flock` that raised left the file to
+  the interpreter's finalizer instead of closing it (`ResourceWarning: unclosed file`); the lock is now a `with` block.
+  `test_open_handles.py` holds every `open()`/`urlopen()` in the shipped modules to a `with` item and was red on the
+  previous code.
+
 ## 0.8.0 — 2026-10-04 — RFC 3161 marks only for a valid token for this digest; a line's key must be the registered one
 
 - **`verbale_probatorio.marca_temporale_rfc3161` recorded any HTTP body as `anchored: True`** — an error page, a

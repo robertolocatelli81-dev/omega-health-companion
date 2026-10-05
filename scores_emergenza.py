@@ -159,12 +159,12 @@ def ancora_prealert(prealert: Dict, ts: str, payload: str = "digest") -> Dict:
     try:
         import fcntl
         os.makedirs(os.path.dirname(LEDGER) or ".", exist_ok=True)
-        lock = open(LEDGER + ".lock", "w")
-        fcntl.flock(lock, fcntl.LOCK_EX)    # council 15/09 (three minds): read-tail + append under ONE process lock
-        try:
-            return _ancora_locked(prealert, ts, payload)
-        finally:                            # council r2 (five minds): the lock must be released on ANY exception
-            fcntl.flock(lock, fcntl.LOCK_UN); lock.close()
+        with open(LEDGER + ".lock", "w") as lock:     # closed also when flock itself raises
+            fcntl.flock(lock, fcntl.LOCK_EX)    # council 15/09 (three minds): read-tail + append under ONE process lock
+            try:
+                return _ancora_locked(prealert, ts, payload)
+            finally:                            # council r2 (five minds): the lock must be released on ANY exception
+                fcntl.flock(lock, fcntl.LOCK_UN)
     except Exception as e:                  # noqa: BLE001 — declared outcome, never an unhandled exception
         return {"ancorato": False, "errore": f"{type(e).__name__}: {str(e)[:120]}"}
 
