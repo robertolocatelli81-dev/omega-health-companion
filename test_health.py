@@ -192,8 +192,11 @@ class TestE2E(unittest.TestCase):
         cls._tok_orig = T.TOKEN_FILE
         T.TOKEN_FILE = os.path.join(os.path.dirname(S.LEDGER), "token.txt")
         # sandbox anche l'audit Part 11 (trail + chiavi operatore): mai produzione
-        cls._ab_orig = (AB.TRAIL_PATH, AB.KEYS_DIR, AB._trail, dict(AB._identita))
+        cls._ab_orig = (AB.TRAIL_PATH, AB.KEYS_DIR, AB._trail, dict(AB._identita), AB.FALLBACK_LEDGER)
         AB.TRAIL_PATH = os.path.join(os.path.dirname(S.LEDGER), "p11_trail.jsonl")
+        # 2026-10-05: without the private engine the server signs through the open fallback, whose ledger sat beside the
+        # module (audit_locale_ledger.jsonl + .lock written into the source tree by this suite); sandboxed too
+        AB.FALLBACK_LEDGER = os.path.join(os.path.dirname(S.LEDGER), "fb_ledger.jsonl")
         AB.KEYS_DIR = os.path.join(os.path.dirname(S.LEDGER), "p11_keys")
         AB._trail = None
         AB._identita.clear()
@@ -204,12 +207,18 @@ class TestE2E(unittest.TestCase):
         cls.base = f"http://127.0.0.1:{cls.port}"
         cls.token = T._token()
 
+    def test_every_ledger_is_in_the_sandbox(self):
+        sandbox = os.path.dirname(S.LEDGER)
+        for path in (S.LEDGER, T.TOKEN_FILE, AB.TRAIL_PATH, AB.KEYS_DIR, AB.FALLBACK_LEDGER):
+            with self.subTest(path=path):
+                self.assertEqual(os.path.dirname(path), sandbox)
+
     @classmethod
     def tearDownClass(cls):
         cls.srv.shutdown()
         S.LEDGER = cls._ledger_orig
         T.TOKEN_FILE = cls._tok_orig
-        AB.TRAIL_PATH, AB.KEYS_DIR, AB._trail, ids = cls._ab_orig
+        AB.TRAIL_PATH, AB.KEYS_DIR, AB._trail, ids, AB.FALLBACK_LEDGER = cls._ab_orig
         AB._identita.clear()
         AB._identita.update(ids)
 

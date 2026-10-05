@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The test suite wrote into the source tree: without the private engine, `TestE2E`'s server signs through the open
+  fallback, whose ledger `TestE2E` did not sandbox, so a full run left `audit_locale_ledger.jsonl` and its `.lock` beside
+  the module. The fallback ledger is now in the test's temporary directory, and
+  `test_every_ledger_is_in_the_sandbox` checks every ledger path `TestE2E` uses.
 - `scores_emergenza` opened the ledger lock outside the `try` that released it, so a `flock` that raised left the file to
   the interpreter's finalizer instead of closing it (`ResourceWarning: unclosed file`); the lock is now a `with` block.
   `test_open_handles.py` holds every `open()`/`urlopen()` in the shipped modules to a `with` item and was red on the
