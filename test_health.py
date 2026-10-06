@@ -12,9 +12,9 @@ _PROFILO_PRIMA = [None]
 
 
 def setUpModule():                         # questi test esercitano il profilo punteggi (default = comunicazione dal 0.7.2). Assegnazione ESPLICITA
-    _PROFILO_PRIMA[0] = os.environ.get("OMEGA_PROFILO")   # (non setdefault: un OMEGA_PROFILO esportato non deve cambiare cosa si testa — Gemini+Opus 18/09)
+    _PROFILO_PRIMA[0] = os.environ.get("OMEGA_PROFILO")   # (non setdefault: un OMEGA_PROFILO esportato non deve cambiare cosa si testa — review 18/09)
     os.environ["OMEGA_PROFILO"] = "punteggi"              # e in setUpModule, non a livello di modulo: `unittest discover` importa TUTTI i file prima di
-                                                          # eseguirli, e un set a import-time vale per il processo intero (misurato 18/09, review Sonnet)
+                                                          # eseguirli, e un set a import-time vale per il processo intero (misurato 18/09, independent review)
 
 
 def tearDownModule():                      # ripristino: il profilo non trapela nei file eseguiti dopo
@@ -116,7 +116,7 @@ class TestFirmaLocaleFallback(unittest.TestCase):
             self.assertEqual(AB._ultima_riga(p, blocco=4096), attesa)
 
     def test_ultimo_id_legge_anche_il_trail_part11(self):
-        """Col motore Part 11 il ledger locale non viene scritto: il contatore deve leggere anche il trail (review Opus r3)."""
+        """Col motore Part 11 il ledger locale non viene scritto: il contatore deve leggere anche il trail (review r3)."""
         import tempfile
         d = tempfile.mkdtemp(); orig = (AB.FALLBACK_LEDGER, AB.TRAIL_PATH, AB.MOTORE_DISPONIBILE)
         try:

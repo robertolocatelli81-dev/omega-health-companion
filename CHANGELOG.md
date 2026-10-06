@@ -97,12 +97,12 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   canon/who, unsigned `who`/`type`/`targetFormat`, duplicate keys, lone surrogate) each give NON_VALIDA; a fresh key under
   the victim's `kid` gives OK_CHIAVE_NON_REGISTRATA; the verifier broken to "always valid" and to "always registered" each
   turn the suite red; jwcrypto verifies the same JWS against the registered key file and refuses a tampered and a
-  base64url-encoded payload (test, and CI installs it). Review round 1 (Gemini Pro + Opus 5): the first cut returned a
+  base64url-encoded payload (test, and CI installs it). Review round 1: the first cut returned a
   single "OK" for a mathematically valid signature under an unregistered key and the CLI exited 0 on it — a key-substitution
   bypass; labelled the bytes with the FHIR canonical-JSON URI although the rules differ; left `who`/`type`/`targetFormat`
   unbound; kept the identified patient under id `anon`; a variable shadowing bug (`pid`) sent the Composition subject to a
-  wrong reference for identified patients (found by the sample hash changing). All fixed and measured. Round 2 (Opus 5;
-  Gemini Pro: no material issues on code, tests and docs): the AHVN13 guard missed the dotted form `756.1234.5678.97`;
+  wrong reference for identified patients (found by the sample hash changing). All fixed and measured. Round 2 (two reviewers, one of them with
+  no material issues on code, tests and docs): the AHVN13 guard missed the dotted form `756.1234.5678.97`;
   unsigned Signature members (`onBehalfOf`, `who.display`, a second `type` coding, `id`) rode along under an accepting
   verdict → the Signature element must now be exactly {type, when, who{reference}, targetFormat, sigFormat, data}; every
   header and metadata rule is now asserted under an oracle that calls every signature valid (before, they were refused only
@@ -110,20 +110,20 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   surrogate inside the signed payload is a verdict on both the bytes and the dict path; the privacy test asserts the shape
   of the ledger record, not the absence of four substrings; isolation is checked by file content; the RFC 8785 Appendix B
   table is tested from the 24 IEEE-754 bit patterns; the sample's public key is pinned in the verifier and never reported
-  as registered; README now names `--allow-unregistered` and quotes the validator's warning verbatim. Round 3 (four minds:
-  Gemini Pro and Haiku no material issues; Opus 5 and Sonnet 5): the "mock is live" control of the structure test could not
+  as registered; README now names `--allow-unregistered` and quotes the validator's warning verbatim. Round 3 (four reviewers:
+  two with no material issues; the other two): the "mock is live" control of the structure test could not
   fail → now a bit-flipped signature must verify under the lying oracle; the sample key is registered through the real
   registry writer before the pin is proved; the ledger-shape check recurses into nested values; AHVN13 digits are matched
   after removing every non-digit (spaces and hyphens too) and a dotted local id is asserted accepted; NaN/Infinity literals
   are refused at parse; the registry default is the installed module's absolute path, never CWD or the document's folder
   (a crafted `.audit_keys/` beside the document is measured as not consulted); more malformed-JWS shapes (payload in the
   middle, 2 or 4 segments, 65-char or upper-case kid, absent alg, 31-byte JWK) are verdicts; README/PRIVACY say the board
-  is out of the identified-patient path by construction, not by test. Round 4 (Gemini Pro: none; Haiku: one misread —
-  the length check is inside the loop; Sonnet, Opus): the production registry default is now asserted absolute and beside
+  is out of the identified-patient path by construction, not by test. Round 4 (one reviewer: none; one: one misread —
+  the length check is inside the loop; the other two): the production registry default is now asserted absolute and beside
   the installed module from a value captured before any patch; KEYS_DIR restored by cleanup even if the signer raises; the
   identifier length is checked before the digit scan; the privacy sentence says "fallback ledger, Part 11 record declared
   not tested"; the nine validator warnings are listed in EVIDENCE.md; PRIVACY no longer repeats the ledger sentence.
-  Round 5 (Gemini Pro, Sonnet: none; Haiku: none material; Opus): the registry-default assertion could not tell a
+  Round 5 (two reviewers: none; one: none material; one): the registry-default assertion could not tell a
   `__file__`-based default from a CWD-at-import one when the suite starts from the repo root → a fresh interpreter started
   from an unrelated directory now has to compute the same path; skip count published; README says why the identified
   ablation has fewer warnings than the full sample. Declared: JCS signs numbers, not spellings; the
@@ -150,7 +150,7 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   an uncertified decision-support function (EU MDR Annex VIII Rule 11 / MepV exposure) is an explicit act, never a default.
   0.7.1 deployments that relied on scores must set the variable. The library is unchanged (it computes when called); the
   CLI is a client of `/valuta` and never computed anything — the earlier README sentence "the CLI keeps computing scores"
-  was false and is corrected in this release (found by Opus 5 in round 4, reading the CLI source instead of the README). Tests of the `punteggi` path set the profile in `setUpModule` and restore it in `tearDownModule` (explicit
+  was false and is corrected in this release (found in round 4, reading the CLI source instead of the README). Tests of the `punteggi` path set the profile in `setUpModule` and restore it in `tearDownModule` (explicit
   assignment, so an `OMEGA_PROFILO` exported in the environment cannot change what they test — measured: with `setdefault`
   and the variable exported to `comunicazione`, 5 files failed; and not at import time, because `unittest discover` imports
   every file before running any — measured: with a module-level set plus restore, `test_coordinamento` ran under the default
@@ -161,10 +161,10 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   to the comunicazione pre-alert and a nested `trauma_team` added to `/metriche` were both caught before the code was
   restored; the journal restore test restarts with the variable absent. Under this profile the paediatric gate has nothing to
   guard (no adult score is ever computed) and a child's vitals are validated like any other input. Review of the diff by
-  Gemini Pro, Opus 5, Sonnet 5 and Haiku 4.5, four rounds: five round-1 findings were false against the code (journal restore
+  four independent AI reviewers, four rounds: five round-1 findings were false against the code (journal restore
   and `tipo_paziente` were already gated, the engine branch precedes the engine call, `/prealert` recomputes, CI runs each
   test file in its own process) and are recorded as such; the true ones are in this entry.
-- **Round 2 (Opus 5) under the default, all measured and fixed:** the incident summary (`/incidenti`, `/incidente/<id>`)
+- **Round 2 under the default, all measured and fixed:** the incident summary (`/incidenti`, `/incidente/<id>`)
   emitted `"priorita": None` and `"tipi": None` per pre-alert — a decisional key even if empty; now a comunicazione record
   carries neither (only `profilo`). The input contract of the comunicazione validator was stricter than the engine's
   (`eta` integer 0–120, `eta_mesi` 0–24 without coherence check, 20 drugs of 80 characters): a 0.7.1 client sending
@@ -174,9 +174,9 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   of 0 that could never be computed; they are `null` with a `NON_CALCOLATI` note when no pre-alert carries the 2025
   criteria. Board page footer, expired-card header (`NEWS2 —`) and the ATMIST I segment (`vedi percorsi`) were profile-blind;
   fixed and asserted. The end-to-end test now also creates an incident with a linked patient, posts an outcome, and builds
-  the CH EMS document from every case. Round 3 (Gemini Pro): an expired pre-alert linked to an incident fell back into the
+  the CH EMS document from every case. Round 3 (first reviewer): an expired pre-alert linked to an incident fell back into the
   `punteggi` branch of the incident row (`"priorita": "SCADUTO"`); the live profile is now passed to the summary and the
-  test expires a linked patient and re-scans. Round 3 (Opus 5): the expired board card under the default showed `None`
+  test expires a linked patient and re-scans. Round 3 (second reviewer): the expired board card under the default showed `None`
   instead of the retention notice; `campi_ignorati` is now generic (every request key the profile does not read, so a
   client-computed `NEWS2` is named too); blank drug strings are dropped; `avvisi` is no longer listed as "not computed"
   (it is present, always empty); the test scans assert HTTP 200 and real bodies, scan JSON text for every decisional token
@@ -185,7 +185,7 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   that the library computes regardless of the profile; CI also runs the suite with the variable exported as
   `comunicazione` and as `punteggi`. The token scan found one real collision: the CH EMS observation carrying the crew's
   START colour had the id `priorita-paziente` — an input, not a score — renamed `stato-paziente` (samples regenerated,
-  validator_cli 6.10.4: 0 errors, `examples/chems_conformance/EVIDENCE.md`). Round 4 (Opus 5; Gemini Pro: no material
+  validator_cli 6.10.4: 0 errors, `examples/chems_conformance/EVIDENCE.md`). Round 4 (one reviewer; the other: no material
   issues): the CLI now prints the profile and the note under the default instead of silent nulls, and no longer sends
   top-level null keys; `campi_ignorati` counts only keys with a value and refuses malformed or more than 20 unknown key
   names (the name is echoed into the record and the journal: never free text; round 5: `fullmatch`, so a trailing newline
@@ -196,7 +196,7 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   the token scan; a histogram and the listing fields are not flagged); the end-to-end test also posts client-computed
   scores and runs the real CLI against the default server; the engine drift guard covers the invalid-data branch.
   200 tests. One flaky test fixed on the way: `test_bacheca_store` asserted that the 2-byte marker `H2` was absent from
-  the encrypted journal file; a 2-byte sequence appears by chance in random ciphertext (1 red in 30 runs, measured) — the memory-only markers are now 18 to 33 bytes; the actual encryption control derives three persisted markers (8 to 22 bytes) from the store's own compact serializer (`bacheca_store.serializza`), asserts each is present in the bytes actually handed to `encrypt` (captured by patching `AESGCM.encrypt` itself and snapshotted before the restore) and absent from the raw file, asserts the memory-only markers absent from those same bytes (exclusion, not encryption), then writes one plaintext row into the same file and asserts the marker IS found — the positive control lives in the suite (round 10: a hand-written marker with spaces could never have matched compact JSON, a null control found by Opus 5; rounds 11–12: capture at `encrypt`, snapshot before restore, exclusion asserted on the plaintext; hand controls: no spy → the positive fails on empty bytes; a memory-only field persisted → the exclusion fails). 0 red in 40 runs of the final test body. The encryption was never at fault.
+  the encrypted journal file; a 2-byte sequence appears by chance in random ciphertext (1 red in 30 runs, measured) — the memory-only markers are now 18 to 33 bytes; the actual encryption control derives three persisted markers (8 to 22 bytes) from the store's own compact serializer (`bacheca_store.serializza`), asserts each is present in the bytes actually handed to `encrypt` (captured by patching `AESGCM.encrypt` itself and snapshotted before the restore) and absent from the raw file, asserts the memory-only markers absent from those same bytes (exclusion, not encryption), then writes one plaintext row into the same file and asserts the marker IS found — the positive control lives in the suite (round 10: a hand-written marker with spaces could never have matched compact JSON, a null control found in review; rounds 11–12: capture at `encrypt`, snapshot before restore, exclusion asserted on the plaintext; hand controls: no spy → the positive fails on empty bytes; a memory-only field persisted → the exclusion fails). 0 red in 40 runs of the final test body. The encryption was never at fault.
 - **"Compared with the field" table re-read from primary sources (2026-09-18, quotes and digests in
   `gtm/health_070_20260918/competitors/` of the OMEGA repository, summarised here):** "Evidentiary record: none documented" was
   too strong — corpuls documents delegations «dreifach rechtssicher dokumentiert» plus audit logging of accesses, Pulsara a
@@ -204,12 +204,12 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
   offline). "Escalation — Pulsara" was not a documented product feature (a regional advisory tells crews to phone after 60 s);
   "ED status — Twiage" is not stated on the TigerConnect page; rows that exist only in `punteggi` are marked. Every OMEGA cell
   was measured on the running 0.7.2 server in both profiles, and the CH EMS document built from a default-profile pre-alert
-  validates with 0 errors (validator_cli 6.10.4). An adversarial pass by Gemini Pro on the comparison itself added what
+  validates with 0 errors (validator_cli 6.10.4). An independent adversarial pass on the comparison itself added what
   weighs against OMEGA: the competitors are end-to-end products with mobile apps and dispatch integration, OMEGA is a server
   with a board page and a CLI (two rows added, both "not done"); the competitors' records are legally usable, centralised
   records — ours is the offline-verifiable one, not the only valid one.
 
-## 0.7.1 — 2026-09-18 — after Gemini Pro's whole-product judgement (8 dossiers + synthesis, 7/10)
+## 0.7.1 — 2026-09-18 — after an independent whole-product judgement (8 dossiers + synthesis, 7/10)
 
 - **Reverse proxy no longer leaks the admin token.** The board page injected the server token for "loopback" clients; behind
   nginx/docker/ngrok every external request is loopback. Now a request carrying any forwarding header (`X-Forwarded-For`,
@@ -227,7 +227,7 @@ Two of the five corrections sent to the CH EMS editor on 18 September were "decl
 
 ## 0.7.0 — 2026-09-18 — the gaps of the 18/09 maturity assessment, without changing what the product is
 
-Independent assessment (Gemini Pro, 18/09/2026, facts measured): overall L2 "verified prototype"; operational readiness
+Independent assessment (18/09/2026, facts measured): overall L2 "verified prototype"; operational readiness
 L2 (state in RAM), clinical/regulatory L2, identity via shared token. Everything below closes a named gap; scores,
 signed evidence and the CH EMS format are untouched.
 
@@ -276,7 +276,7 @@ signed evidence and the CH EMS format are untouched.
 - Server and operator tokens never start with `-` (a `token_urlsafe` value did, about once in 64, and `--token <tok>`
   on the CLI read it as an option: the e2e CLI test failed on that draw). With the private Part 11 engine the pre-alert
   and incident counters now continue from the engine trail after a restart (they restarted at 1).
-- Four-mind review (Gemini Pro, Claude Opus, Sonnet, Haiku), three rounds on the diff, findings fixed before the tag: an operator token
+- Independent AI review by four reviewers, three rounds on the diff, findings fixed before the tag: an operator token
   could rotate the admin token; the admin's own rotation self-locked in pilot mode; the confirmation form and the
   attachment upload bypassed pilot mode; drug warnings leaked into the communication profile; the journal kept outcomes
   after expiry and the free-text alternative destination; a journal write error dropped the connection after a signed
@@ -387,7 +387,7 @@ signed evidence and the CH EMS format are untouched.
 
 ## 0.5.0 — 2026-09-15 — verifiable by third parties, reviewed by five models
 
-Council of five models (Claude Fable 5.1, Opus 4.8, Sonnet 5, Haiku 4.5, Gemini 3.1 Pro) on the v0.4.1 code in
+Council of five independent AI reviewers on the v0.4.1 code in
 three parts; real findings fixed, each with a test:
 - **Evidence:** signed audit ledger under a process lock (`fcntl`) like the mission ledger; a torn last line now
   refuses the append instead of silently forking back to GENESIS; the signed key set is exact (an enriched line
@@ -520,7 +520,7 @@ Twiage, corpuls.mission, NIDA, WebEMS): none of them makes the pre-alert itself 
   (now the verbale lists the engine's records and, if the engine refuses a corrupted trail, says so
   instead of raising). Declared limit written into the verbale: the key registry lives on the same host
   as the ledger — a third party must receive it out of band or rely on the timestamped verbale.
-- **Third round (Fable + Gemini; Opus out of quota):** a row *without* `prev_sha256` after the start of the chain could impersonate a deleted row by carrying its digest — now legacy rows are accepted only at the head of the ledger, anything else is a break; a missing `HEALTH_TSA_CAFILE` is a named configuration error (`verified` False), not "TSA not trusted"; operator identity model (light enrollment by normalised name) written into the module docstring; a claimed `ensure_ascii` mismatch was checked and is not one (both sides canonicalise identically; test with an accented operator name added).
+- **Third round (two reviewers):** a row *without* `prev_sha256` after the start of the chain could impersonate a deleted row by carrying its digest — now legacy rows are accepted only at the head of the ledger, anything else is a break; a missing `HEALTH_TSA_CAFILE` is a named configuration error (`verified` False), not "TSA not trusted"; operator identity model (light enrollment by normalised name) written into the module docstring; a claimed `ensure_ascii` mismatch was checked and is not one (both sides canonicalise identically; test with an accented operator name added).
 - **Tests**: 49 new (boundaries of every threshold, every paediatric band, hostile types, sepsis needs
   infection history, receipt vocabulary, tamper / re-sign with foreign key / row deletion detection,
   legacy-key and legacy-row boundaries, fabricated timestamp reply refused, persisted verbale,

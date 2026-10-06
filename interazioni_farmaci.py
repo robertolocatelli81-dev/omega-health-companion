@@ -92,16 +92,16 @@ COMMERCIALI_CH = {
 
 # ATC (WHO) → classe della tabella interazioni. Prefissi, dal più specifico: la prima corrispondenza vince.
 # Fonte del codice ATC per un farmaco svizzero: Swissmedic «Zugelassene Packungen» via GTIN (data/swissmedic_gtin_atc.json).
-# Prefissi STRETTI (review Opus 18/09): V08A = solo mezzi iodati (V08C gadolinio NON interagisce con metformina);
+# Prefissi STRETTI (review 18/09): V08A = solo mezzi iodati (V08C gadolinio NON interagisce con metformina);
 # G04BE = solo i PDE5 veri (03 sildenafil, 08 tadalafil, 09 vardenafil, 11 avanafil; NON 01 alprostadil);
 # M01A per sottogruppo FANS (NON M01AX glucosamina/condroitina); B01AE07 = solo dabigatran (NON irudine/argatroban);
 # niente N05CF (z-drugs: non sono benzodiazepine, l'etichetta sarebbe falsa).
 ATC_CLASSE = [
     ("C01DA", "nitrati"),
     ("G04BE03", "inibitori-pde5"), ("G04BE08", "inibitori-pde5"), ("G04BE09", "inibitori-pde5"), ("G04BE11", "inibitori-pde5"),
-    ("N01AH", "oppioidi"), ("N02A", "oppioidi"), ("N02AX02", "tramadolo"), ("N02AJ13", "tramadolo"), ("N02AJ14", "tramadolo"),   # Zaldiar & co. (review Opus r3)
+    ("N01AH", "oppioidi"), ("N02A", "oppioidi"), ("N02AX02", "tramadolo"), ("N02AJ13", "tramadolo"), ("N02AJ14", "tramadolo"),   # Zaldiar & co. (review r3)
     ("N07BC", "oppioidi"), ("R05DA04", "oppioidi"),   # metadone/buprenorfina (N07BC), codeina (R05DA04): coppia oppioide×benzodiazepina
-    ("N05BA", "benzodiazepine"), ("N05CD", "benzodiazepine"), ("N03AE", "benzodiazepine"),   # N03AE01 clonazepam/Rivotril (review Opus r2)
+    ("N05BA", "benzodiazepine"), ("N05CD", "benzodiazepine"), ("N03AE", "benzodiazepine"),   # N03AE01 clonazepam/Rivotril (review r2)
     ("B01AA", "warfarin"), ("B01AE07", "doac"), ("B01AF", "doac"),
     ("M01AB", "fans"), ("M01AC", "fans"), ("M01AE", "fans"), ("M01AG", "fans"), ("M01AH", "fans"), ("N02BA", "fans"), ("B01AC06", "fans"),
     ("C10AA", "statine"), ("C10BA", "statine"), ("C10BX", "statine"), ("J01FA", "macrolidi"), ("J01MA", "chinolonici"),
@@ -122,7 +122,7 @@ def _gtin_atc() -> dict:
         try:
             import swissmedic_gtin_atc as D                    # modulo generato (scripts/build_swissmedic_atc.py)
             _GTIN_ATC = {"_provenienza": D.PROVENIENZA, "gtin": D.GTIN_ATC}
-        except Exception as e:  # noqa: BLE001 — anche SyntaxError/AttributeError di un modulo scritto a metà (review Sonnet 18/09)
+        except Exception as e:  # noqa: BLE001 — anche SyntaxError/AttributeError di un modulo scritto a metà (review 18/09)
             _GTIN_ATC = {"_provenienza": {"errore": f"{type(e).__name__}: modulo dati non caricato"}, "gtin": {}}
     return _GTIN_ATC
 
@@ -154,10 +154,10 @@ def riconosci_gtin(gtin: str):
 
 def riconosci_commerciale(nome: str):
     """Nome commerciale/display di un documento CH EMS → INSIEME di classi (via MULTICLASSE: Tramal = oppioide E
-    serotoninergico, come dal GTIN — review Opus/Sonnet 18/09), o None (dichiarato, non inferito)."""
+    serotoninergico, come dal GTIN — review 18/09), o None (dichiarato, non inferito)."""
     if not isinstance(nome, str) or not nome.strip():
         return None
-    prima = nome.strip().lower().split()[0].strip(",.;()®™")   # «Aspirin® protect» → aspirin (review Gemini 18/09)
+    prima = nome.strip().lower().split()[0].strip(",.;()®™")   # «Aspirin® protect» → aspirin (review 18/09)
     if prima in MULTICLASSE:                                    # principio attivo (sertralina, tramadolo…) o nome commerciale CH
         return set(MULTICLASSE[prima])
     c = SINONIMI.get(prima) or COMMERCIALI_CH.get(prima)

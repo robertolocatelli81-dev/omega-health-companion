@@ -94,9 +94,9 @@ def acr(assenza_respiro: bool, assenza_polso: bool,
     arresto, iniziare RCP. E il respiro assente CON polso percepito (arresto
     respiratorio) non è «nessun arresto»: è peri-arresto, vie aeree subito.
     Prima questo caso usciva instradato al percorso SEPSI (misurato). ERRORE."""
-    # council 15/09 (Fable): an ABSENT pulse is an arrest even if some breathing (gasping) is seen — the pulse check
+    # council 15/09: an ABSENT pulse is an arrest even if some breathing (gasping) is seen — the pulse check
     # is unreliable for a false PRESENT, not for a detected absence; unresponsive + no normal breathing = arrest
-    # council r2 (Opus): "absent pulse" alone on a CONSCIOUS patient is a contradictory input, not an arrest —
+    # council r2: "absent pulse" alone on a CONSCIOUS patient is a contradictory input, not an arrest —
     # ERC: unresponsive + (no normal breathing or no pulse) = arrest; gasping with no pulse in an unresponsive
     # patient stays an arrest (round 1); the contradictory case is DECLARED, never silently scored either way
     # no breathing AND no pulse is an arrest whatever the consciousness flag says (a patient with neither cannot be
@@ -173,7 +173,7 @@ def _ancora_locked(prealert: Dict, ts: str, payload: str) -> Dict:
     prev = GENESIS
     if os.path.exists(LEDGER):
         import audit_bridge as _AB
-        ultima = _AB._ultima_riga(LEDGER)      # dalla coda del file: O(1), non tutto il ledger a ogni scrittura (Gemini Pro 18/09)
+        ultima = _AB._ultima_riga(LEDGER)      # dalla coda del file: O(1), non tutto il ledger a ogni scrittura (review 18/09)
         if ultima:
             prev = json.loads(ultima)["self_hash"]
     if payload == "full":

@@ -147,7 +147,7 @@ def criteri_adulto(vitali: Dict, gcs: Optional[int] = None, gcs_abituale: Option
         crit.append({"criterio": "frequenza cardiaca", "valore": hr,
                      "soglia": f"≤{S['hr_bassa']} o ≥{S['hr_alta']}"})
     if gcs is None and vitali.get("alert_coscienza") is False:
-        # no GCS but NOT alert (V/P/U): a conservative GCS-class criterion (council 15/09, Fable — before, an
+        # no GCS but NOT alert (V/P/U): a conservative GCS-class criterion (council 15/09 — before, an
         # unresponsive adult with normal numbers and no GCS came out «no pre-alert»)
         crit.append({"criterio": "GCS", "valore": "non alert (AVPU: V/P/U), GCS non fornito", "soglia": f"<{S['gcs']} (attivato in modo conservativo)"})
     if gcs is not None and gcs < S["gcs"]:
@@ -252,7 +252,7 @@ def sepsi_alto_rischio_jrcalc(vitali: Dict, segni: Optional[Dict], storia_infezi
     if not isinstance(vitali, dict):
         problemi.append("vitali non è un oggetto")
     else:
-        # council 15/09 (Opus): raw vitals were read here (a string 'no' was truthy). Only what this function USES is
+        # council 15/09: raw vitals were read here (a string 'no' was truthy). Only what this function USES is
         # validated (sbp/hr/rr/spo2 numeric and plausible, flags boolean); an absent consciousness flag is DECLARED below
         import barella_prealert as _B
         for k in ("sbp", "hr", "rr", "spo2"):

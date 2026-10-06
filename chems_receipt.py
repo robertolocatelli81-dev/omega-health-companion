@@ -37,7 +37,7 @@ def _canon(rec: Dict[str, Any]) -> bytes:
 def emettibile() -> Optional[str]:
     """None se la ricevuta autosufficiente è emettibile (ledger locale firmato), altrimenti il motivo. Va controllato
     PRIMA di ancorare: con il motore Part 11 il record ha un'altra forma e prima si scriveva l'ancora e poi si rifiutava
-    (review Opus 18/09: due righe di trail per ogni tentativo)."""
+    (review 18/09: due righe di trail per ogni tentativo)."""
     if AB.MOTORE_DISPONIBILE:
         return "ricevuta autosufficiente non disponibile col motore Part 11 (record in altra forma): usare il verbale del motore"
     if not AB.FIRMA_LOCALE_DISPONIBILE:
@@ -69,7 +69,7 @@ def verifica_ricevuta(ricevuta: Dict[str, Any], doc_bytes: bytes, keys_dir: Opti
     if not isinstance(ricevuta, dict) or ricevuta.get("formato") != "omega-health-chems-receipt/1":
         return {"stato": "NON_VERIFICATA", "problemi": ["formato di ricevuta sconosciuto"], "doc_sha256": digest}
     rec = ricevuta.get("record")
-    # tipi ostili (review Opus/Sonnet 18/09): la ricevuta arriva da terzi, ogni campo va controllato prima di usarlo
+    # tipi ostili (review 18/09): la ricevuta arriva da terzi, ogni campo va controllato prima di usarlo
     if not isinstance(rec, dict) or not isinstance(rec.get("dettaglio"), dict) or not isinstance(rec.get("operatore"), str) \
             or not isinstance(rec.get("target"), str) or not all(isinstance(rec.get(k), str) for k in ("record_sha256", "firma_ed25519_b64", "pubkey_b64")):
         return {"stato": "NON_VERIFICATA", "problemi": ["record malformato: attesi record/dettaglio oggetti, operatore/target/hash/firma/chiave stringhe"], "doc_sha256": digest}
@@ -79,7 +79,7 @@ def verifica_ricevuta(ricevuta: Dict[str, Any], doc_bytes: bytes, keys_dir: Opti
         problemi.append("target della ricevuta ≠ target del record")
     if not OPERATORE_RE.match(rec["operatore"]):
         problemi.append("operatore con caratteri non ammessi")
-    if rec["dettaglio"].get("digest_di") != "bytes":          # il campo FIRMATO, non quello libero della ricevuta (review Opus r3)
+    if rec["dettaglio"].get("digest_di") != "bytes":          # il campo FIRMATO, non quello libero della ricevuta (review r3)
         problemi.append(f"il record lega {rec['dettaglio'].get('digest_di')!r}, non i byte esatti: verificabile solo dai byte")
     if digest != ricevuta.get("doc_sha256"):
         problemi.append("doc_sha256 dichiarato ≠ sha256 dei byte forniti")
@@ -106,7 +106,7 @@ def verifica_ricevuta(ricevuta: Dict[str, Any], doc_bytes: bytes, keys_dir: Opti
     # 3) la chiave è di un operatore registrato?
     kd = keys_dir or AB.KEYS_DIR
     slug = AB._slug(rec["operatore"])                      # _slug tiene solo [alnum - _]: nessun separatore di percorso
-    if not slug or not re.match(r"^[A-Za-z0-9_-]+$", slug):   # mai un ripiego su «anonimo» condiviso (review Haiku r2); mai assert
+    if not slug or not re.match(r"^[A-Za-z0-9_-]+$", slug):   # mai un ripiego su «anonimo» condiviso (review r2); mai assert
         return {"stato": "NON_VERIFICATA", "problemi": ["operatore non riducibile a uno slug di chiave"], "doc_sha256": digest}
     reg = os.path.join(kd, f"fb-{slug}.pub")
     if os.path.exists(reg):

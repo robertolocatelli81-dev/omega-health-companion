@@ -31,7 +31,7 @@ REQUIRE_ENV = "OMEGA_REQUIRE_OPERATOR"
 RUOLI = ("equipaggio", "centrale", "ps", "admin")
 _SLUG = re.compile(r"^[a-z0-9][a-z0-9_-]{1,39}$")     # niente '.': audit_bridge._slug lo mapperebbe a '-' → due operatori, una chiave
 # nomi che il server usa come firmatario di sistema o come default dichiarato: registrarli come operatori confonderebbe
-# il ledger (chiave condivisa con «admin») o bloccherebbe ogni chiamata in modalità default (review Opus r2)
+# il ledger (chiave condivisa con «admin») o bloccherebbe ogni chiamata in modalità default (review r2)
 RISERVATI = frozenset({"admin", "anonimo", "equipaggio-ambulanza", "team-ps", "centrale", "epcr-esterno", "ps", "sistema"})
 _LOCK = threading.Lock()
 
@@ -44,7 +44,7 @@ def _h(token: str) -> str:
 
 class _FileLock:
     """Lock di FILE (fcntl) attorno a read-modify-write del registro: due processi sullo stesso registro non si
-    sovrascrivono (review Sonnet/Haiku r2). Breve, non esclusivo per la vita del processo."""
+    sovrascrivono (review r2). Breve, non esclusivo per la vita del processo."""
     def __init__(self, path: str):
         self.path = path + ".lock"; self.fd = None
 
@@ -63,14 +63,14 @@ def _load() -> Dict[str, dict]:
     if not os.path.exists(REGISTRO):
         return {}
     st = os.stat(REGISTRO)
-    if st.st_mode & 0o077:                              # come la chiave del journal: permessi larghi = rifiuto (review Haiku 18/09)
+    if st.st_mode & 0o077:                              # come la chiave del journal: permessi larghi = rifiuto (review 18/09)
         raise PermissionError(f"{REGISTRO}: permessi troppo larghi ({oct(st.st_mode & 0o777)}); attesi 0600")
     with open(REGISTRO, encoding="utf-8") as f:
         return json.load(f)
 
 
 def _save(reg: Dict[str, dict]) -> None:
-    tmp = f"{REGISTRO}.{os.getpid()}.{secrets.token_hex(4)}.tmp"      # nome unico + O_EXCL: niente symlink pre-piantati (review Sonnet 18/09)
+    tmp = f"{REGISTRO}.{os.getpid()}.{secrets.token_hex(4)}.tmp"      # nome unico + O_EXCL: niente symlink pre-piantati (review 18/09)
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(reg, f, ensure_ascii=False, indent=1)
@@ -126,17 +126,17 @@ def crea(slug: str, ruolo: str, riemetti: bool = False, adotta_chiave: bool = Fa
         prev = reg.get(slug)
         if prev is None and chiave_preesistente(slug) and not adotta_chiave:
             # la chiave esiste già da eventi DICHIARATI (0.6.x): adottarla renderebbe indistinguibili le firme di prima e di
-            # dopo. Scelta esplicita dell'amministratore (adotta_chiave=True), registrata nell'evento (review Opus r2)
+            # dopo. Scelta esplicita dell'amministratore (adotta_chiave=True), registrata nell'evento (review r2)
             raise ValueError(f"per {slug!r} esiste già una chiave di firma dell'era dichiarata: passare adotta_chiave=true per adottarla")
         if prev is None:
             evento = "creazione_operatore" + ("_con_chiave_preesistente" if chiave_preesistente(slug) else ""); ruolo_eff = ruolo
         elif prev.get("attivo"):
-            ruolo_eff = prev["ruolo"]                   # ATTIVO: la riemissione NON cambia il ruolo (review Gemini r2)
+            ruolo_eff = prev["ruolo"]                   # ATTIVO: la riemissione NON cambia il ruolo (review r2)
             if ruolo != ruolo_eff:
                 raise ValueError(f"operatore {slug!r} è attivo con ruolo {ruolo_eff!r}: la riemissione non lo cambia (revoca, poi riemetti col nuovo ruolo)")
             evento = "riemissione_token"
         else:
-            ruolo_eff = ruolo                           # REVOCATO: riattivazione, anche con un altro ruolo, evento nominato (review Opus r3)
+            ruolo_eff = ruolo                           # REVOCATO: riattivazione, anche con un altro ruolo, evento nominato (review r3)
             evento = "riattivazione_operatore" if ruolo == prev["ruolo"] else "riattivazione_operatore_con_cambio_ruolo"
         storia = list((prev or {}).get("storia") or [])
         if prev is not None:

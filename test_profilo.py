@@ -24,7 +24,7 @@ VIT = {"vitali": {"rr": 28, "spo2": 89, "su_ossigeno": True, "sbp": 85, "hr": 13
        "farmaci": ["warfarin", "ibuprofene", "sildenafil"], "clinica": {"dolore_toracico": True}}   # sildenafil + dolore toracico → avviso nitrati
 
 
-# contratto del pre-alert nel profilo comunicazione: ALLOWLIST esatta (review Opus 18/09 r3: una blacklist che controlla
+# contratto del pre-alert nel profilo comunicazione: ALLOWLIST esatta (review 18/09 r3: una blacklist che controlla
 # una blacklist è una tautologia; un campo nuovo del motore non classificato deve far cadere un test, non passare)
 CONTRATTO_COMUNICAZIONE = {"vitali", "eta_paziente", "eta_mesi", "eta_arrivo_stimato_min", "farmaci_in_uso", "avvisi", "profilo",
                            "campi_non_calcolati", "campi_ignorati", "nota_profilo"}
@@ -80,12 +80,12 @@ class TestProfilo(unittest.TestCase):
         self.assertEqual(T.prealert_comunicazione({**VIT, "clinica": None, "fast_segni": None})["campi_ignorati"], [])   # null = assente (la CLI)
         for bad in ({**VIT, "priorita ALTA: NITRATI": 1}, {**VIT, **{f"k{i}": 1 for i in range(21)}}, {**VIT, "x" * 41: 1}, {**VIT, "NEWS2\n": 1},
                     {**VIT, "vitali": {**VIT["vitali"], "NEWS2": 9}}):    # chiave ignota DENTRO vitali: rifiutata per nome (misurato r5)
-            with self.assertRaises(ValueError):       # il NOME di una chiave ignota torna nella risposta: mai testo libero (review Opus r4)
+            with self.assertRaises(ValueError):       # il NOME di una chiave ignota torna nella risposta: mai testo libero (review r4)
                 T.prealert_comunicazione(bad)
 
     def test_libreria_ignora_il_profilo(self):
         """La libreria calcola SEMPRE (il profilo governa il server, non il motore): pinnato, così una deriva in un senso o
-        nell'altro si vede (review Opus 18/09 r3). La CLI invece NON calcola: è un client di /valuta (test e2e sotto)."""
+        nell'altro si vede (review 18/09 r3). La CLI invece NON calcola: è un client di /valuta (test e2e sotto)."""
         with mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != T.PROFILO_ENV}, clear=True):
             out = A.valuta_paziente(VIT["vitali"], VIT["farmaci"], 67, 8, clinica=VIT["clinica"])["PRE_ALERT_INTEGRATO"]
             self.assertIsInstance(out["NEWS2"], int); self.assertTrue(out["avvisi"])
@@ -94,7 +94,7 @@ class TestProfilo(unittest.TestCase):
                 T.profilo()
 
     def test_motore_non_eseguito_in_comunicazione(self):
-        """Il pre-alert del profilo comunicazione nasce SENZA chiamare il motore (review Gemini 18/09)."""
+        """Il pre-alert del profilo comunicazione nasce SENZA chiamare il motore (review 18/09)."""
         with mock.patch.object(A, "valuta_paziente", side_effect=AssertionError("motore chiamato")):
             p = T.prealert_comunicazione(VIT)
         self.assertEqual(p["profilo"], "comunicazione"); self.assertEqual(p["vitali"], VIT["vitali"]); self.assertEqual(p["avvisi"], [])
@@ -124,7 +124,7 @@ class TestProfilo(unittest.TestCase):
             for tell in ('"NEWS2":', '"priorita":', "GRAVE", "ALTO", "azione_raccomandata", "NITRATI", "⛔"):   # nessun VALORE decisionale, nemmeno annidato
                 self.assertNotIn(tell, json.dumps(senza_elenco), tell)
             self.assertEqual(p["avvisi"], [])
-            # forma ESATTA di un record del motore ripristinato sotto il default (review Gemini+Opus r6): sottoinsieme del contratto
+            # forma ESATTA di un record del motore ripristinato sotto il default (review r6): sottoinsieme del contratto
             # (eta_mesi manca in un adulto) più problemi_dati; un ipotetico tipo_paziente dentro il pre-alert viene tolto
             self.assertTrue(set(p) <= CONTRATTO_COMUNICAZIONE | {"problemi_dati"}, set(p) - (CONTRATTO_COMUNICAZIONE | {"problemi_dati"}))
             self.assertEqual(p["campi_ignorati"], []); self.assertEqual(p["nota_profilo"], T.NOTA_PROFILO)
@@ -191,7 +191,7 @@ class TestE2EProfilo(unittest.TestCase):
             self.assertNotIn("RiskAssessment", [e["resource"]["resourceType"] for e in doc["entry"]]); self.assertNotIn("NEWS2", json.dumps(doc))
             urls = {e["fullUrl"] for e in doc["entry"]}
             prov = next(e["resource"] for e in doc["entry"] if e["resource"]["resourceType"] == "Provenance")
-            self.assertTrue(all(t["reference"] in urls for t in prov["target"]))   # nessun target pendente (review Opus 18/09)
+            self.assertTrue(all(t["reference"] in urls for t in prov["target"]))   # nessun target pendente (review 18/09)
             self.assertIsNone(out.get("tipo_paziente")); self.assertIn("tipo_paziente", p["campi_non_calcolati"])
             # SENZA provenienza, in ogni lingua: nessuna sezione con entry vuoto (il validator 6.10.4 lo rifiuta — misurato 18/09: 0 errori)
             for lang in ("de", "fr", "it", "en"):
@@ -207,11 +207,11 @@ class TestE2EProfilo(unittest.TestCase):
             self.assertNotIn("SCADUTO", json.dumps(met)); self.assertIn("NON_CALCOLATA", json.dumps(met))
             # Un adulto, un bambino (3 anni) e un caso di interazione nota (sildenafil + nitrato): sotto il DEFAULT nessuna
             # uscita del server — bacheca, metriche, incidenti, pagina, FHIR, ATMIST, documento CH EMS — porta una chiave
-            # decisionale né tipo_paziente né la raccomandazione sui nitrati (review Opus/Haiku 18/09: prima si guardava solo /valuta)
+            # decisionale né tipo_paziente né la raccomandazione sui nitrati (review 18/09: prima si guardava solo /valuta)
             st, inc = self._req("POST", "/incidente", {"descrizione": "tamponamento A4", "operatore": "co118"}); self.assertEqual(st, 200, inc)
             iid = inc["incidente"]["id"]
             casi = [dict(VIT, eta=3, vitali={"hr": 150, "rr": 35, "spo2": 94, "sbp": 85, "temp": 39.2, "su_ossigeno": False, "alert_coscienza": True}),
-                    dict(VIT, eta=64.0, farmaci=["sildenafil", "nitroglicerina"], incidente_id=iid)]   # 64.0: contratto del motore (review Opus r2)
+                    dict(VIT, eta=64.0, farmaci=["sildenafil", "nitroglicerina"], incidente_id=iid)]   # 64.0: contratto del motore (review r2)
             ids = [out["id"]]; prealerts = [p]
             for c in casi:
                 st, o = self._req("POST", "/valuta", c); self.assertEqual(st, 200, o); ids.append(o["id"]); prealerts.append(o["prealert"])
@@ -232,20 +232,20 @@ class TestE2EProfilo(unittest.TestCase):
             self.assertEqual(cli["profilo"], "comunicazione"); self.assertIn("NON eseguito", cli["nota"] or ""); self.assertNotIn("NEWS2", cli)
             ids.append(cli["id"]); st, o = self._req("GET", "/api/board"); prealerts.append(next(r for r in o if r["id"] == cli["id"])["prealert"])
             for pp in prealerts:
-                self.assertEqual(set(pp), CONTRATTO_COMUNICAZIONE)                # allowlist esatta, non blacklist (review Opus r3)
+                self.assertEqual(set(pp), CONTRATTO_COMUNICAZIONE)                # allowlist esatta, non blacklist (review r3)
             uscite = {}
             for nome in ("/api/board", "/metriche", "/incidenti", f"/incidente/{iid}", "/audit", *[f"/fhir/{i}" for i in ids]):
                 st, u = self._req("GET", nome); self.assertEqual(st, 200, nome); uscite[nome] = u    # stato asserito: mai scansione di un corpo d'errore
             self.assertEqual(len(uscite["/api/board"]), 5)
             # /audit qui è il riepilogo del trail (livello «base» senza il motore Part 11: nessun record dentro). La sostanza è
-            # STRUTTURALE, per record (review Opus r7: cercare un token in un ledger a soli digest è un test nullo): ogni
+            # STRUTTURALE, per record (review r7: cercare un token in un ledger a soli digest è un test nullo): ogni
             # «emissione» del ledger firmato porta SOLO il digest del pre-alert e l'identità, una per POST che ancora
             def _emissioni():
                 recs = [json.loads(l) for l in open(AB.FALLBACK_LEDGER, encoding="utf-8").read().splitlines() if l.strip()]
                 return [r for r in recs if r.get("azione") == "emissione"], recs
             self.assertEqual(uscite["/audit"]["livello"], "base")
             em, tutti = _emissioni(); self.assertEqual(len(em), len(ids), [r.get("azione") for r in tutti])
-            for r in em:                                                          # chiavi ESATTE e anche i VALORI (review Opus r8): un digest
+            for r in em:                                                          # chiavi ESATTE e anche i VALORI (review r8): un digest
                 self.assertEqual(set(r["dettaglio"]), {"prealert_sha256", "identita"}, r["dettaglio"])   # è 64 hex, l'identità un vocabolo
                 self.assertRegex(r["dettaglio"]["prealert_sha256"], r"\A[0-9a-f]{64}\Z"); self.assertIn(r["dettaglio"]["identita"], ("dichiarata", "autenticata"))
             catena = [json.loads(l) for l in open(S.LEDGER, encoding="utf-8").read().splitlines() if l.strip()]
@@ -267,12 +267,12 @@ class TestE2EProfilo(unittest.TestCase):
             for i in ids:
                 self.assertEqual(uscite[f"/fhir/{i}"]["resourceType"], "Bundle"); self.assertTrue(uscite[f"/fhir/{i}"]["entry"])
             self.assertEqual(uscite[f"/incidente/{iid}"]["pazienti"], 1)          # l'incidente ha davvero un paziente: la scansione non è a vuoto
-            self.assertIsNone(uscite["/metriche"]["over_triage_proxy"])         # proxy NON_CALCOLATI, non zeri strutturali (review Opus r2)
+            self.assertIsNone(uscite["/metriche"]["over_triage_proxy"])         # proxy NON_CALCOLATI, non zeri strutturali (review r2)
             self.assertIn("NON_CALCOLATI", uscite["/metriche"]["nota"])
             for n, pp in enumerate(prealerts):                                    # documento CH EMS costruito da OGNI caso (libreria)
                 uscite[f"chems/{n}"] = C.prealert_to_chems_document(pp, pp["vitali"], "2026-09-18T10:40:00+02:00", SAMPLE_MISSION)
             vietate = set(T.CAMPI_DECISIONALI) - {"avvisi"}     # avvisi resta come chiave, e ogni sua occorrenza deve essere [] (sotto)
-            # controlli positivi DEL BANCO, in codice, ciascuno da solo (review Opus r4: una sonda che contiene anche la chiave non
+            # controlli positivi DEL BANCO, in codice, ciascuno da solo (review r4: una sonda che contiene anche la chiave non
             # discrimina): chiave iniettata → la vede lo scanner a chiavi; punteggio come VALORE (FHIR code.text) → NON lo vede lo
             # scanner a chiavi, lo vede quello a token; avviso iniettato; e un controllo NEGATIVO: istogramma ed elenchi non sono fughe
             self.assertTrue(_chiavi({"a": [{"b": {"NEWS2": 5}}]}, set()) & vietate)
@@ -310,9 +310,9 @@ class TestE2EProfilo(unittest.TestCase):
                 T.BOARD[0]["prealert"] = None
             st, page = self._req_text("GET", "/?token=" + self.token)
             self.assertNotIn("NEWS2", page); self.assertIn("dati clinici rimossi", page); self.assertNotIn(">None<", page)
-            self.assertIn("rimossi dalla bacheca dopo", page)                     # la nota di ritenzione resta (review Opus r3)
+            self.assertIn("rimossi dalla bacheca dopo", page)                     # la nota di ritenzione resta (review r3)
             with T._LOCK:                                                          # e il paziente dell'incidente scaduto: la riga non torna a «priorita: SCADUTO»
-                next(x for x in T.BOARD if x.get("incidente_id") == iid)["prealert"] = None  # (review Gemini 18/09 r3)
+                next(x for x in T.BOARD if x.get("incidente_id") == iid)["prealert"] = None  # (review 18/09 r3)
             for nome in ("/incidenti", f"/incidente/{iid}"):
                 u = self._req("GET", nome)[1]
                 self.assertFalse(_chiavi(u, set()) & vietate, nome); self.assertIn('"scaduto": true', json.dumps(u))
@@ -320,7 +320,7 @@ class TestE2EProfilo(unittest.TestCase):
         self.assertNotIn('"NEWS2":', open(AB.FALLBACK_LEDGER).read())
 
     def test_punteggi_stessi_casi_lo_scanner_trova(self):
-        """Controllo positivo degli SCENARI (review Opus 18/09 r3): gli stessi tre casi sotto punteggi devono produrre
+        """Controllo positivo degli SCENARI (review 18/09 r3): gli stessi tre casi sotto punteggi devono produrre
         le chiavi decisionali, il tipo paziente del bambino, un avviso e il testo sui nitrati — altrimenti il test del
         default asserirebbe meno di quanto sembra."""
         vietate = set(T.CAMPI_DECISIONALI) - {"avvisi"}

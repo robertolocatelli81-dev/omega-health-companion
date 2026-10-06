@@ -236,7 +236,7 @@ SIG_TYPE = {"system": "urn:iso-astm:E1762-95:2013", "code": "1.2.840.10065.1.12.
 # The canonicalization is named in targetFormat in the parameter form the FHIR "Digital Signatures" page uses, with a URI
 # WE define (FORMAT.md): FHIR R4's own "canonical JSON" is not RFC 8785 (no number rewriting, and it does not say to remove
 # the signature member); the current FHIR build adopts RFC 8785, but CH EMS is R4. Labelling our bytes with the FHIR URI
-# would let a verifier following that page rebuild different bytes (review Opus r1). The same URI travels in the JWS
+# would let a verifier following that page rebuild different bytes (review r1). The same URI travels in the JWS
 # header ("canon"), so the payload rule is discoverable from the signature itself.
 CANON_URI = "https://omega.example/fhir/canonicalization/rfc8785-bundle-without-signature"
 TARGET_FORMAT = "application/fhir+json;canonicalization=" + CANON_URI
@@ -484,7 +484,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
     ref = lambda rid: {"reference": urn(rid)}
 
     eta = p.get("eta_paziente")
-    paz_id = "anon" if missione.get("paziente") is None else "paziente"  # an identified patient is not "anon" (review Opus r1)
+    paz_id = "anon" if missione.get("paziente") is None else "paziente"  # an identified patient is not "anon" (review r1)
     patient = {"resourceType": "Patient", "id": paz_id, "meta": {"profile": [PROFILE["patient"]]},
                "text": _xhtml(X["patient"].format(age=X["age"].format(eta=eta) if isinstance(eta, int) and not isinstance(eta, bool) else ""))}
     if missione.get("paziente") is not None:
@@ -591,7 +591,7 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
     if missione.get("destinazione"):
         destinazione = _org("destinazione", missione["destinazione"], "destinazione (receiving hospital)")
 
-    comunicazione = p.get("profilo") == "comunicazione"      # 0.7.0: nessun RiskAssessment senza punteggi calcolati (review Opus 18/09)
+    comunicazione = p.get("profilo") == "comunicazione"      # 0.7.0: nessun RiskAssessment senza punteggi calcolati (review 18/09)
     rischio = None if comunicazione else {"resourceType": "RiskAssessment", "id": "prealert", "status": "final", "subject": ref(paz_id),
                "encounter": ref("missione"), "occurrenceDateTime": ts,
                "method": {"coding": [{"system": CS_LOCALE, "code": "news2", "display": "NEWS2 (RCP 2017) + percorsi tempo-dipendenti"}]},
@@ -659,19 +659,19 @@ def prealert_to_chems_document(prealert_integrato: Dict, vitali: Dict, ts: str, 
         sections.append(section("handover", X["handover"] + (" · " + X["dest"].format(dest=destinazione["name"]) if destinazione else ""), hand_ids))
     ann_ids = ([] if rischio is None else ["prealert"]) + [f["id"] for f in flags] + (["omega-anchor"] if prov else [])
     sections.append({"title": T["annotation"], "code": {"coding": [{"system": LOINC_SYS, "code": "48767-8"}]},   # no display: tx.fhir.org has none per language (fr failed)
-                     "text": _xhtml(X["nota_profilo"] if comunicazione else                             # per lingua (review Opus r2)                       # comunicazione: nessun punteggio nel narrativo
+                     "text": _xhtml(X["nota_profilo"] if comunicazione else                             # per lingua (review r2)                       # comunicazione: nessun punteggio nel narrativo
                                     X["ann"].format(prio=p.get("priorita"), news=p.get("NEWS2"), avvisi="; ".join(p.get("avvisi") or []) or X["none"],
                                                     percorsi=", ".join(p.get("percorsi_attivare") or []) or X["none"])),
-                     **({"entry": [ref(i) for i in ann_ids]} if ann_ids else {})})   # mai "entry": [] (il validator lo rifiuta — review Opus r2)
+                     **({"entry": [ref(i) for i in ann_ids]} if ann_ids else {})})   # mai "entry": [] (il validator lo rifiuta — review r2)
     # Composition.identifier is the VERSION-INDEPENDENT id (FHIR documents): same mission number + alarm time (normalised to
     # UTC, so +02:00 and Z spell the same instant) + the per-patient `prealert_id` → same value across preliminary/final/
-    # amended and across re-exports. NOT seeded with `ts` (the export instant) — Gemini Pro's review of 18/09 caught that —
-    # and NOT shared between patients of one multi-patient mission — Opus' review caught that: when `incidente_id` is given
+    # amended and across re-exports. NOT seeded with `ts` (the export instant) — the review of 18/09 caught that —
+    # and NOT shared between patients of one multi-patient mission — a second review caught that: when `incidente_id` is given
     # the caller MUST also give an opaque `prealert_id`, otherwise two patients of the same mission would get one identifier.
     # Bundle.identifier (below) is per instance (status + ts included).
     pid = missione.get("prealert_id")
     if pid is None or isinstance(pid, bool) or not _ID_SAFE.match(str(pid)):
-        # ALWAYS required (Opus review r2, 18/09): mission number + alarm time are per MISSION, and a mission can carry
+        # ALWAYS required (review r2, 18/09): mission number + alarm time are per MISSION, and a mission can carry
         # several patients whether or not the caller opened an OMEGA incident — without a per-patient token two
         # patients' documents would look like two versions of one document to an EPR. Nothing is invented.
         raise ValueError("CH EMS: prealert_id (opaque per-patient token: letters, digits, . _ -; max 64) is required — "

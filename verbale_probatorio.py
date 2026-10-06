@@ -87,7 +87,7 @@ def registra_ricezione(prealert_id: str, operatore_ps: str, ruolo: str, risposta
     if ts_emissione:
         # the DECLARED latency: what the caller says the emission instant was. A naive instant is refused (a local
         # time read as UTC moved the legal clock); a negative latency is refused. The MEASURED latency is computed
-        # by verbale() from the crew-signed emission event and this ED-signed receipt (council 15/09, Fable).
+        # by verbale() from the crew-signed emission event and this ED-signed receipt (council 15/09).
         try:
             t0 = datetime.fromisoformat(str(ts_emissione).replace("Z", "+00:00"))
         except (ValueError, TypeError):
@@ -120,7 +120,7 @@ def _verifica_entry_locale(e: Dict, registro: Dict[str, str]) -> Dict:
     try:
         chiavi = ("kind", "target", "azione", "dettaglio", "operatore", "ts") + (("prev_sha256",) if "prev_sha256" in e else ()) \
                  + (("alg",) if "alg" in e else ())
-        # the key set is EXACT (council 15/09, Sonnet): a line enriched with an extra field (e.g. clear text) used to
+        # the key set is EXACT (council 15/09): a line enriched with an extra field (e.g. clear text) used to
         # verify as if untouched, because only the known keys were re-hashed
         attese = set(chiavi) | {"record_sha256", "firma_ed25519_b64", "pubkey_b64"}
         if set(e) != attese:
@@ -150,7 +150,7 @@ def registro_chiavi() -> Dict[str, str]:
     così un terzo verifica offline contro un registro che custodisce lui."""
     reg: Dict[str, str] = {}
     if os.path.isdir(AB.KEYS_DIR):
-        # READ-ONLY (council 15/09, Opus): verification must never enrol keys; a .pub is written only when a
+        # READ-ONLY (council 15/09): verification must never enrol keys; a .pub is written only when a
         # record is SIGNED (audit_bridge._fb_registra_locked). Only well-formed names are read.
         for n in sorted(os.listdir(AB.KEYS_DIR)):
             if n.startswith("fb-") and n.endswith(".pub") and "/" not in n and "\\" not in n and 4 <= len(n) <= 48:
@@ -160,7 +160,7 @@ def registro_chiavi() -> Dict[str, str]:
 
 
 def _rottura_digest(e: Dict, n: int, rotture: List[Dict]) -> None:
-    """Every line's digest is recomputed (council 15/09, Fable): before, a line outside this pre-alert could be
+    """Every line's digest is recomputed (council 15/09): before, a line outside this pre-alert could be
     edited (keeping its record_sha256) and the chain still read «integra»."""
     try:
         chiavi = ("kind", "target", "azione", "dettaglio", "operatore", "ts") + (("prev_sha256",) if "prev_sha256" in e else ()) + (("alg",) if "alg" in e else ())

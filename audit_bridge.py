@@ -88,7 +88,7 @@ def firma_disponibile() -> bool:
 
 def esigi_firma_o_optin(chi: str = "omega-health") -> None:
     """Da chiamare all'avvio di ogni entry point (server, CLI): senza motore di firma e senza opt-in esplicito
-    esce SUBITO con un messaggio nominato, invece di fallire alla prima registrazione (Opus review 18/09)."""
+    esce SUBITO con un messaggio nominato, invece di fallire alla prima registrazione (review 18/09)."""
     if not firma_disponibile() and os.environ.get(PERMETTI_NON_FIRMATO_ENV) != "1":
         raise SystemExit(f"{chi}: nessun motore di firma (installa `cryptography`); per un trail NON firmato "
                          f"di proposito imposta {PERMETTI_NON_FIRMATO_ENV}=1")
@@ -151,7 +151,7 @@ def ultimo_id(prefisso: str) -> int:
     """Highest N of a `<prefisso>-N` target in the signed ledgers (0 if none): an in-memory counter must continue
     from here after a restart, or a new record would reuse an old id in the signed history. Both ledgers are scanned:
     the local one (`"target"`) and the Part 11 trail (`"target_record_id"`), which the engine path writes instead
-    (review Opus r3: with the engine present the counter restarted at 1). Prefixes: `prealert`, `incidente`."""
+    (review r3: with the engine present the counter restarted at 1). Prefixes: `prealert`, `incidente`."""
     import re as _re
     best = 0
     esc = _re.escape(prefisso)
@@ -203,13 +203,13 @@ def _fb_ultimo_sha256() -> str:
     """Ultimo record_sha256 del ledger locale (o GENESIS): l'anello per la catena prev_sha256."""
     if not os.path.exists(FALLBACK_LEDGER):
         return "GENESIS"
-    last = _ultima_riga(FALLBACK_LEDGER)          # letta dalla CODA del file: O(1), non O(N) a ogni scrittura (Gemini Pro 18/09)
+    last = _ultima_riga(FALLBACK_LEDGER)          # letta dalla CODA del file: O(1), non O(N) a ogni scrittura (review 18/09)
     if not last:
         return "GENESIS"
     try:
         e = json.loads(last)
     except ValueError as ex:
-        # fail-closed (council 15/09, Haiku): a torn/corrupt last line used to send the next record back to
+        # fail-closed (council 15/09): a torn/corrupt last line used to send the next record back to
         # GENESIS — a silent fork of the chain. The operator must repair the file, not the code hide it.
         raise ValueError(f"ultima riga del ledger illeggibile ({ex.msg}): append rifiutato, riparare il file") from None
     if not isinstance(e, dict) or not isinstance(e.get("record_sha256"), str):

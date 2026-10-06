@@ -54,7 +54,7 @@ def main() -> int:
         elif t.startswith("packungscode"): col["pc"] = k
         elif t.startswith("wirkstoff"): col["ws"] = k
     mancanti = [k for k in ("zn", "nome", "atc", "pc") if k not in col]
-    if mancanti:                                          # mai un dizionario vuoto in silenzio (review Haiku/Gemini 18/09)
+    if mancanti:                                          # mai un dizionario vuoto in silenzio (review 18/09)
         raise SystemExit(f"intestazioni Swissmedic non riconosciute: manca {mancanti}; colonne viste: {[' '.join(str(v).split())[:30] for v in hdr.values()]}")
     stand = next((str(v) for r in rows[:hdr_i] for v in r.values() if "Stand" in str(v)), "")
     out = {}; conflitti = []; scartate = 0; ambigui = set()
@@ -64,9 +64,9 @@ def main() -> int:
             scartate += 1 if r else 0; continue
         g = gtin_ch(str(zn), str(pc)); a = str(atc).strip()
         if g in out and out[g] != a:                    # stesso GTIN derivato, ATC diverso: la chiave AMBIGUA esce dal dizionario
-            conflitti.append((g, out[g], a)); ambigui.add(g); continue   # (review Sonnet r2: né first- né last-wins)
+            conflitti.append((g, out[g], a)); ambigui.add(g); continue   # (review r2: né first- né last-wins)
         out[g] = a                                      # solo l'ATC: il nome resta quello scritto nel documento
-    for g in ambigui:                                     # PRIMA di contare: n = chiavi davvero pubblicate (review Opus r3)
+    for g in ambigui:                                     # PRIMA di contare: n = chiavi davvero pubblicate (review r3)
         out.pop(g, None)
     doc = {"_provenienza": {"fonte": "Swissmedic, Zugelassene Packungen (Humanarzneimittel)", "url": URL,
                             "origine": "download diretto" if src == URL else "file locale (stesso contenuto: vedi sha256)",

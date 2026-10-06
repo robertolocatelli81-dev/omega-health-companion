@@ -84,7 +84,7 @@ class TestE2EOperatori(unittest.TestCase):
         st, out = self._post("/valuta", {**VIT, "operatore": "eq-99"}, {"X-Omega-Token": self.admin})
         self.assertEqual(st, 200); self.assertEqual(out["identita"], "dichiarata")
         self.assertEqual(json.loads(open(AB.FALLBACK_LEDGER, encoding="utf-8").read().strip().splitlines()[-1])["dettaglio"]["identita"], "dichiarata")
-        # eq-99 ha ora una chiave nata "dichiarata": registrarlo come operatore è rifiutato senza adotta_chiave (review Opus r2)
+        # eq-99 ha ora una chiave nata "dichiarata": registrarlo come operatore è rifiutato senza adotta_chiave (review r2)
         st, out = self._post("/operatori", {"slug": "eq-99", "ruolo": "equipaggio"}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 400); self.assertIn("era dichiarata", out["error"])
         st, out = self._post("/operatori", {"slug": "eq-99", "ruolo": "equipaggio", "adotta_chiave": True}, {"X-Omega-Token": self.admin})
         self.assertEqual(st, 200); self.assertEqual(out["evento"], "creazione_operatore_con_chiave_preesistente")
@@ -97,9 +97,9 @@ class TestE2EOperatori(unittest.TestCase):
         # un nome DICHIARATO uguale a uno slug registrato è rifiutato (firmerebbe con la chiave di eq-7)
         st, out = self._post("/valuta", {**VIT, "operatore": "eq-7"}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 403); self.assertIn("registrato", out["error"])
         st, out = self._post("/valuta", {**VIT, "operatore": "EQ.7"}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 403)   # collassa sullo stesso slug
-        for nome in ("admin", "Admin", "ADMIN ", "sistema", "anonimo"):                         # nomi di sistema: mai dichiarati, anche cambiando caso (review Opus r3)
+        for nome in ("admin", "Admin", "ADMIN ", "sistema", "anonimo"):                         # nomi di sistema: mai dichiarati, anche cambiando caso (review r3)
             st, out = self._post("/valuta", {**VIT, "operatore": nome}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 403, nome)
-        # un token operatore NON ruota il token di amministrazione (review Opus 18/09)
+        # un token operatore NON ruota il token di amministrazione (review 18/09)
         st, out = self._post("/ruota-token", {}, {"X-Omega-Operatore-Token": tok}); self.assertEqual(st, 403)
         self.assertEqual(T._token(), self.admin)
         # ri-registrare lo stesso slug è un atto esplicito
@@ -112,7 +112,7 @@ class TestE2EOperatori(unittest.TestCase):
         st, _ = self._post("/operatori/revoca", {"slug": "eq-7"}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 200)
         st, _ = self._post("/valuta", VIT, {"X-Omega-Operatore-Token": tok}); self.assertEqual(st, 401)
         st, out = self._post("/operatori", {"slug": "eq-7", "ruolo": "ps", "riemetti": True}, {"X-Omega-Token": self.admin})
-        self.assertEqual(out["evento"], "riattivazione_operatore_con_cambio_ruolo"); self.assertEqual(out["ruolo"], "ps")   # da revocato il ruolo può cambiare (review Opus r3)
+        self.assertEqual(out["evento"], "riattivazione_operatore_con_cambio_ruolo"); self.assertEqual(out["ruolo"], "ps")   # da revocato il ruolo può cambiare (review r3)
         self.assertEqual(OP.elenco()["eq-7"]["storia"][-1]["ruolo_precedente"], "equipaggio")
         st, _ = self._post("/operatori/revoca", {"slug": "eq-7"}, {"X-Omega-Token": self.admin})
         st, out = self._post("/operatori", {"slug": "eq-7", "ruolo": "ps", "riemetti": True}, {"X-Omega-Token": self.admin})
@@ -143,7 +143,7 @@ class TestE2EOperatori(unittest.TestCase):
             rid = out["id"]
             st, out = self._post("/triage", {"id": rid, "triage_start": "rosso", "operatore": "chiunque"}, {"X-Omega-Token": self.admin}); self.assertEqual(st, 403)
             st, out = self._post("/triage", {"id": rid, "triage_start": "rosso"}, {"X-Omega-Operatore-Token": tok}); self.assertEqual(st, 200, out)
-            # il form /conferma e l'upload /allegato non aggirano la modalità pilota (review Opus 18/09)
+            # il form /conferma e l'upload /allegato non aggirano la modalità pilota (review 18/09)
             import urllib.parse
             form = urllib.parse.urlencode({"token": self.admin, "id": rid, "nota": "ok", "operatore": "dr-impostore"}).encode()
             req = urllib.request.Request(self.base + "/conferma", data=form, method="POST", headers={"Content-Type": "application/x-www-form-urlencoded"})
@@ -160,7 +160,7 @@ class TestE2EOperatori(unittest.TestCase):
             except urllib.error.HTTPError as e:
                 self.assertEqual(e.code, 403)
             self.assertNotIn("dr-impostore", open(AB.FALLBACK_LEDGER).read())
-            # dietro un reverse proxy (header di inoltro) la pagina NON contiene mai il token admin (giudizio Gemini Pro 18/09)
+            # dietro un reverse proxy (header di inoltro) la pagina NON contiene mai il token admin (giudizio indipendente 18/09)
             with mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != OP.REQUIRE_ENV}, clear=True):
                 req = urllib.request.Request(self.base + "/", headers={"X-Forwarded-For": "203.0.113.9", "X-Omega-Token": self.admin})
                 self.assertNotIn(self.admin, urllib.request.urlopen(req, timeout=30).read().decode())

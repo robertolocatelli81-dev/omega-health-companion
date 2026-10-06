@@ -351,7 +351,7 @@ class TestFirmaDocumento(unittest.TestCase):
 
     def test_structure_is_enforced_even_if_the_mathematics_lies(self):
         """Under an oracle that calls every signature valid, every header/metadata rule must still give NON_VALIDA — so the
-        rules are enforced by the verifier, not by the signature happening to break too (review Opus r2)."""
+        rules are enforced by the verifier, not by the signature happening to break too (review r2)."""
         from unittest import mock
         jws = self._jws(); h, _, sg = jws.split("."); raw = bytearray(C._b64u_dec(sg)); raw[10] ^= 0x01
         rotto = self._rewrap(self.signed, f"{h}..{C._b64u(bytes(raw))}")                     # mathematically INVALID document
@@ -463,7 +463,7 @@ class TestVerificaSenzaFirmatario(unittest.TestCase):
     verdict on the PUBLISHED signed sample."""
     def test_registry_default_is_beside_the_module_not_the_cwd(self):
         """A fresh interpreter started from an unrelated directory must compute the same registry path as ours: the default
-        is derived from the module's __file__, not from the CWD at import (review Opus r5: the in-process assertion could
+        is derived from the module's __file__, not from the CWD at import (review r5: the in-process assertion could
         not tell the two apart when the suite starts from the repo root)."""
         import subprocess, sys, tempfile
         modulo = os.path.dirname(os.path.abspath(_AB_import.__file__))

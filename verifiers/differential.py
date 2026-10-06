@@ -116,7 +116,7 @@ def cases(base):
     def empty_audit(f):
         open(f["audit"], "w").close()
     case("audit_empty", empty_audit, keys=True)
-    def amputated(f):      # council r2 (Gemini/Fable): a line without `dettaglio`, re-signed with a foreign key, must FAIL
+    def amputated(f):      # council r2: a line without `dettaglio`, re-signed with a foreign key, must FAIL
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
         from cryptography.hazmat.primitives import serialization as ser
         import hashlib

@@ -218,7 +218,7 @@ def metriche(board: List[Dict], now: Optional[datetime] = None) -> Dict:
     tempi: List[float] = []
     for r in board:
         pa = r.get("prealert") or {}
-        pr = _priorita_o_stato(r)                 # comunicazione: NON_CALCOLATA, non «SCADUTO» (review Opus r2)
+        pr = _priorita_o_stato(r)                 # comunicazione: NON_CALCOLATA, non «SCADUTO» (review r2)
         prio[pr] = prio.get(pr, 0) + 1
         for x in r.get("ricezioni") or []:
             ric += 1
@@ -310,7 +310,7 @@ def _priorita_o_stato(r: Dict) -> str:
 
 def riepilogo_incidente(incidente: Dict, board: List[Dict], profilo_vivo: Optional[str] = None) -> Dict:
     """`profilo_vivo`: il profilo del server (team_comms.profilo()); serve per i record SCADUTI, che non portano più il
-    proprio (review Gemini 18/09 r3: un pre-alert scaduto rientrava nel ramo punteggi con «priorita: SCADUTO»)."""
+    proprio (review 18/09 r3: un pre-alert scaduto rientrava nel ramo punteggi con «priorita: SCADUTO»)."""
     pre = [r for r in board if r.get("incidente_id") == incidente["id"]]
     conte: Dict[str, int] = {}
     start: Dict[str, int] = {}
@@ -325,7 +325,7 @@ def riepilogo_incidente(incidente: Dict, board: List[Dict], profilo_vivo: Option
 
 def _riga_incidente(r: Dict, profilo_vivo: Optional[str] = None) -> Dict:
     """Una riga per pre-alert nel riepilogo: nel profilo comunicazione NESSUNA chiave decisionale, nemmeno a None
-    (review Opus 18/09 r2: «priorita: None» è ancora la chiave di un punteggio); i valori calcolati solo in punteggi.
+    (review 18/09 r2: «priorita: None» è ancora la chiave di un punteggio); i valori calcolati solo in punteggi.
     Un record scaduto (prealert None) segue il profilo VIVO del server."""
     pa = r.get("prealert") or {}
     riga = {"id": r["id"], "triage_start": r.get("triage_start"),

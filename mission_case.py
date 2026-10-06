@@ -114,10 +114,10 @@ class FascicoloMissione:
             return [json.loads(l) for l in fh if l.strip()]
 
     def _append(self, body: Dict[str, Any], precheck=None) -> dict:
-        """Append sotto LOCK ESCLUSIVO (colpo Gemini Pro: due processi che
+        """Append sotto LOCK ESCLUSIVO (colpo della revisione: due processi che
         leggono lo stesso prev_hash creerebbero un fork che rompe la catena
         per sempre). Il lock copre lettura del prev_hash E scrittura.
-        `precheck(righe)` gira SOTTO il lock (compare-and-append, council 15/09 Sonnet): la validazione
+        `precheck(righe)` gira SOTTO il lock (compare-and-append, council 15/09): la validazione
         FSM ripete la lettura dello stato dentro la sezione critica, così due transizioni concorrenti
         incompatibili non passano entrambe."""
         import fcntl
@@ -131,7 +131,7 @@ class FascicoloMissione:
                 body = dict(body)
                 body["ts"] = _utc()
                 if righe and body["ts"] < righe[-1]["ts"]:
-                    # colpo Gemini Pro: la catena prova l'ORDINE, non il tempo —
+                    # colpo della revisione: la catena prova l'ORDINE, non il tempo —
                     # ma un orologio che va all'indietro è un'anomalia medico-legale
                     # da fermare, non da mettere in catena
                     raise ValueError(
@@ -229,7 +229,7 @@ class FascicoloMissione:
         if a not in TRANSIZIONI[st["stato"]]:
             raise ValueError(f"transizione {st['stato']} -> {a} non ammessa; "
                              f"ammesse: {sorted(TRANSIZIONI[st['stato']])}")
-        # council 15/09 (Gemini/Opus): NIENTE troncamento silenzioso di testo clinico e NIENTE testo in chiaro
+        # council 15/09: NIENTE troncamento silenzioso di testo clinico e NIENTE testo in chiaro
         # su disco — la nota è validata intera, rifiutata se troppo lunga, e va nel ledger SOLO per impronta
         if not isinstance(nota, str):
             raise ValueError("nota: stringa richiesta")

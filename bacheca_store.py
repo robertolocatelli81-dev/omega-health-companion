@@ -52,18 +52,18 @@ def _aesgcm():
 
 def serializza(obj: Any) -> bytes:
     """Il plaintext esatto che viene cifrato (JSON compatto): esposto perché il test di cifratura derivi i suoi marcatori
-    da QUI e non da un json.dumps a mano con separatori diversi (review Opus 18/09 r10: il controllo era nullo)."""
+    da QUI e non da un json.dumps a mano con separatori diversi (review 18/09 r10: il controllo era nullo)."""
     return json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 class Store:
     def __init__(self, path: str):
         self.path = path
         # la chiave può stare su un altro supporto (OMEGA_BOARD_STORE_KEY): solo così il furto del supporto dati non porta con sé la
-        # chiave (review Sonnet r2); di default sta accanto al file e protegge SOLO la copia del solo file
+        # chiave (review r2); di default sta accanto al file e protegge SOLO la copia del solo file
         self.key_path = os.environ.get(KEY_ENV) or (path + ".key")
         self._lock = threading.Lock()
         # UN processo per journal: lock esclusivo sul file <path>.lock tenuto aperto per tutta la vita dello Store; un secondo
-        # processo (worker WSGI, doppio avvio) si ferma subito invece di corrompere sqlite in silenzio (review Haiku 18/09)
+        # processo (worker WSGI, doppio avvio) si ferma subito invece di corrompere sqlite in silenzio (review 18/09)
         import fcntl
         self._lock_fd = os.open(path + ".lock", os.O_WRONLY | os.O_CREAT, 0o600)
         try:
@@ -76,13 +76,13 @@ class Store:
             self._cipher = _aesgcm()(self._key)
             self._apri_db(path)
         except BaseException:                           # anche SystemExit: il lock di processo non deve restare in mano a un
-            os.close(self._lock_fd); raise              # oggetto fallito (review Sonnet r3)
+            os.close(self._lock_fd); raise              # oggetto fallito (review r3)
 
-    def _apri_db(self, path: str) -> None:               # fail-closed all'apertura; UN solo key schedule (review Gemini 18/09)
-        if not os.path.exists(path):                          # il file nasce GIÀ 0600 (review Gemini r2: prima sqlite lo creava con
+    def _apri_db(self, path: str) -> None:               # fail-closed all'apertura; UN solo key schedule (review 18/09)
+        if not os.path.exists(path):                          # il file nasce GIÀ 0600 (review r2: prima sqlite lo creava con
             os.close(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))   # l'umask e il chmod arrivava dopo)
         st_db = os.stat(path)
-        if st_db.st_mode & 0o077:                             # anche un journal preesistente con permessi larghi è rifiutato (review Opus r2)
+        if st_db.st_mode & 0o077:                             # anche un journal preesistente con permessi larghi è rifiutato (review r2)
             raise PermissionError(f"{path}: permessi troppo larghi ({oct(st_db.st_mode & 0o777)}); attesi 0600")
         self._db = sqlite3.connect(path, check_same_thread=False)
         self._db.execute("CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, nonce BLOB NOT NULL, blob BLOB NOT NULL)")
@@ -93,7 +93,7 @@ class Store:
         if not os.path.exists(self.key_path):
             if os.path.exists(self.path) and os.path.getsize(self.path) > 0:
                 # journal presente, chiave assente (supporto non montato, file cancellato): NON si conia una chiave nuova,
-                # altrimenti il journal recuperabile viene poi accusato di manomissione (review Opus r2)
+                # altrimenti il journal recuperabile viene poi accusato di manomissione (review r2)
                 raise FileNotFoundError(f"{self.key_path}: chiave assente ma il journal {self.path} esiste: montare/ripristinare la chiave")
             try:
                 fd = os.open(self.key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -145,7 +145,7 @@ class Store:
     def salva_record(self, rec: Dict[str, Any]) -> None:
         out = {k: rec.get(k) for k in CAMPI_RECORD}
         # il sale del commitment HMAC (nota clinica dell'esito) vive SOLO in RAM: con il sale su disco la nota a bassa entropia
-        # sarebbe attaccabile a dizionario (review Opus/Sonnet r2); stessa regola di STATO_PS
+        # sarebbe attaccabile a dizionario (review r2); stessa regola di STATO_PS
         out["esiti"] = [{k: v for k, v in e.items() if k != "sale"} for e in (rec.get("esiti") or []) if isinstance(e, dict)]
         self._put(f"rec:{int(rec['id'])}", out)
 
@@ -166,7 +166,7 @@ class Store:
         persistiti VUOTI e con `ripristinato_senza` che lo dichiara; la scadenza (TTL) la applica il chiamante."""
         board = []; senza_ts = 0
         for _, r in sorted(self._get_all("rec:"), key=lambda kv: int(kv[0].split(":")[1])):
-            if not isinstance(r.get("ts"), str):           # senza istante il TTL non può decidere: il record NON torna (review Haiku 18/09)
+            if not isinstance(r.get("ts"), str):           # senza istante il TTL non può decidere: il record NON torna (review 18/09)
                 senza_ts += 1; continue
             r.update({k: [] for k in NON_PERSISTITI})
             r["ripristinato_senza"] = list(NON_PERSISTITI)

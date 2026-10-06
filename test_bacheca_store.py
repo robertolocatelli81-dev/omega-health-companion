@@ -15,9 +15,9 @@ _PROFILO_PRIMA = [None]
 
 
 def setUpModule():                         # questi test esercitano il profilo punteggi (default = comunicazione dal 0.7.2). Assegnazione ESPLICITA
-    _PROFILO_PRIMA[0] = os.environ.get("OMEGA_PROFILO")   # (non setdefault: un OMEGA_PROFILO esportato non deve cambiare cosa si testa — Gemini+Opus 18/09)
+    _PROFILO_PRIMA[0] = os.environ.get("OMEGA_PROFILO")   # (non setdefault: un OMEGA_PROFILO esportato non deve cambiare cosa si testa — review 18/09)
     os.environ["OMEGA_PROFILO"] = "punteggi"              # e in setUpModule, non a livello di modulo: `unittest discover` importa TUTTI i file prima di
-                                                          # eseguirli, e un set a import-time vale per il processo intero (misurato 18/09, review Sonnet)
+                                                          # eseguirli, e un set a import-time vale per il processo intero (misurato 18/09, independent review)
 
 
 def tearDownModule():                      # ripristino: il profilo non trapela nei file eseguiti dopo
@@ -55,7 +55,7 @@ class TestStore(unittest.TestCase):
         r = json.loads(json.dumps(SAMPLE_REC)); r["ts"] = datetime.now(timezone.utc).isoformat(); r.update(over); return r
 
     def test_round_trip_senza_i_campi_solo_memoria(self):
-        # i BYTE reali passati a encrypt: si intercetta ENCRYPT stesso, non il serializzatore (review Opus r11-r12: così la frase
+        # i BYTE reali passati a encrypt: si intercetta ENCRYPT stesso, non il serializzatore (review r11-r12: così la frase
         # «i byte consegnati a encrypt» è vera per costruzione e nessun'altra chiamata al serializzatore può alimentare la cattura)
         self._visto = []; cls = BS._aesgcm(); orig_encrypt = cls.encrypt
         def _spia(cipher, nonce, data, ad=None):
@@ -66,7 +66,7 @@ class TestStore(unittest.TestCase):
     def _round_trip_body(self):
         st = BS.Store(self.path); st.salva_record(self._rec()); st.salva_incidente({"id": 3, "ts": datetime.now(timezone.utc).isoformat(), "descrizione": "VIA ROSSI 12 TARGA XY", "aperto_da": "centrale"})
         st.salva_stato_ps({"stato": "saturo", "ts": "t", "operatore_ps": "dr", "destinazione_alternativa": "Ospedale Nord Trauma Center H2", "sale": "SALE-SOLO-IN-MEMORIA-MAI-SU-DISCO"}); st.close()
-        plaintext = b"".join(self._visto)                # SOLO i byte della sessione di scrittura, presi PRIMA del ripristino (review Opus r12)
+        plaintext = b"".join(self._visto)                # SOLO i byte della sessione di scrittura, presi PRIMA del ripristino (review r12)
         snap = BS.Store(self.path).ripristina()
         r = snap["board"][0]
         self.assertEqual(r["vitali"], {"hr": 135, "sbp": 85}); self.assertEqual(r["triage_start"], "rosso")
@@ -75,10 +75,10 @@ class TestStore(unittest.TestCase):
         self.assertEqual(r["ripristinato_senza"], list(BS.NON_PERSISTITI))
         i = snap["incidenti"][0]; self.assertNotIn("VIA ROSSI", i["descrizione"]); self.assertEqual(i["ripristinato_senza"], ["descrizione"])
         self.assertEqual(snap["stato_ps"]["stato"], "saturo"); self.assertIsNone(snap["stato_ps"]["sale"])   # chiave presente, valore None
-        self.assertIsNone(snap["stato_ps"]["destinazione_alternativa"])      # testo libero: mai su disco (review Opus 18/09)
+        self.assertIsNone(snap["stato_ps"]["destinazione_alternativa"])      # testo libero: mai su disco (review 18/09)
         with open(self.path, "rb") as fh:                # marcatori LUNGHI: un marcatore di 2 byte compariva per caso nel ciphertext
             raw = fh.read()                              # (1 rosso su 30, misurato 18/09: metro sbagliato, non cifratura rotta)
-        # controllo di CIFRATURA con marcatori derivati dal serializzatore dello store (review Opus r10: «"stato": "saturo"» con
+        # controllo di CIFRATURA con marcatori derivati dal serializzatore dello store (review r10: «"stato": "saturo"» con
         # gli spazi non poteva mai comparire nel JSON compatto → test nullo). Prima si prova che il marcatore È nel plaintext
         # che lo store cifra, poi che NON è nel file.
         persistiti = {"stato": "saturo", "triage_start": "rosso", "hr": 135}
@@ -87,9 +87,9 @@ class TestStore(unittest.TestCase):
             self.assertIn(m, plaintext, m)                                              # positivo: nei byte passati a encrypt c'è
             self.assertNotIn(m, raw, m)                                                 # negativo: nel file cifrato no
         for m in (b"Ospedale Nord Trauma Center", b"VIA ROSSI 12 TARGA", b"SALE-SOLO-IN-MEMORIA-MAI-SU-DISCO"):   # solo in RAM:
-            self.assertNotIn(m, plaintext, m)             # mai nei byte consegnati a encrypt (esclusione, non cifratura — review Opus r12)
+            self.assertNotIn(m, plaintext, m)             # mai nei byte consegnati a encrypt (esclusione, non cifratura — review r12)
             self.assertNotIn(m, raw)
-        # controllo positivo IN SUITE (review Opus r11): una riga in chiaro scritta nello stesso file DEVE far trovare il marcatore
+        # controllo positivo IN SUITE (review r11): una riga in chiaro scritta nello stesso file DEVE far trovare il marcatore
         import sqlite3
         db = sqlite3.connect(self.path); db.execute("INSERT INTO kv (k, nonce, blob) VALUES ('leak', X'', ?)", (orig_serializza(snap["stato_ps"]),)); db.commit(); db.close()
         with open(self.path, "rb") as fh:
@@ -192,7 +192,7 @@ class TestRipristinoBacheca(unittest.TestCase):
     def setUp(self):
         self.d = tempfile.mkdtemp(); self.path = os.path.join(self.d, "board.sqlite")
         import scores_emergenza as S
-        self._orig = (S.LEDGER, AB.FALLBACK_LEDGER, AB.KEYS_DIR, TC.TOKEN_FILE, AB.MOTORE_DISPONIBILE)   # mai i ledger di produzione (review Opus r2)
+        self._orig = (S.LEDGER, AB.FALLBACK_LEDGER, AB.KEYS_DIR, TC.TOKEN_FILE, AB.MOTORE_DISPONIBILE)   # mai i ledger di produzione (review r2)
         S.LEDGER = os.path.join(self.d, "ledger.jsonl"); AB.FALLBACK_LEDGER = os.path.join(self.d, "fb.jsonl"); AB.KEYS_DIR = os.path.join(self.d, "keys")
         TC.TOKEN_FILE = os.path.join(self.d, "token.txt"); AB.MOTORE_DISPONIBILE = False
         self._env = mock.patch.dict(os.environ, {BS.STORE_ENV: self.path}); self._env.start()
@@ -230,7 +230,7 @@ class TestRipristinoBacheca(unittest.TestCase):
         with mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != TC.PROFILO_ENV}, clear=True):   # DEFAULT reale (0.7.2): variabile ASSENTE
             TC._ripristina_da_store()
         r = TC._find(rid); self.assertIsNone(r["tipo_paziente"]); self.assertEqual(r["prealert"]["profilo"], "comunicazione")
-        for k in set(TC.CAMPI_DECISIONALI) - {"avvisi"}:   # TUTTA la lista assente (review Opus 18/09) …
+        for k in set(TC.CAMPI_DECISIONALI) - {"avvisi"}:   # TUTTA la lista assente (review 18/09) …
             self.assertNotIn(k, r["prealert"], k)
         self.assertEqual(r["prealert"]["avvisi"], [])     # … e avvisi presente ma vuoto (la pagina legge la chiave)
         rec2 = TC._pubblica({"priorita": "BASSO", "eta_paziente": 30}, {"hr": 70}, operatore="eq-2")
@@ -275,7 +275,7 @@ class TestRipristinoBacheca(unittest.TestCase):
         TC._evento_su_record(rec["id"], "esiti", "esito_clinico", {"diagnosi": "x"}, "ps-1", {"diagnosi_confermata": "STEMI", "operatore_ps": "ps-1"})
         with TC._LOCK:
             rec["ts"] = (datetime.now(timezone.utc) - timedelta(hours=TC.BOARD_TTL_H + 1)).isoformat(); TC._persisti_record(rec)
-            TC._scadenza_bacheca()                       # alla scadenza il journal dimentica ANCHE gli esiti (review Opus/Sonnet 18/09)
+            TC._scadenza_bacheca()                       # alla scadenza il journal dimentica ANCHE gli esiti (review 18/09)
             TC.BOARD.clear(); TC._BOARD_SEQ[0] = 0
         TC._STORE[0].close(); TC._STORE[0] = None        # il lock di processo ammette UN solo Store aperto: chiudo prima di leggere
         st = BS.Store(self.path); self.assertEqual(st.ripristina()["board"][0]["esiti"], []); st.close()

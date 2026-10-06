@@ -379,8 +379,8 @@ def estrai_farmaci(doc: Dict[str, Any]) -> Dict[str, Any]:
         rid = f"{rt}/{r.get('id')}"
         ok_status = (rt == "MedicationStatement" and r.get("status") == "active") or \
                     (rt == "MedicationAdministration" and r.get("status") in ("completed", "in-progress"))
-        subj = r.get("subject"); s_ref = subj.get("reference") if isinstance(subj, dict) else None   # JSON di terzi: mai .get su non-dict (review Opus r2)
-        if not ok_status:                                      # gli scarti sono NOMINATI, non solo contati (review Opus 18/09)
+        subj = r.get("subject"); s_ref = subj.get("reference") if isinstance(subj, dict) else None   # JSON di terzi: mai .get su non-dict (review r2)
+        if not ok_status:                                      # gli scarti sono NOMINATI, non solo contati (review 18/09)
             scartati.append({"risorsa": rid, "motivo": f"status {r.get('status')!r} non considerato"}); continue
         if pat_url is None or not isinstance(s_ref, str) or C.risolvi_riferimento(s_ref, u, by_url) != pat_url:
             scartati.append({"risorsa": rid, "motivo": "soggetto diverso dalla Composition o non risolvibile"}); continue
@@ -389,7 +389,7 @@ def estrai_farmaci(doc: Dict[str, Any]) -> Dict[str, Any]:
         contesto = "non dichiarato"
         if enc_url and isinstance(ctx, str):
             if C.risolvi_riferimento(ctx, u, by_url) != enc_url:
-                scartati.append({"risorsa": rid, "motivo": "somministrazione di un altro encounter"}); continue   # review Sonnet 18/09
+                scartati.append({"risorsa": rid, "motivo": "somministrazione di un altro encounter"}); continue   # review 18/09
             contesto = "encounter della Composition"
         cc = r.get("medicationCodeableConcept")
         if not isinstance(cc, dict) and isinstance(r.get("medicationReference"), dict):
@@ -403,14 +403,14 @@ def estrai_farmaci(doc: Dict[str, Any]) -> Dict[str, Any]:
                 med = None
             cc = (med or {}).get("code") if isinstance(med, dict) else None
         nome = None; gtin = None
-        if isinstance(cc, dict):                          # JSON di terzi: coding può essere null o contenere scalari (review Gemini 18/09)
+        if isinstance(cc, dict):                          # JSON di terzi: coding può essere null o contenere scalari (review 18/09)
             coding = [c for c in (cc.get("coding") or []) if isinstance(c, dict)] if isinstance(cc.get("coding"), list) else []
             nome = next((c.get("display") for c in coding if isinstance(c.get("display"), str)), None) or (cc.get("text") if isinstance(cc.get("text"), str) else None)
             gtin = next((c.get("code") for c in coding if c.get("system") in IF.GTIN_SYSTEMS and isinstance(c.get("code"), str)), None)
         if not nome and not gtin:
             scartati.append({"risorsa": rid, "motivo": "medicinale senza nome né codice"}); continue
         # 1) GTIN → ATC (Swissmedic, dato ufficiale) → classe; 2) se il GTIN è ignoto, nome commerciale; 3) altrimenti
-        # dichiarato non riconosciuto. Un ATC ufficiale «fuori tabella» NON viene scavalcato dal nome (review Opus 18/09).
+        # dichiarato non riconosciuto. Un ATC ufficiale «fuori tabella» NON viene scavalcato dal nome (review 18/09).
         classi, atc, da = None, None, None
         if gtin:
             hit = IF.riconosci_gtin(gtin)
@@ -421,7 +421,7 @@ def estrai_farmaci(doc: Dict[str, Any]) -> Dict[str, Any]:
             if c:
                 classi, da = c, "nome-commerciale"
         out.append({"nome": str(nome or gtin)[:80], "gtin": gtin, "atc": atc, "origine": rt,
-                    **({"contesto": contesto} if rt == "MedicationAdministration" else {}),   # dichiarato, non presunto (review Sonnet r2)
+                    **({"contesto": contesto} if rt == "MedicationAdministration" else {}),   # dichiarato, non presunto (review r2)
                     "classi": sorted(classi) if classi else None, "riconosciuto_da": da})
     return {"farmaci": out, "riconosciuti": [f for f in out if f["classi"]],
             "non_riconosciuti": [f["nome"] + (f" (ATC {f['atc']}: fuori dalla tabella interazioni)" if f["atc"] else "") for f in out if not f["classi"]],
@@ -436,7 +436,7 @@ def interazioni_documento(doc: Dict[str, Any]) -> Dict[str, Any]:
     f = estrai_farmaci(doc)
     res = IF.controlla_classi([(x["nome"], set(x["classi"])) for x in f["riconosciuti"]]) if len(f["riconosciuti"]) >= 2 else \
         {"n_farmaci": len(f["riconosciuti"]), "interazioni_note_trovate": [], "nessun_allarme": True, "honest_scope": IF._DISCLAIMER}
-    res.pop("privacy", None)                              # frase scritta per l'input libero, non per questo percorso (review Opus r2)
+    res.pop("privacy", None)                              # frase scritta per l'input libero, non per questo percorso (review r2)
     err = (IF._gtin_atc().get("_provenienza") or {}).get("errore")
     if not f["farmaci"] and f["scartati"]:
         nota = f"nessun farmaco valutato: {len(f['scartati'])} risorse scartate (vedi scartati)"
@@ -447,7 +447,7 @@ def interazioni_documento(doc: Dict[str, Any]) -> Dict[str, Any]:
                 f"{len(f['non_riconosciuti'])} non riconosciuti NON sono stati valutati")
     else:
         nota = "tutti i farmaci letti sono stati valutati (GTIN ufficiale Swissmedic o nome commerciale)"
-    if err:                                                # modulo dati Swissmedic non caricato: detto, non taciuto (review Opus r3)
+    if err:                                                # modulo dati Swissmedic non caricato: detto, non taciuto (review r3)
         nota += f"; ATTENZIONE: tabella GTIN Swissmedic non caricata ({err}): riconoscimento solo per nome"
     return {**res, "farmaci_letti": f["farmaci"], "non_riconosciuti": f["non_riconosciuti"], "scartati": f["scartati"], "nota": nota,
             **({"fonte_gtin_errore": err} if err else {})}
@@ -508,14 +508,14 @@ def ancora_documento(src, operatore: str, validazione: Optional[Dict] = None, id
     ex = estrai_vitali(doc)
     orig = str(ex["missione"].get("numero") or "")
     num = re.sub(r"[^A-Za-z0-9_-]", "-", orig)[:32]        # stringa di terzi: charset e lunghezza limitati; il suffisso hash rende
-    suff = hashlib.sha256(orig.encode("utf-8")).hexdigest()[:8]   # distinti numeri diversi che collassano uguali (review Sonnet r2)
+    suff = hashlib.sha256(orig.encode("utf-8")).hexdigest()[:8]   # distinti numeri diversi che collassano uguali (review r2)
     target = f"chems/{num}-{suff}" if num else f"chems/{digest[:16]}"
     STATI = ("preliminary", "final", "amended", "entered-in-error")
-    stato_doc = ex["stato_documento"] if ex["stato_documento"] in STATI else "non-valido"   # solo il value set FHIR nel ledger (review Opus r2)
+    stato_doc = ex["stato_documento"] if ex["stato_documento"] in STATI else "non-valido"   # solo il value set FHIR nel ledger (review r2)
     dettaglio: Dict[str, Any] = {"doc_sha256": digest, "digest_di": base, "ig": f"ch.fhir.ig.ch-ems#{C.IG_VERSION}",
-                                 "stato_documento": stato_doc, "missione_numero": (f"{num}-{suff}" if num else ""),   # forma sanificata, mai la stringa grezza (review Opus r2)
+                                 "stato_documento": stato_doc, "missione_numero": (f"{num}-{suff}" if num else ""),   # forma sanificata, mai la stringa grezza (review r2)
                                  "entries": sum(doc["per_tipo"].values()),
-                                 "identita": identita}       # autenticata (token operatore) o dichiarata: nel record FIRMATO (review Opus r3)
+                                 "identita": identita}       # autenticata (token operatore) o dichiarata: nel record FIRMATO (review r3)
     if validazione and validazione.get("ran"):
         dettaglio["validator_errori"] = int(len(validazione.get("errors", [])))
         dettaglio["validator_warning"] = int(len(validazione.get("warnings", [])))
